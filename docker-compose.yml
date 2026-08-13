@@ -1,0 +1,17 @@
+services:
+  probennahmejournal:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - server/.env
+    volumes:
+      - pnj-data:/app/server/data
+      - pnj-uploads:/app/server/uploads
+    restart: unless-stopped
+
+volumes:
+  pnj-data:
+  pnj-uploads:

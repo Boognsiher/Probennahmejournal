@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Probennahmejournal (lokal)</title>
+<meta name="theme-color" content="#2e7d32">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon.svg">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="icons/icon.svg" alt="" width="28" height="28">
+      <span>Probennahmejournal <small style="font-weight:400;color:var(--muted);">(lokal)</small></span>
+    </div>
+    <nav class="tabs">
+      <a href="#/journal" data-route="journal">Journal</a>
+      <a href="#/eintrag/neu" data-route="eintrag">Neue Probe</a>
+      <a href="#/einstellungen" data-route="einstellungen">Einstellungen</a>
+    </nav>
+  </header>
+
+  <div id="disclaimer" class="disclaimer hidden">
+    <p>
+      ⚠️ <strong>Wichtiger Hinweis:</strong> Die in dieser App hinterlegten Deponie-Grenzwerte sind
+      <strong>Platzhalter/Beispielwerte</strong> zur Illustration der Farbcodierung. Sie entsprechen
+      <strong>nicht garantiert</strong> der aktuell gültigen VVEA bzw. kantonalen Vollzugshilfe. Bitte die
+      Grenzwerte unter „Einstellungen“ durch eine Fachperson anhand der aktuellen Vorgaben prüfen/ersetzen,
+      bevor die Klassifizierung für reale Entsorgungsentscheide verwendet wird.
+    </p>
+    <button id="ack-disclaimer">Verstanden</button>
+  </div>
+
+  <main id="app"></main>
+
+  <template id="tpl-entry-card">
+    <article class="entry-card">
+      <div class="entry-thumb"></div>
+      <div class="entry-info">
+        <h3 class="entry-title"></h3>
+        <p class="entry-sub"></p>
+        <span class="badge entry-badge"></span>
+      </div>
+    </article>
+  </template>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
