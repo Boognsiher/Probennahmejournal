@@ -1,0 +1,15 @@
+{
+  "name": "Baustellen-Probennahmejournal",
+  "short_name": "Probennahme",
+  "description": "Fotodokumentation, Analyse-Import und Deponieklassen-Klassifizierung für Baustellen-Probennahmen.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#f5f6f4",
+  "theme_color": "#2e7d32",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
