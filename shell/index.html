@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Probennahmejournal (Test-Schale)</title>
+<meta name="theme-color" content="#2e7d32">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon.svg">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="icons/icon.svg" alt="" width="28" height="28">
+      <span>Probennahmejournal <small style="font-weight:400;color:var(--muted);">(Test-Schale)</small></span>
+    </div>
+    <nav class="tabs">
+      <a href="#/journal" data-route="journal">Journal</a>
+      <a href="#/eintrag/neu" data-route="eintrag">Neue Probe</a>
+      <a href="#/einstellungen" data-route="einstellungen">Einstellungen</a>
+    </nav>
+  </header>
+
+  <div class="shell-banner">
+    <p>
+      🧪 <strong>Test-Schale ohne Server:</strong> Alle Daten (Proben, Fotos, Benutzer) liegen nur in diesem
+      Browser (<code>localStorage</code>) und sind <strong>nicht</strong> mit einem echten Server verbunden —
+      nichts wird geteilt oder dauerhaft gesichert. Demo-Zugänge zum Anmelden:
+      <code>admin@demo.ch</code> / <code>demo1234</code> (Administrator) oder
+      <code>team@demo.ch</code> / <code>demo1234</code> (Team-Mitglied).
+    </p>
+    <button id="shell-reset" type="button">Testdaten zurücksetzen</button>
+  </div>
+
+  <div id="disclaimer" class="disclaimer hidden">
+    <p>
+      ⚠️ <strong>Wichtiger Hinweis:</strong> Die in dieser App hinterlegten Deponie-Grenzwerte sind
+      <strong>Platzhalter/Beispielwerte</strong> zur Illustration der Farbcodierung. Sie entsprechen
+      <strong>nicht garantiert</strong> der aktuell gültigen VVEA bzw. kantonalen Vollzugshilfe. Bitte die
+      Grenzwerte unter „Einstellungen“ durch eine Fachperson anhand der aktuellen Vorgaben prüfen/ersetzen,
+      bevor die Klassifizierung für reale Entsorgungsentscheide verwendet wird.
+    </p>
+    <button id="ack-disclaimer">Verstanden</button>
+  </div>
+
+  <main id="app"></main>
+
+  <script src="js/shell-reset.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

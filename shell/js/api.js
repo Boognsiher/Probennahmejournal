@@ -1,0 +1,237 @@
+// api.js (MOCK-VERSION für die Test-Schale) — bildet exakt dieselbe Schnittstelle
+// wie public/js/api.js nach (gleiche Funktionsnamen/-signaturen), sodass app.js,
+// vvea.js etc. unverändert übernommen werden können. Statt echter Server-Aufrufe
+// wird alles lokal in diesem Browser simuliert (localStorage). Kein Netzwerk,
+// kein echtes Login, keine echte Sicherheit — nur zum Durchklicken/Testen der
+// Oberfläche, bevor der echte Server (siehe ../server) angebunden wird.
+import { DEMO_THRESHOLDS } from './vvea.js';
+
+const DB_KEY = 'pnj_mock_db_v1';
+const TOKEN_KEY = 'pnj_token';
+const USER_KEY = 'pnj_user';
+
+function uid() {
+  return crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
+function seedDb() {
+  const now = new Date().toISOString();
+  return {
+    users: [
+      { id: uid(), email: 'admin@demo.ch', password: 'demo1234', name: 'Demo Admin', role: 'admin', createdAt: now },
+      { id: uid(), email: 'team@demo.ch', password: 'demo1234', name: 'Demo Team-Mitglied', role: 'user', createdAt: now },
+    ],
+    entries: [],
+    thresholds: JSON.parse(JSON.stringify(DEMO_THRESHOLDS)),
+  };
+}
+
+function loadDb() {
+  try {
+    const raw = localStorage.getItem(DB_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { /* fällt auf frische Seed-Daten zurück */ }
+  const fresh = seedDb();
+  localStorage.setItem(DB_KEY, JSON.stringify(fresh));
+  return fresh;
+}
+
+let db = loadDb();
+function persist() { localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+
+// Kleine künstliche Verzögerung, damit sich Ladezustände/Spinner in der UI
+// genauso anfühlen wie mit einem echten Server.
+const delay = (ms = 150) => new Promise(r => setTimeout(r, ms));
+
+export class ApiError extends Error {
+  constructor(message, status) { super(message); this.status = status; }
+}
+
+export function getToken() { return localStorage.getItem(TOKEN_KEY); }
+export function getCurrentUser() {
+  try { return JSON.parse(localStorage.getItem(USER_KEY) || 'null'); } catch { return null; }
+}
+export function isLoggedIn() { return !!getToken(); }
+export function logout() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+}
+
+function requireAuth() {
+  const user = getCurrentUser();
+  if (!isLoggedIn() || !user) throw new ApiError('Nicht angemeldet.', 401);
+  return user;
+}
+function requireAdmin() {
+  const user = requireAuth();
+  if (user.role !== 'admin') throw new ApiError('Nur für Administratoren.', 403);
+  return user;
+}
+function stripPhotoData(entry) {
+  return { ...entry, photos: (entry.photos || []).map(({ dataUrl, ...meta }) => meta) };
+}
+
+// ---------- Auth ----------
+export async function login(email, password) {
+  await delay();
+  const u = db.users.find(x => x.email.toLowerCase() === String(email).toLowerCase().trim());
+  if (!u || u.password !== password) throw new ApiError('E-Mail oder Passwort falsch.', 401);
+  const user = { id: u.id, email: u.email, name: u.name, role: u.role };
+  localStorage.setItem(TOKEN_KEY, `mock.${u.id}`);
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+  return user;
+}
+
+// ---------- Einträge ----------
+export async function listEntries() {
+  await delay();
+  requireAuth();
+  return [...db.entries].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).map(stripPhotoData);
+}
+export async function getEntryApi(id) {
+  await delay();
+  requireAuth();
+  const entry = db.entries.find(e => e.id === id);
+  if (!entry) throw new ApiError('Probe nicht gefunden.', 404);
+  return stripPhotoData(entry);
+}
+export async function createEntryApi(entry) {
+  await delay();
+  const user = requireAuth();
+  const now = new Date().toISOString();
+  const created = {
+    id: uid(),
+    createdAt: entry.createdAt || now,
+    updatedAt: now,
+    baustelle: entry.baustelle || '',
+    probeBezeichnung: entry.probeBezeichnung || '',
+    entnahmeort: entry.entnahmeort || '',
+    gps: entry.gps || null,
+    material: entry.material || '',
+    probenehmer: entry.probenehmer || '',
+    bemerkungen: entry.bemerkungen || '',
+    analyse: entry.analyse || [],
+    klassifizierung: entry.klassifizierung || null,
+    createdBy: user.id,
+    photos: [],
+  };
+  db.entries.push(created);
+  persist();
+  return stripPhotoData(created);
+}
+export async function updateEntryApi(id, entry) {
+  await delay();
+  requireAuth();
+  const existing = db.entries.find(e => e.id === id);
+  if (!existing) throw new ApiError('Probe nicht gefunden.', 404);
+  Object.assign(existing, {
+    baustelle: entry.baustelle ?? '', probeBezeichnung: entry.probeBezeichnung ?? '',
+    entnahmeort: entry.entnahmeort ?? '', gps: entry.gps ?? null,
+    material: entry.material ?? '', probenehmer: entry.probenehmer ?? '',
+    bemerkungen: entry.bemerkungen ?? '', analyse: entry.analyse ?? [],
+    klassifizierung: entry.klassifizierung ?? null,
+    updatedAt: new Date().toISOString(),
+  });
+  persist();
+  return stripPhotoData(existing);
+}
+export async function deleteEntryApi(id) {
+  await delay();
+  requireAuth();
+  db.entries = db.entries.filter(e => e.id !== id);
+  persist();
+}
+
+// ---------- Fotos (als data: URLs in localStorage) ----------
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+export async function uploadPhotos(entryId, files) {
+  await delay();
+  requireAuth();
+  const entry = db.entries.find(e => e.id === entryId);
+  if (!entry) throw new ApiError('Probe nicht gefunden.', 404);
+  const now = new Date().toISOString();
+  const added = [];
+  for (const file of files) {
+    const dataUrl = await fileToDataUrl(file);
+    const photo = { id: uid(), filename: file.name, originalName: file.name, mimeType: file.type, takenAt: now, dataUrl };
+    entry.photos.push(photo);
+    const { dataUrl: _omit, ...meta } = photo;
+    added.push(meta);
+  }
+  entry.updatedAt = now;
+  persist();
+  return added;
+}
+export async function deletePhotoApi(entryId, photoId) {
+  await delay();
+  requireAuth();
+  const entry = db.entries.find(e => e.id === entryId);
+  if (!entry) throw new ApiError('Probe nicht gefunden.', 404);
+  entry.photos = entry.photos.filter(p => p.id !== photoId);
+  persist();
+}
+export async function fetchPhotoBlob(entryId, photoId) {
+  requireAuth();
+  const entry = db.entries.find(e => e.id === entryId);
+  const photo = entry?.photos.find(p => p.id === photoId);
+  if (!photo) throw new ApiError('Foto nicht gefunden.', 404);
+  const res = await fetch(photo.dataUrl);
+  return res.blob();
+}
+
+// ---------- Grenzwerte ----------
+export async function getThresholdsApi() {
+  await delay();
+  requireAuth();
+  return JSON.parse(JSON.stringify(db.thresholds));
+}
+export async function saveThresholdsApi(thresholds) {
+  await delay();
+  requireAdmin();
+  db.thresholds = thresholds;
+  persist();
+}
+export async function resetThresholdsApi() {
+  await delay();
+  requireAdmin();
+  db.thresholds = JSON.parse(JSON.stringify(DEMO_THRESHOLDS));
+  persist();
+  return db.thresholds;
+}
+
+// ---------- Benutzer (Admin) ----------
+export async function listUsersApi() {
+  await delay();
+  requireAdmin();
+  return db.users.map(({ password, ...safe }) => safe);
+}
+export async function createUserApi(user) {
+  await delay();
+  requireAdmin();
+  if (!user.email || !user.name || !user.password) throw new ApiError('E-Mail, Name und Passwort erforderlich.', 400);
+  if (user.password.length < 8) throw new ApiError('Passwort muss mindestens 8 Zeichen haben.', 400);
+  const email = String(user.email).toLowerCase().trim();
+  if (db.users.some(u => u.email === email)) throw new ApiError('Ein Benutzer mit dieser E-Mail existiert bereits.', 409);
+  const created = { id: uid(), email, name: user.name, password: user.password, role: user.role === 'admin' ? 'admin' : 'user', createdAt: new Date().toISOString() };
+  db.users.push(created);
+  persist();
+  const { password, ...safe } = created;
+  return safe;
+}
+export async function deleteUserApi(id) {
+  await delay();
+  const me = requireAdmin();
+  if (id === me.id) throw new ApiError('Eigenes Konto kann nicht gelöscht werden.', 400);
+  db.users = db.users.filter(u => u.id !== id);
+  persist();
+}

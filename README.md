@@ -3,22 +3,22 @@
 App zur Führung eines Probennahmejournals auf der Baustelle: Fotodokumentation des Materials, Import von
 Laboranalysen (CSV/PDF) mit automatischer Farbcodierung nach Deponieklassen, und E-Mail-Export.
 
-Es gibt **zwei eigenständige Varianten** im selben Repository – je nach Bedarf wählbar:
+Es gibt **drei eigenständige Varianten** im selben Repository – je nach Bedarf wählbar:
 
-| | [`lokal/`](lokal/README.md) | [`server/`](server/README.md) + [`public/`](public) |
-|---|---|---|
-| **Für wen** | Eine Person / ein Gerät | Ein Team mit mehreren Personen/Geräten |
-| **Daten** | Nur lokal im Browser (IndexedDB) | Zentral auf dem Server (SQLite + Dateisystem) |
-| **Login** | Kein Login nötig | Individuelle Benutzer-Accounts |
-| **Fotos** | Bleiben auf dem Gerät | Werden auf den Server hochgeladen, für alle sichtbar |
-| **Betrieb** | Rein statisch, z.B. GitHub Pages – kein eigener Server nötig | Braucht einen laufenden Node.js-Server (eigener VPS/NAS/Raspberry Pi oder Docker) |
-| **E-Mail-Versand** | „Bericht exportieren“ (HTML/PDF-druckbar) + `mailto:` mit Anhang manuell | identisch (`mailto:`) |
-| **Los geht's** | [`lokal/README.md`](lokal/README.md) | [`server/README.md`](server/README.md) |
+| | [`lokal/`](lokal/README.md) | [`shell/`](shell/README.md) | [`server/`](server/README.md) + [`public/`](public) |
+|---|---|---|---|
+| **Für wen** | Eine Person / ein Gerät | Team-Variante **testen/vorführen**, ohne einen Server aufzusetzen | Ein Team mit mehreren Personen/Geräten, produktiv |
+| **Daten** | Nur lokal im Browser (IndexedDB) | Simuliert im Browser (`localStorage`), nicht echt geteilt | Zentral auf dem Server (SQLite + Dateisystem) |
+| **Login** | Kein Login nötig | Simuliertes Login mit Demo-Zugängen | Echte individuelle Benutzer-Accounts |
+| **Betrieb** | Rein statisch, z.B. GitHub Pages | Rein statisch, z.B. GitHub Pages | Braucht einen laufenden Node.js-Server (VPS/NAS/Raspberry Pi oder Docker) |
+| **Los geht's** | [`lokal/README.md`](lokal/README.md) | [`shell/README.md`](shell/README.md) | [`server/README.md`](server/README.md) |
 
-Beide Varianten teilen dieselbe Kernlogik (Deponieklassen-Klassifizierung, CSV/PDF-Import, Berichts-Export),
-sind aber unabhängig voneinander lauffähig – es lässt sich auch nur eine der beiden nutzen/deployen.
+`shell/` verwendet exakt denselben App-Code (UI + Logik) wie `public/` — nur die Anbindung an den Server
+(`js/api.js`) ist dort durch eine Simulation ersetzt. Sie eignet sich, um die Team-Variante (Login, Rollen,
+Foto-Upload etc.) durchzuklicken/vorzuführen, bevor der echte Server aufgesetzt wird. Sobald das passt, wird
+einfach `server/` + `public/` deployt statt `shell/` — am Anwendungscode ändert sich nichts.
 
-## ⚠️ Wichtiger Hinweis zu den Grenzwerten (gilt für beide Varianten)
+## ⚠️ Wichtiger Hinweis zu den Grenzwerten (gilt für alle drei Varianten)
 
 Die App liefert unter **Einstellungen → Grenzwerte** eine Beispiel-Tabelle mit Zahlenwerten pro Deponieklasse
 (Typ A–E) mit. **Diese Zahlen sind Platzhalter zur Illustration der Funktion** – sie wurden nicht anhand der
@@ -35,7 +35,12 @@ beim ersten Start an.
 cd lokal && python3 -m http.server 8080
 ```
 
-**Mit Server (Team, gemeinsame Ablage):**
+**Test-Schale (Team-UI ohne Server testen, Demo-Login `admin@demo.ch` / `demo1234`):**
+```bash
+cd shell && python3 -m http.server 8080
+```
+
+**Mit Server (Team, gemeinsame Ablage, produktiv):**
 ```bash
 cd server && npm install && cp .env.example .env   # .env anpassen
 npm start
