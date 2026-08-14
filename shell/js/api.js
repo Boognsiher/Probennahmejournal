@@ -13,25 +13,26 @@ import {
 // echten Server-Betrieb (public/) ausschliesslich der Server sie vorbefüllt.
 // Für die Test-Schale hier lokal dieselben Startwerte wie
 // server/src/vvea-defaults.js bzw. lokal/js/vvea.js hinterlegt.
+// Ein Code kann für mehrere Materialien und/oder mehrere VVEA-Klassen
+// gleichzeitig gelten (z.B. ein gemeinsamer Code für Typ C/D/E, oder
+// derselbe Code für Ober- UND Unterboden) — daher `materialien`/`klassen`
+// als Arrays statt Einzelwerten.
 const DEFAULT_VEVA_CODES = [
-  { code: '17 05 04', bezeichnung: 'Oberboden – unverschmutzt', material: 'Oberboden', klasse: 'unbelastet' },
-  { code: '17 05 93', bezeichnung: 'Oberboden – schwach verschmutzt (Typ A)', material: 'Oberboden', klasse: 'typA' },
-  { code: '17 05 96 [ak]', bezeichnung: 'Oberboden – Inertstoff (Typ B)', material: 'Oberboden', klasse: 'typB' },
-  { code: '17 05 90 [akb]', bezeichnung: 'Oberboden – stark verschmutzt (Typ C/D/E)', material: 'Oberboden', klasse: 'typC' },
-  { code: '17 05 04', bezeichnung: 'Unterboden – unverschmutzt', material: 'Unterboden', klasse: 'unbelastet' },
-  { code: '17 05 93', bezeichnung: 'Unterboden – schwach verschmutzt (Typ A)', material: 'Unterboden', klasse: 'typA' },
-  { code: '17 05 96 [ak]', bezeichnung: 'Unterboden – Inertstoff (Typ B)', material: 'Unterboden', klasse: 'typB' },
-  { code: '17 05 90 [akb]', bezeichnung: 'Unterboden – stark verschmutzt (Typ C/D/E)', material: 'Unterboden', klasse: 'typC' },
-  { code: '17 05 06', bezeichnung: 'Aushub – unverschmutzt', material: 'Aushub', klasse: 'unbelastet' },
-  { code: '17 05 94', bezeichnung: 'Aushub – schwach verschmutzt (Typ A)', material: 'Aushub', klasse: 'typA' },
-  { code: '17 05 97 [ak]', bezeichnung: 'Aushub – Inertstoff (Typ B)', material: 'Aushub', klasse: 'typB' },
-  { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ C/D/E)', material: 'Aushub', klasse: 'typC' },
+  { code: '17 05 04', bezeichnung: 'Ober-/Unterboden – unverschmutzt', materialien: ['Oberboden', 'Unterboden'], klassen: ['unbelastet'] },
+  { code: '17 05 93', bezeichnung: 'Ober-/Unterboden – schwach verschmutzt (Typ A)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typA'] },
+  { code: '17 05 96 [ak]', bezeichnung: 'Ober-/Unterboden – Inertstoff (Typ B)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typB'] },
+  { code: '17 05 90 [akb]', bezeichnung: 'Ober-/Unterboden – stark verschmutzt (Typ C/D/E)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typC', 'typD', 'typE'] },
+  { code: '17 05 06', bezeichnung: 'Aushub – unverschmutzt', materialien: ['Aushub'], klassen: ['unbelastet'] },
+  { code: '17 05 94', bezeichnung: 'Aushub – schwach verschmutzt (Typ A)', materialien: ['Aushub'], klassen: ['typA'] },
+  { code: '17 05 97 [ak]', bezeichnung: 'Aushub – Inertstoff (Typ B)', materialien: ['Aushub'], klassen: ['typB'] },
+  { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ C/D/E)', materialien: ['Aushub'], klassen: ['typC', 'typD', 'typE'] },
 ];
 
-// v4: Projekte haben jetzt vordefinierte Entsorgungswege/Beprobungsorte
-// (Dropdown bei der Probe) — Version angehoben, damit bereits laufende
-// Test-Sessions das Demo-Projekt mit Beispielwerten dafür erhalten.
-const DB_KEY = 'pnj_mock_db_v4';
+// v5: VeVA-Codes können jetzt für mehrere Materialien/Klassen gleichzeitig
+// gelten (materialien/klassen-Arrays statt material/klasse-Einzelwerten) —
+// Version angehoben, damit bereits laufende Test-Sessions die neue
+// Struktur erhalten.
+const DB_KEY = 'pnj_mock_db_v5';
 const TOKEN_KEY = 'pnj_token';
 const USER_KEY = 'pnj_user';
 

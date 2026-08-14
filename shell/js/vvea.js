@@ -153,17 +153,43 @@ const VBBO_TO_VEVA_KLASSE = {
 /**
  * Schlägt automatisch einen VeVA-Aushubcode vor, basierend auf Material,
  * gewähltem Standard (VVEA/VBBo) und dem Einstufungsergebnis (classId aus
- * classify()/classifyVBBO()). Gibt den passenden Eintrag aus `vevaCodes`
- * zurück (mit `code`/`bezeichnung`) oder `null`, wenn nichts passt (z.B.
- * Material ist kein Boden/Aushub, oder noch keine Einstufung vorhanden).
+ * classify()/classifyVBBO()). Ein Code kann gleichzeitig für mehrere
+ * Materialien und/oder mehrere VVEA-Klassen gelten (z.B. ein gemeinsamer
+ * Code für Typ C/D/E, oder derselbe Code für Ober- und Unterboden), daher
+ * werden `materialien`/`klassen`-Arrays je Code geprüft. Gibt den
+ * passenden Eintrag aus `vevaCodes` zurück (mit `code`/`bezeichnung`) oder
+ * `null`, wenn nichts passt (z.B. Material ist kein Boden/Aushub, oder noch
+ * keine Einstufung vorhanden).
  */
 export function suggestVevaCode(material, standard, classId, vevaCodes) {
   if (!classId || !Array.isArray(vevaCodes)) return null;
   const bucket = materialToVevaBucket(material);
   if (!bucket) return null;
-  const klasse = standard === 'vbbo' ? VBBO_TO_VEVA_KLASSE[classId] : classId;
-  if (!klasse) return null;
-  return vevaCodes.find(c => c.material === bucket && c.klasse === klasse) || null;
+  const candidates = vevaCodes.filter(c => Array.isArray(c.materialien) && c.materialien.includes(bucket));
+  if (!candidates.length) return null;
+
+  if (standard === 'vbbo') {
+    const klasse = VBBO_TO_VEVA_KLASSE[classId];
+    if (!klasse) return null;
+    return candidates.find(c => Array.isArray(c.klassen) && c.klassen.includes(klasse)) || null;
+  }
+
+  // VVEA: exakte Klasse zuerst versuchen (deckt auch Codes ab, die mehrere
+  // Klassen gleichzeitig abdecken, z.B. klassen:['typC','typD','typE']).
+  const exact = candidates.find(c => Array.isArray(c.klassen) && c.klassen.includes(classId));
+  if (exact) return exact;
+
+  // Kein exakter Treffer: bei den (nicht-terminalen) Klassen abwärts zur
+  // nächstschwächeren noch codierten Klasse fallen, falls vorhanden.
+  // "Sonderfall" (Sonderabfall) bekommt bewusst KEINEN automatischen
+  // Fallback, da dafür eigene Sonderabfall-Codes nötig sind.
+  const idx = CLASSES.findIndex(c => c.id === classId);
+  if (idx <= 0 || CLASSES[idx].terminal) return null;
+  for (let i = idx - 1; i >= 0; i--) {
+    const found = candidates.find(c => Array.isArray(c.klassen) && c.klassen.includes(CLASSES[i].id));
+    if (found) return found;
+  }
+  return null;
 }
 
 // ---------- Parameter (VVEA) ----------

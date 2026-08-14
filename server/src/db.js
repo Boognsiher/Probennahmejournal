@@ -98,16 +98,34 @@ const projectCols = db.prepare("PRAGMA table_info(projects)").all().map(c => c.n
 addColumnIfMissing('projects', projectCols, 'entsorgungswegeJson', "entsorgungswegeJson TEXT DEFAULT '[]'");
 addColumnIfMissing('projects', projectCols, 'entnahmeorteJson', "entnahmeorteJson TEXT DEFAULT '[]'");
 
-// Einstellungen mit Startwerten vorbefüllen, falls noch nicht vorhanden.
-function seedSetting(key, value) {
+// Einstellungen mit Startwerten vorbefüllen, falls noch nicht vorhanden ODER
+// falls ein vorhandener Eintrag erkennbar leer/veraltet ist (z.B. aus einer
+// Zwischenversion vor Einführung von VBBo/VeVA, oder im alten
+// material/klasse-Einzelwert-Format statt materialien/klassen-Arrays) —
+// sonst würde ein einmal (ggf. leer) angelegter Eintrag nie mehr aktualisiert.
+function seedSetting(key, value, isStale) {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
-  if (!row) db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run(key, JSON.stringify(value));
+  if (!row) {
+    db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run(key, JSON.stringify(value));
+    return;
+  }
+  if (isStale) {
+    let existing;
+    try { existing = JSON.parse(row.value); } catch { existing = undefined; }
+    if (isStale(existing)) {
+      db.prepare('UPDATE settings SET value = ? WHERE key = ?').run(JSON.stringify(value), key);
+    }
+  }
 }
+const isEmptyObject = v => !v || typeof v !== 'object' || Object.keys(v).length === 0;
+const isEmptyArray = v => !Array.isArray(v) || v.length === 0;
+const isOldVevaCodeShape = v => isEmptyArray(v) || v.some(c => !Array.isArray(c.materialien) || !Array.isArray(c.klassen));
+
 seedSetting('vvea_thresholds', DEMO_THRESHOLDS);
 seedSetting('vvea_parameters', DEFAULT_PARAMETERS);
-seedSetting('vbbo_thresholds', DEFAULT_VBBO_THRESHOLDS);
-seedSetting('vbbo_parameters', DEFAULT_VBBO_PARAMETERS);
-seedSetting('veva_codes', DEFAULT_VEVA_CODES);
+seedSetting('vbbo_thresholds', DEFAULT_VBBO_THRESHOLDS, isEmptyObject);
+seedSetting('vbbo_parameters', DEFAULT_VBBO_PARAMETERS, isEmptyArray);
+seedSetting('veva_codes', DEFAULT_VEVA_CODES, isOldVevaCodeShape);
 
 // Ersten Admin-Benutzer aus den Umgebungsvariablen anlegen, falls noch keine
 // Benutzer existieren.

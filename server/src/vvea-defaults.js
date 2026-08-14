@@ -172,19 +172,18 @@ export const DEFAULT_VBBO_THRESHOLDS = {
 
 // VeVA/LVA-Codes für Aushub- und Bodenaushubmaterial, aus Tabelle_Grenzwerte.pdf
 // (Seite 2) — nur die reinen Erdstoff-Kategorien (Oberboden/Unterboden/Aushub),
-// keine Bauabfälle/Beton/Asphalt/Asbest usw. "Klasse" bezieht sich auf die
-// VVEA-Einstufung, für die der Code jeweils verwendet wird.
+// keine Bauabfälle/Beton/Asphalt/Asbest usw. "klassen" bezieht sich auf die
+// VVEA-Einstufung(en), für die der Code jeweils verwendet wird — ein Code
+// kann für mehrere Materialien (z.B. Ober- UND Unterboden teilen sich
+// dieselben Codes) und/oder mehrere Klassen gleichzeitig gelten (z.B. ein
+// gemeinsamer Code für Typ C/D/E), daher Arrays statt Einzelwerten.
 export const DEFAULT_VEVA_CODES = [
-  { code: '17 05 04', bezeichnung: 'Oberboden – unverschmutzt', material: 'Oberboden', klasse: 'unbelastet' },
-  { code: '17 05 93', bezeichnung: 'Oberboden – schwach verschmutzt (Typ A)', material: 'Oberboden', klasse: 'typA' },
-  { code: '17 05 96 [ak]', bezeichnung: 'Oberboden – Inertstoff (Typ B)', material: 'Oberboden', klasse: 'typB' },
-  { code: '17 05 90 [akb]', bezeichnung: 'Oberboden – stark verschmutzt (Typ C/D/E)', material: 'Oberboden', klasse: 'typC' },
-  { code: '17 05 04', bezeichnung: 'Unterboden – unverschmutzt', material: 'Unterboden', klasse: 'unbelastet' },
-  { code: '17 05 93', bezeichnung: 'Unterboden – schwach verschmutzt (Typ A)', material: 'Unterboden', klasse: 'typA' },
-  { code: '17 05 96 [ak]', bezeichnung: 'Unterboden – Inertstoff (Typ B)', material: 'Unterboden', klasse: 'typB' },
-  { code: '17 05 90 [akb]', bezeichnung: 'Unterboden – stark verschmutzt (Typ C/D/E)', material: 'Unterboden', klasse: 'typC' },
-  { code: '17 05 06', bezeichnung: 'Aushub – unverschmutzt', material: 'Aushub', klasse: 'unbelastet' },
-  { code: '17 05 94', bezeichnung: 'Aushub – schwach verschmutzt (Typ A)', material: 'Aushub', klasse: 'typA' },
-  { code: '17 05 97 [ak]', bezeichnung: 'Aushub – Inertstoff (Typ B)', material: 'Aushub', klasse: 'typB' },
-  { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ C/D/E)', material: 'Aushub', klasse: 'typC' },
+  { code: '17 05 04', bezeichnung: 'Ober-/Unterboden – unverschmutzt', materialien: ['Oberboden', 'Unterboden'], klassen: ['unbelastet'] },
+  { code: '17 05 93', bezeichnung: 'Ober-/Unterboden – schwach verschmutzt (Typ A)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typA'] },
+  { code: '17 05 96 [ak]', bezeichnung: 'Ober-/Unterboden – Inertstoff (Typ B)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typB'] },
+  { code: '17 05 90 [akb]', bezeichnung: 'Ober-/Unterboden – stark verschmutzt (Typ C/D/E)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typC', 'typD', 'typE'] },
+  { code: '17 05 06', bezeichnung: 'Aushub – unverschmutzt', materialien: ['Aushub'], klassen: ['unbelastet'] },
+  { code: '17 05 94', bezeichnung: 'Aushub – schwach verschmutzt (Typ A)', materialien: ['Aushub'], klassen: ['typA'] },
+  { code: '17 05 97 [ak]', bezeichnung: 'Aushub – Inertstoff (Typ B)', materialien: ['Aushub'], klassen: ['typB'] },
+  { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ C/D/E)', materialien: ['Aushub'], klassen: ['typC', 'typD', 'typE'] },
 ];

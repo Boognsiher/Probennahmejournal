@@ -1156,17 +1156,21 @@ async function paintSettings() {
       aktuelle VeVA-Liste prüfen.</p>
       <div style="overflow-x:auto">
       <table class="threshold-table" id="veva-codes-table">
-        <tr><th>Code</th><th>Bezeichnung</th><th>Material</th><th>VVEA-Klasse</th>${isAdmin ? '<th></th>' : ''}</tr>
+        <tr><th>Code</th><th>Bezeichnung</th><th>Material <span class="hint">(mehrfach wählbar)</span></th><th>VVEA-Klasse <span class="hint">(mehrfach wählbar)</span></th>${isAdmin ? '<th></th>' : ''}</tr>
         ${vevaCodes.map((c, i) => `
           <tr>
             <td><input data-vv="${i}" data-vvf="code" ${isAdmin ? '' : 'disabled'} value="${escapeHtml(c.code)}" style="width:9rem;"></td>
             <td><input data-vv="${i}" data-vvf="bezeichnung" ${isAdmin ? '' : 'disabled'} value="${escapeHtml(c.bezeichnung)}" style="width:16rem;"></td>
-            <td><select data-vv="${i}" data-vvf="material" ${isAdmin ? '' : 'disabled'}>
-              ${VEVA_MATERIALIEN.map(m => `<option value="${m}" ${c.material === m ? 'selected' : ''}>${m}</option>`).join('')}
-            </select></td>
-            <td><select data-vv="${i}" data-vvf="klasse" ${isAdmin ? '' : 'disabled'}>
-              ${CLASSES.map(k => `<option value="${k.id}" ${c.klasse === k.id ? 'selected' : ''}>${escapeHtml(k.short)}</option>`).join('')}
-            </select></td>
+            <td style="min-width:10rem;">
+              <div style="display:flex;flex-direction:column;gap:.15rem;">
+                ${VEVA_MATERIALIEN.map(m => `<label style="display:flex;align-items:center;gap:.35rem;font-size:.85rem;white-space:nowrap;"><input type="checkbox" data-vv="${i}" data-vvf-arr="materialien" value="${m}" ${isAdmin ? '' : 'disabled'} ${(c.materialien || []).includes(m) ? 'checked' : ''}> ${m}</label>`).join('')}
+              </div>
+            </td>
+            <td style="min-width:16rem;">
+              <div style="display:flex;flex-wrap:wrap;gap:.15rem .7rem;">
+                ${CLASSES.map(k => `<label style="display:flex;align-items:center;gap:.25rem;font-size:.85rem;white-space:nowrap;"><input type="checkbox" data-vv="${i}" data-vvf-arr="klassen" value="${k.id}" ${isAdmin ? '' : 'disabled'} ${(c.klassen || []).includes(k.id) ? 'checked' : ''}> ${escapeHtml(k.short)}</label>`).join('')}
+              </div>
+            </td>
             ${isAdmin ? `<td><button type="button" class="btn danger" style="padding:.2rem .5rem;" data-del-veva="${i}">×</button></td>` : ''}
           </tr>`).join('')}
       </table>
@@ -1331,10 +1335,15 @@ async function paintSettings() {
 
     // ---------- VeVA-Codes ----------
     function collectVevaCodesFromTable() {
-      const codes = vevaCodes.map(c => ({ ...c }));
+      const codes = vevaCodes.map(c => ({ code: c.code, bezeichnung: c.bezeichnung, materialien: [], klassen: [] }));
       $$('#veva-codes-table [data-vv]').forEach(el => {
-        const i = Number(el.dataset.vv), f = el.dataset.vvf;
-        if (codes[i]) codes[i][f] = el.value;
+        const i = Number(el.dataset.vv);
+        if (!codes[i]) return;
+        if (el.dataset.vvf) {
+          codes[i][el.dataset.vvf] = el.value;
+        } else if (el.dataset.vvfArr && el.checked) {
+          codes[i][el.dataset.vvfArr].push(el.value);
+        }
       });
       return codes;
     }
@@ -1354,7 +1363,7 @@ async function paintSettings() {
       // Hinzufügen einer neuen Zeile nicht verloren gehen — Speichern bleibt bewusst
       // ein separater Schritt, analog zu den VVEA-/VBBo-Grenzwerttabellen.
       vevaCodes = collectVevaCodesFromTable();
-      vevaCodes.push({ code: '', bezeichnung: '', material: 'Aushub', klasse: 'unbelastet' });
+      vevaCodes.push({ code: '', bezeichnung: '', materialien: [], klassen: [] });
       await paintSettings();
     });
     $('#btn-save-veva').addEventListener('click', async () => {

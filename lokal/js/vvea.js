@@ -11,7 +11,10 @@ export const STORAGE_KEY_THRESHOLDS = 'pnj_vvea_thresholds_v2';
 export const STORAGE_KEY_PARAMETERS = 'pnj_vvea_parameters_v2';
 export const STORAGE_KEY_VBBO_THRESHOLDS = 'pnj_vbbo_thresholds_v1';
 export const STORAGE_KEY_VBBO_PARAMETERS = 'pnj_vbbo_parameters_v1';
-export const STORAGE_KEY_VEVA_CODES = 'pnj_veva_codes_v1';
+// v2: Codes können jetzt für mehrere Materialien/Klassen gleichzeitig gelten
+// (materialien/klassen-Arrays statt material/klasse-Einzelwerten) — Version
+// angehoben, damit bestehende Installationen die neue Struktur erhalten.
+export const STORAGE_KEY_VEVA_CODES = 'pnj_veva_codes_v2';
 export const STORAGE_KEY_ACK = 'pnj_vvea_disclaimer_ack_v1';
 
 // ---------- VVEA (Deponieklassen) ----------
@@ -126,19 +129,19 @@ export function classifyVBBO(werte, vbboThresholds, nutzungsart) {
 
 // ---------- VeVA-Codes (Aushub-/Bodenaushubmaterial) ----------
 
+// Ein Code kann für mehrere Materialien und/oder mehrere VVEA-Klassen
+// gleichzeitig gelten (z.B. ein gemeinsamer Code für Typ C/D/E, oder
+// derselbe Code für Ober- UND Unterboden) — daher `materialien`/`klassen`
+// als Arrays statt Einzelwerten.
 export const DEFAULT_VEVA_CODES = [
-  { code: '17 05 04', bezeichnung: 'Oberboden – unverschmutzt', material: 'Oberboden', klasse: 'unbelastet' },
-  { code: '17 05 93', bezeichnung: 'Oberboden – schwach verschmutzt (Typ A)', material: 'Oberboden', klasse: 'typA' },
-  { code: '17 05 96 [ak]', bezeichnung: 'Oberboden – Inertstoff (Typ B)', material: 'Oberboden', klasse: 'typB' },
-  { code: '17 05 90 [akb]', bezeichnung: 'Oberboden – stark verschmutzt (Typ C/D/E)', material: 'Oberboden', klasse: 'typC' },
-  { code: '17 05 04', bezeichnung: 'Unterboden – unverschmutzt', material: 'Unterboden', klasse: 'unbelastet' },
-  { code: '17 05 93', bezeichnung: 'Unterboden – schwach verschmutzt (Typ A)', material: 'Unterboden', klasse: 'typA' },
-  { code: '17 05 96 [ak]', bezeichnung: 'Unterboden – Inertstoff (Typ B)', material: 'Unterboden', klasse: 'typB' },
-  { code: '17 05 90 [akb]', bezeichnung: 'Unterboden – stark verschmutzt (Typ C/D/E)', material: 'Unterboden', klasse: 'typC' },
-  { code: '17 05 06', bezeichnung: 'Aushub – unverschmutzt', material: 'Aushub', klasse: 'unbelastet' },
-  { code: '17 05 94', bezeichnung: 'Aushub – schwach verschmutzt (Typ A)', material: 'Aushub', klasse: 'typA' },
-  { code: '17 05 97 [ak]', bezeichnung: 'Aushub – Inertstoff (Typ B)', material: 'Aushub', klasse: 'typB' },
-  { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ C/D/E)', material: 'Aushub', klasse: 'typC' },
+  { code: '17 05 04', bezeichnung: 'Ober-/Unterboden – unverschmutzt', materialien: ['Oberboden', 'Unterboden'], klassen: ['unbelastet'] },
+  { code: '17 05 93', bezeichnung: 'Ober-/Unterboden – schwach verschmutzt (Typ A)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typA'] },
+  { code: '17 05 96 [ak]', bezeichnung: 'Ober-/Unterboden – Inertstoff (Typ B)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typB'] },
+  { code: '17 05 90 [akb]', bezeichnung: 'Ober-/Unterboden – stark verschmutzt (Typ C/D/E)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typC', 'typD', 'typE'] },
+  { code: '17 05 06', bezeichnung: 'Aushub – unverschmutzt', materialien: ['Aushub'], klassen: ['unbelastet'] },
+  { code: '17 05 94', bezeichnung: 'Aushub – schwach verschmutzt (Typ A)', materialien: ['Aushub'], klassen: ['typA'] },
+  { code: '17 05 97 [ak]', bezeichnung: 'Aushub – Inertstoff (Typ B)', materialien: ['Aushub'], klassen: ['typB'] },
+  { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ C/D/E)', materialien: ['Aushub'], klassen: ['typC', 'typD', 'typE'] },
 ];
 export function loadVevaCodes() {
   try {
@@ -205,17 +208,43 @@ const VBBO_TO_VEVA_KLASSE = {
 /**
  * Schlägt automatisch einen VeVA-Aushubcode vor, basierend auf Material,
  * gewähltem Standard (VVEA/VBBo) und dem Einstufungsergebnis (classId aus
- * classify()/classifyVBBO()). Gibt den passenden Eintrag aus `vevaCodes`
- * zurück (mit `code`/`bezeichnung`) oder `null`, wenn nichts passt (z.B.
- * Material ist kein Boden/Aushub, oder noch keine Einstufung vorhanden).
+ * classify()/classifyVBBO()). Ein Code kann gleichzeitig für mehrere
+ * Materialien und/oder mehrere VVEA-Klassen gelten (z.B. ein gemeinsamer
+ * Code für Typ C/D/E, oder derselbe Code für Ober- und Unterboden), daher
+ * werden `materialien`/`klassen`-Arrays je Code geprüft. Gibt den
+ * passenden Eintrag aus `vevaCodes` zurück (mit `code`/`bezeichnung`) oder
+ * `null`, wenn nichts passt (z.B. Material ist kein Boden/Aushub, oder noch
+ * keine Einstufung vorhanden).
  */
 export function suggestVevaCode(material, standard, classId, vevaCodes) {
   if (!classId || !Array.isArray(vevaCodes)) return null;
   const bucket = materialToVevaBucket(material);
   if (!bucket) return null;
-  const klasse = standard === 'vbbo' ? VBBO_TO_VEVA_KLASSE[classId] : classId;
-  if (!klasse) return null;
-  return vevaCodes.find(c => c.material === bucket && c.klasse === klasse) || null;
+  const candidates = vevaCodes.filter(c => Array.isArray(c.materialien) && c.materialien.includes(bucket));
+  if (!candidates.length) return null;
+
+  if (standard === 'vbbo') {
+    const klasse = VBBO_TO_VEVA_KLASSE[classId];
+    if (!klasse) return null;
+    return candidates.find(c => Array.isArray(c.klassen) && c.klassen.includes(klasse)) || null;
+  }
+
+  // VVEA: exakte Klasse zuerst versuchen (deckt auch Codes ab, die mehrere
+  // Klassen gleichzeitig abdecken, z.B. klassen:['typC','typD','typE']).
+  const exact = candidates.find(c => Array.isArray(c.klassen) && c.klassen.includes(classId));
+  if (exact) return exact;
+
+  // Kein exakter Treffer: bei den (nicht-terminalen) Klassen abwärts zur
+  // nächstschwächeren noch codierten Klasse fallen, falls vorhanden.
+  // "Sonderfall" (Sonderabfall) bekommt bewusst KEINEN automatischen
+  // Fallback, da dafür eigene Sonderabfall-Codes nötig sind.
+  const idx = CLASSES.findIndex(c => c.id === classId);
+  if (idx <= 0 || CLASSES[idx].terminal) return null;
+  for (let i = idx - 1; i >= 0; i--) {
+    const found = candidates.find(c => Array.isArray(c.klassen) && c.klassen.includes(CLASSES[i].id));
+    if (found) return found;
+  }
+  return null;
 }
 
 // ---------- Parameter (VVEA) ----------
