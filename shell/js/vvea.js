@@ -37,10 +37,13 @@ export const VBBO_CLASSES = [
 
 // Nutzungsart bestimmt, welche Prüfwert-/Sanierungswert-Spalte der VBBo-
 // Rohdaten (siehe DEFAULT_VBBO_THRESHOLDS) zur Anwendung kommt.
+// Reihenfolge bestimmt auch die Standardauswahl im Formular (erster Eintrag
+// = Vorbelegung, siehe NUTZUNGSARTEN[0].id in app.js) — Landwirtschaft/
+// Gartenbau ist der häufigste Baustellenfall und steht daher an erster Stelle.
 export const NUTZUNGSARTEN = [
-  { id: 'spielplatz', label: 'Kinderspielplatz', pruefwertSpalte: 'pwDirekt', sanierungSpalte: 'sanSpielplatz' },
-  { id: 'garten', label: 'Haus-/Familiengarten', pruefwertSpalte: 'pwNahrung', sanierungSpalte: 'sanGarten' },
   { id: 'landwirtschaft', label: 'Landwirtschaft/Gartenbau', pruefwertSpalte: 'pwFutter', sanierungSpalte: 'sanLandwirtschaft' },
+  { id: 'garten', label: 'Haus-/Familiengarten', pruefwertSpalte: 'pwNahrung', sanierungSpalte: 'sanGarten' },
+  { id: 'spielplatz', label: 'Kinderspielplatz', pruefwertSpalte: 'pwDirekt', sanierungSpalte: 'sanSpielplatz' },
 ];
 
 export const DEFAULT_VBBO_PARAMETERS = [

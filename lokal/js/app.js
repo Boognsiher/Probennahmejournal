@@ -311,6 +311,7 @@ let vbboThresholds = loadVbboThresholds();
 let vevaCodes = loadVevaCodes();
 let formProjects = [];
 let vevaCodeTouched = false; // true, sobald der VeVA-Code im Formular manuell überschrieben wurde
+let vevaCodeInitialized = false; // wird beim allerersten updateVevaCodeUI()-Aufruf pro Formular-Render true
 
 async function renderEntryForm(idOrNeu) {
   thresholds = loadThresholds();
@@ -378,6 +379,7 @@ function paintEntryForm() {
   if (e.standard === 'vbbo' && !e.nutzungsart) e.nutzungsart = NUTZUNGSARTEN[0].id;
   recomputeClassification(); // Standard kann sich gerade erst geändert haben (z.B. beim Laden)
   vevaCodeTouched = false;
+  vevaCodeInitialized = false;
 
   appEl.innerHTML = `
     <div class="card">
@@ -562,8 +564,6 @@ function paintEntryForm() {
     recomputeClassification();
     paintClassificationBanner();
   });
-  $('#f-veva-code').addEventListener('change', ev => { e.vevaCode = ev.target.value; });
-  $('#f-entsorgungsweg').addEventListener('input', ev => { e.entsorgungsweg = ev.target.value; });
 
   $('#btn-gps').addEventListener('click', () => {
     if (!navigator.geolocation) { toast('Geolocation nicht verfügbar'); return; }
@@ -790,11 +790,27 @@ function paintClassificationBanner() {
 
 // Schlägt automatisch einen VeVA-Aushubcode vor (Material + Standard +
 // aktuelle Einstufung) und trägt ihn ins Formular ein — solange die
-// Auswahl nicht manuell überschrieben wurde (vevaCodeTouched).
+// Auswahl nicht manuell überschrieben wurde (vevaCodeTouched). Der ALLERERSTE
+// Aufruf nach dem (Neu-)Rendern des Formulars zeigt den bereits gespeicherten
+// Code nur an, ohne ihn neu zu berechnen — sonst würde beim blossen Öffnen
+// einer bestehenden Probe (ohne dass sich etwas geändert hat) ein manuell
+// gewählter oder früher gespeicherter Code sofort durch eine frische
+// Automatik-Berechnung überschrieben (z.B. auf leer, wenn beim Laden noch
+// keine Analysewerte ausgewertet sind).
 function updateVevaCodeUI() {
   const sel = $('#f-veva-code');
   const hint = $('#veva-code-hint');
   if (!sel || !hint) return; // Formular (noch) nicht im DOM
+
+  if (!vevaCodeInitialized) {
+    vevaCodeInitialized = true;
+    sel.value = currentEntry.vevaCode || '';
+    hint.textContent = currentEntry.vevaCode
+      ? 'Gespeicherter Code — wird bei Änderungen an Material/Analysewerten automatisch aktualisiert, ausser er wird manuell gewählt.'
+      : 'Noch kein Code zugeordnet — wird automatisch vorgeschlagen, sobald Material und Analysewerte vorliegen.';
+    return;
+  }
+
   if (vevaCodeTouched) {
     hint.textContent = 'Manuell gewählt.';
     return;
