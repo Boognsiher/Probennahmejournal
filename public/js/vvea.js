@@ -299,32 +299,36 @@ export function slugifyParamKey(label, existingKeys) {
 
 // Grenzwerte gemäss VVEA (gesamt in mg/kg TS, eluat in mg/l sofern nicht
 // anders vermerkt). `null` = für diese Klasse nicht geregelt/nicht
-// beschränkend. Typ D bewusst nicht erfasst (für Aushub-/Bodenmaterial i.d.R.
-// nicht relevant).
+// beschränkend. Typ D war in den Quelldaten für keinen Parameter separat
+// erfasst; auf Anweisung des Auftraggebers als Näherung ergänzt: bei
+// Schwermetallen = Wert von Typ E (Reaktordeponien unterscheiden sich bei
+// Schwermetallen i.d.R. nicht zwischen Typ D/E), bei organischen
+// Schadstoffen = Wert von Typ B. Für Parameter ohne Typ-B- bzw. Typ-E-Wert
+// bleibt Typ D entsprechend leer.
 export const DEMO_THRESHOLDS = {
-  toc:      { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null, typE: null },
-  toc400:   { unbelastet: null, typA: 10000, typB: 20000, typC: 20000, typD: null, typE: 50000 },
-  kw:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: 500,   typD: null, typE: 5000 },
-  kw_c5:    { unbelastet: 1,    typA: 5,     typB: 10,    typC: 10,    typD: null, typE: 100 },
-  pak:      { unbelastet: 3,    typA: 12.5,  typB: 25,    typC: 25,    typD: null, typE: 250 },
-  bap:      { unbelastet: 0.3,  typA: 1.5,   typB: 3,     typC: 3,     typD: null, typE: 10 },
-  pcb:      { unbelastet: 0.1,  typA: 0.5,   typB: 1,     typC: 1,     typD: null, typE: 10 },
-  btex:     { unbelastet: 1,    typA: 5,     typB: 10,    typC: 10,    typD: null, typE: 100 },
-  benzol:   { unbelastet: 0.1,  typA: 0.5,   typB: 1,     typC: 1,     typD: null, typE: 1 },
-  sb:       { unbelastet: 3,    typA: 15,    typB: 30,    typC: null,  typD: null, typE: 50 },
-  as:       { unbelastet: 15,   typA: 15,    typB: 30,    typC: null,  typD: null, typE: 50 },
-  pb:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: null, typE: 2000 },
-  cd:       { unbelastet: 1,    typA: 5,     typB: 10,    typC: null,  typD: null, typE: 10 },
-  cr:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: null, typE: 1000 },
-  cr6:      { unbelastet: 0.05, typA: 0.05,  typB: 0.1,   typC: null,  typD: null, typE: 0.5 },
-  co:       { unbelastet: null, typA: null,  typB: 250,   typC: null,  typD: null, typE: null },
-  cu:       { unbelastet: 40,   typA: 250,   typB: 500,   typC: null,  typD: null, typE: 5000 },
-  ni:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: null, typE: 1000 },
-  hg:       { unbelastet: 0.5,  typA: 1,     typB: 2,     typC: null,  typD: null, typE: 5 },
-  tl:       { unbelastet: null, typA: null,  typB: 3,     typC: null,  typD: null, typE: null },
-  zn:       { unbelastet: 150,  typA: 500,   typB: 1000,  typC: null,  typD: null, typE: 5000 },
-  sn:       { unbelastet: null, typA: null,  typB: 100,   typC: null,  typD: null, typE: null },
-  cn:       { unbelastet: 0.5,  typA: null,  typB: null,  typC: null,  typD: null, typE: null },
+  toc:      { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null,  typE: null },
+  toc400:   { unbelastet: null, typA: 10000, typB: 20000, typC: 20000, typD: 20000, typE: 50000 },
+  kw:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: 500,   typD: 500,   typE: 5000 },
+  kw_c5:    { unbelastet: 1,    typA: 5,     typB: 10,    typC: 10,    typD: 10,    typE: 100 },
+  pak:      { unbelastet: 3,    typA: 12.5,  typB: 25,    typC: 25,    typD: 25,    typE: 250 },
+  bap:      { unbelastet: 0.3,  typA: 1.5,   typB: 3,     typC: 3,     typD: 3,     typE: 10 },
+  pcb:      { unbelastet: 0.1,  typA: 0.5,   typB: 1,     typC: 1,     typD: 1,     typE: 10 },
+  btex:     { unbelastet: 1,    typA: 5,     typB: 10,    typC: 10,    typD: 10,    typE: 100 },
+  benzol:   { unbelastet: 0.1,  typA: 0.5,   typB: 1,     typC: 1,     typD: 1,     typE: 1 },
+  sb:       { unbelastet: 3,    typA: 15,    typB: 30,    typC: null,  typD: 50,    typE: 50 },
+  as:       { unbelastet: 15,   typA: 15,    typB: 30,    typC: null,  typD: 50,    typE: 50 },
+  pb:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: 2000,  typE: 2000 },
+  cd:       { unbelastet: 1,    typA: 5,     typB: 10,    typC: null,  typD: 10,    typE: 10 },
+  cr:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: 1000,  typE: 1000 },
+  cr6:      { unbelastet: 0.05, typA: 0.05,  typB: 0.1,   typC: null,  typD: 0.5,   typE: 0.5 },
+  co:       { unbelastet: null, typA: null,  typB: 250,   typC: null,  typD: null,  typE: null },
+  cu:       { unbelastet: 40,   typA: 250,   typB: 500,   typC: null,  typD: 5000,  typE: 5000 },
+  ni:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: 1000,  typE: 1000 },
+  hg:       { unbelastet: 0.5,  typA: 1,     typB: 2,     typC: null,  typD: 5,     typE: 5 },
+  tl:       { unbelastet: null, typA: null,  typB: 3,     typC: null,  typD: null,  typE: null },
+  zn:       { unbelastet: 150,  typA: 500,   typB: 1000,  typC: null,  typD: 5000,  typE: 5000 },
+  sn:       { unbelastet: null, typA: null,  typB: 100,   typC: null,  typD: null,  typE: null },
+  cn:       { unbelastet: 0.5,  typA: null,  typB: null,  typC: null,  typD: null,  typE: null },
   salze:    { unbelastet: null, typA: null,  typB: 0.5,   typC: 3,     typD: null, typE: 5 },
   pH:       { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null, typE: null },
   doc:      { unbelastet: null, typA: null,  typB: 20,    typC: 20,    typD: null, typE: null },
