@@ -47,9 +47,11 @@ function parseNumber(str) {
 /**
  * Parst CSV-Text mit Spalten Parameter;Wert;Einheit;(Typ optional).
  * Erkennt Kopfzeile automatisch, sonst wird Position 0/1/2/3 angenommen.
+ * @param {Array} paramList  Parameterliste für den Alias-Abgleich (VVEA
+ *   PARAMETERS oder VBBO_PARAMETERS, je nach gewähltem Standard der Probe).
  * @returns {Array<{roh:string, parameterKey:string|null, wert:number, einheit:string, art:string}>}
  */
-export function parseCSV(text) {
+export function parseCSV(text, paramList) {
   const lines = text.split(/\r\n|\n|\r/).filter(l => l.trim().length > 0);
   if (lines.length === 0) return [];
   const delim = detectDelimiter(lines[0]);
@@ -80,7 +82,7 @@ export function parseCSV(text) {
     if (!paramRaw || !wertRaw) continue;
     const einheit = headerIdx.einheit >= 0 ? (cells[headerIdx.einheit] || '') : '';
     const artRaw = headerIdx.art >= 0 ? (cells[headerIdx.art] || '') : '';
-    const paramDef = findParamByAlias(paramRaw);
+    const paramDef = findParamByAlias(paramRaw, paramList);
     const art = /eluat/i.test(artRaw) ? 'eluat' : (/gesamt/i.test(artRaw) ? 'gesamt' : (paramDef ? paramDef.art : 'gesamt'));
     rows.push({
       roh: paramRaw,

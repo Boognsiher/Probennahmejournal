@@ -45,10 +45,12 @@ function hexToRgb(hex) {
 /**
  * @param {object} entry  Probe (wie im Frontend gehalten). entry.photos:
  *   Array von {filename, dataUrl} ODER {filename, blob}.
- * @param {object|null} classification  Rückgabe von vvea.classify()
+ * @param {object|null} classification  Rückgabe von vvea.classify()/classifyVBBO()
+ * @param {Array} classes  Klassen-Array, das zur Klassifizierung passt (VVEA
+ *   CLASSES oder VBBO_CLASSES je nach entry.standard) — Default: VVEA CLASSES.
  * @returns {Promise<Blob>} PDF als Blob (application/pdf)
  */
-export async function generateReportPDF(entry, classification) {
+export async function generateReportPDF(entry, classification, classes = CLASSES) {
   const jsPDF = await loadJsPDF();
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
@@ -85,7 +87,7 @@ export async function generateReportPDF(entry, classification) {
     y += split.length * 5 + 2;
   }
 
-  const overall = classification ? CLASSES[classification.classIndex] : null;
+  const overall = classification ? classes[classification.classIndex] : null;
   if (overall) {
     const c = hexToRgb(overall.color);
     doc.setFillColor(c.r, c.g, c.b);
@@ -117,11 +119,11 @@ export async function generateReportPDF(entry, classification) {
     drawHeader();
     for (const p of rows) {
       if (y > pageH - 25) { doc.addPage(); y = margin; drawHeader(); }
-      const rc = hexToRgb(CLASSES[p.classIndex].color);
+      const rc = hexToRgb(classes[p.classIndex].color);
       doc.setFillColor(rc.r, rc.g, rc.b); doc.setDrawColor(rc.r, rc.g, rc.b);
       doc.rect(margin, y - 4, contentW, 6, 'F');
       let x = margin;
-      const cells = [p.label, String(p.wert), p.unit || '', p.art === 'eluat' ? 'Eluat' : 'Gesamt', CLASSES[p.classIndex].short];
+      const cells = [p.label, String(p.wert), p.unit || '', p.art === 'eluat' ? 'Eluat' : 'Gesamt', classes[p.classIndex].short];
       cells.forEach((val, i) => {
         const text = doc.splitTextToSize(String(val), cols[i].w - 2)[0] || '';
         doc.text(text, x + 1, y);

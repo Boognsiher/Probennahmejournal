@@ -4,9 +4,34 @@
 // wird alles lokal in diesem Browser simuliert (localStorage). Kein Netzwerk,
 // kein echtes Login, keine echte Sicherheit — nur zum Durchklicken/Testen der
 // Oberfläche, bevor der echte Server (siehe ../server) angebunden wird.
-import { DEMO_THRESHOLDS, DEFAULT_PARAMETERS } from './vvea.js';
+import {
+  DEMO_THRESHOLDS, DEFAULT_PARAMETERS,
+  DEFAULT_VBBO_THRESHOLDS, DEFAULT_VBBO_PARAMETERS,
+} from './vvea.js';
 
-const DB_KEY = 'pnj_mock_db_v2';
+// VeVA-Codes gibt es (anders als VVEA/VBBo-Grenzwerte) nicht in vvea.js, da im
+// echten Server-Betrieb (public/) ausschliesslich der Server sie vorbefüllt.
+// Für die Test-Schale hier lokal dieselben Startwerte wie
+// server/src/vvea-defaults.js bzw. lokal/js/vvea.js hinterlegt.
+const DEFAULT_VEVA_CODES = [
+  { code: '17 05 04', bezeichnung: 'Oberboden – unverschmutzt', material: 'Oberboden', klasse: 'unbelastet' },
+  { code: '17 05 93', bezeichnung: 'Oberboden – schwach verschmutzt (Typ A)', material: 'Oberboden', klasse: 'typA' },
+  { code: '17 05 96 [ak]', bezeichnung: 'Oberboden – Inertstoff (Typ B)', material: 'Oberboden', klasse: 'typB' },
+  { code: '17 05 90 [akb]', bezeichnung: 'Oberboden – stark verschmutzt (Typ C/D/E)', material: 'Oberboden', klasse: 'typC' },
+  { code: '17 05 04', bezeichnung: 'Unterboden – unverschmutzt', material: 'Unterboden', klasse: 'unbelastet' },
+  { code: '17 05 93', bezeichnung: 'Unterboden – schwach verschmutzt (Typ A)', material: 'Unterboden', klasse: 'typA' },
+  { code: '17 05 96 [ak]', bezeichnung: 'Unterboden – Inertstoff (Typ B)', material: 'Unterboden', klasse: 'typB' },
+  { code: '17 05 90 [akb]', bezeichnung: 'Unterboden – stark verschmutzt (Typ C/D/E)', material: 'Unterboden', klasse: 'typC' },
+  { code: '17 05 06', bezeichnung: 'Aushub – unverschmutzt', material: 'Aushub', klasse: 'unbelastet' },
+  { code: '17 05 94', bezeichnung: 'Aushub – schwach verschmutzt (Typ A)', material: 'Aushub', klasse: 'typA' },
+  { code: '17 05 97 [ak]', bezeichnung: 'Aushub – Inertstoff (Typ B)', material: 'Aushub', klasse: 'typB' },
+  { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ C/D/E)', material: 'Aushub', klasse: 'typC' },
+];
+
+// v3: VBBo-Grenzwerte/-Parameter, VeVA-Codes sowie Standard/Nutzungsart/
+// Entsorgungsweg/VeVA-Code je Probe dazugekommen — Version angehoben, damit
+// bereits laufende Test-Sessions automatisch die neuen Startdaten erhalten.
+const DB_KEY = 'pnj_mock_db_v3';
 const TOKEN_KEY = 'pnj_token';
 const USER_KEY = 'pnj_user';
 
@@ -31,6 +56,9 @@ function seedDb() {
     entries: [],
     thresholds: JSON.parse(JSON.stringify(DEMO_THRESHOLDS)),
     parameters: JSON.parse(JSON.stringify(DEFAULT_PARAMETERS)),
+    vbboThresholds: JSON.parse(JSON.stringify(DEFAULT_VBBO_THRESHOLDS)),
+    vbboParameters: JSON.parse(JSON.stringify(DEFAULT_VBBO_PARAMETERS)),
+    vevaCodes: JSON.parse(JSON.stringify(DEFAULT_VEVA_CODES)),
   };
 }
 
@@ -131,6 +159,10 @@ export async function createEntryApi(entry) {
     bemerkungen: entry.bemerkungen || '',
     analyse: entry.analyse || [],
     klassifizierung: entry.klassifizierung || null,
+    standard: entry.standard === 'vbbo' ? 'vbbo' : 'vvea',
+    nutzungsart: entry.standard === 'vbbo' ? (entry.nutzungsart || null) : null,
+    entsorgungsweg: entry.entsorgungsweg || '',
+    vevaCode: entry.vevaCode || '',
     createdBy: user.id,
     photos: [],
   };
@@ -149,6 +181,10 @@ export async function updateEntryApi(id, entry) {
     material: entry.material ?? '', probenehmer: entry.probenehmer ?? '',
     bemerkungen: entry.bemerkungen ?? '', analyse: entry.analyse ?? [],
     klassifizierung: entry.klassifizierung ?? null,
+    standard: entry.standard === 'vbbo' ? 'vbbo' : 'vvea',
+    nutzungsart: entry.standard === 'vbbo' ? (entry.nutzungsart || null) : null,
+    entsorgungsweg: entry.entsorgungsweg ?? '',
+    vevaCode: entry.vevaCode ?? '',
     updatedAt: new Date().toISOString(),
   });
   persist();
@@ -243,6 +279,66 @@ export async function resetParametersApi() {
   db.parameters = JSON.parse(JSON.stringify(DEFAULT_PARAMETERS));
   persist();
   return db.parameters;
+}
+
+// ---------- VBBo-Grenzwerte ----------
+export async function getVbboThresholdsApi() {
+  await delay();
+  requireAuth();
+  return JSON.parse(JSON.stringify(db.vbboThresholds));
+}
+export async function saveVbboThresholdsApi(thresholds) {
+  await delay();
+  requireAdmin();
+  db.vbboThresholds = thresholds;
+  persist();
+}
+export async function resetVbboThresholdsApi() {
+  await delay();
+  requireAdmin();
+  db.vbboThresholds = JSON.parse(JSON.stringify(DEFAULT_VBBO_THRESHOLDS));
+  persist();
+  return db.vbboThresholds;
+}
+
+// ---------- VBBo-Parameter ----------
+export async function getVbboParametersApi() {
+  await delay();
+  requireAuth();
+  return JSON.parse(JSON.stringify(db.vbboParameters));
+}
+export async function saveVbboParametersApi(parameters) {
+  await delay();
+  requireAdmin();
+  db.vbboParameters = parameters;
+  persist();
+}
+export async function resetVbboParametersApi() {
+  await delay();
+  requireAdmin();
+  db.vbboParameters = JSON.parse(JSON.stringify(DEFAULT_VBBO_PARAMETERS));
+  persist();
+  return db.vbboParameters;
+}
+
+// ---------- VeVA-Codes ----------
+export async function getVevaCodesApi() {
+  await delay();
+  requireAuth();
+  return JSON.parse(JSON.stringify(db.vevaCodes));
+}
+export async function saveVevaCodesApi(codes) {
+  await delay();
+  requireAdmin();
+  db.vevaCodes = codes;
+  persist();
+}
+export async function resetVevaCodesApi() {
+  await delay();
+  requireAdmin();
+  db.vevaCodes = JSON.parse(JSON.stringify(DEFAULT_VEVA_CODES));
+  persist();
+  return db.vevaCodes;
 }
 
 // ---------- Benutzer (Admin) ----------

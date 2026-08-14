@@ -1,19 +1,21 @@
 // vvea.js
-// Klassifizierungs-Engine für Deponietypen (Schweiz, Struktur gemäss VVEA).
+// Klassifizierungs-Engine für Deponieklassen (VVEA) und Bodenqualität (VBBo).
 //
-// WICHTIG: Die in DEMO_THRESHOLDS hinterlegten Zahlenwerte sind PLATZHALTER
-// zur Illustration der Funktion. Sie sind NICHT als aktuelle, rechtsverbindliche
-// VVEA-Grenzwerte zu verstehen. Vor produktivem Einsatz müssen die Grenzwerte
-// von einer Fachperson anhand der aktuellen VVEA (Anhang 5) bzw. kantonaler
-// Vollzugshilfen erfasst/korrigiert werden – siehe Einstellungen > Grenzwerte.
+// WICHTIG: Die hinterlegten Zahlenwerte stammen aus vom Nutzer bereitgestellten
+// Quellen (eigene Recherche/Auszüge, Stand siehe README). Vor produktivem
+// Einsatz müssen die Grenzwerte von einer Fachperson anhand der aktuellen
+// VVEA/VBBo und kantonaler Vollzugshilfen geprüft werden – siehe
+// Einstellungen > Grenzwerte.
 
-export const STORAGE_KEY_THRESHOLDS = 'pnj_vvea_thresholds_v1';
-export const STORAGE_KEY_PARAMETERS = 'pnj_vvea_parameters_v1';
+export const STORAGE_KEY_THRESHOLDS = 'pnj_vvea_thresholds_v2';
+export const STORAGE_KEY_PARAMETERS = 'pnj_vvea_parameters_v2';
+export const STORAGE_KEY_VBBO_THRESHOLDS = 'pnj_vbbo_thresholds_v1';
+export const STORAGE_KEY_VBBO_PARAMETERS = 'pnj_vbbo_parameters_v1';
+export const STORAGE_KEY_VEVA_CODES = 'pnj_veva_codes_v1';
 export const STORAGE_KEY_ACK = 'pnj_vvea_disclaimer_ack_v1';
 
-// Deponieklassen, von "sauber" nach "am stärksten belastet" sortiert.
-// `terminal: true` markiert die Klasse, die verwendet wird, wenn ein Wert
-// selbst den grosszügigsten definierten Grenzwert überschreitet.
+// ---------- VVEA (Deponieklassen) ----------
+
 export const CLASSES = [
   { id: 'unbelastet', label: 'Unbelastet / Verwertung möglich', short: 'Verwertung', color: '#2e7d32' },
   { id: 'typA', label: 'Deponietyp A (Aushubdeponie)', short: 'Typ A', color: '#66bb6a' },
@@ -24,41 +26,190 @@ export const CLASSES = [
   { id: 'sonderfall', label: 'Nicht deponierbar / Sonderabfall – Fachperson beiziehen', short: 'Sonderfall', color: '#4a148c', terminal: true },
 ];
 
-// Bekannte Parameter inkl. Alias-Liste für den automatischen Import (CSV/PDF).
-// `art`: 'gesamt' (Gesamtgehalt, i.d.R. mg/kg TS) oder 'eluat' (i.d.R. mg/l).
-// Startbefüllung — die tatsächlich aktive Liste (`PARAMETERS`) wird aus dem
-// lokalen Speicher geladen und kann in den Einstellungen um eigene Parameter
-// erweitert werden.
+// ---------- VBBo (Bodenqualität) ----------
+
+export const VBBO_CLASSES = [
+  { id: 'unauffaellig', label: 'Unauffällig (unter Richtwert)', short: 'Unauffällig', color: '#2e7d32' },
+  { id: 'ueberRichtwert', label: 'Über Richtwert, unter Prüfwert – Beobachtung empfohlen', short: 'Über Richtwert', color: '#fbc02d' },
+  { id: 'ueberPruefwert', label: 'Über Prüfwert – weitere Abklärung/Nutzungseinschränkung nötig', short: 'Über Prüfwert', color: '#ef6c00' },
+  { id: 'ueberSanierungswert', label: 'Über Sanierungswert – Sanierung nötig', short: 'Sanierungsbedarf', color: '#b71c1c', terminal: true },
+];
+
+export const NUTZUNGSARTEN = [
+  { id: 'spielplatz', label: 'Kinderspielplatz', pruefwertSpalte: 'pwDirekt', sanierungSpalte: 'sanSpielplatz' },
+  { id: 'garten', label: 'Haus-/Familiengarten', pruefwertSpalte: 'pwNahrung', sanierungSpalte: 'sanGarten' },
+  { id: 'landwirtschaft', label: 'Landwirtschaft/Gartenbau', pruefwertSpalte: 'pwFutter', sanierungSpalte: 'sanLandwirtschaft' },
+];
+
+export const DEFAULT_VBBO_PARAMETERS = [
+  { key: 'pb', label: 'Blei (Pb)', unit: 'mg/kg', aliases: ['blei', 'pb'] },
+  { key: 'cd', label: 'Cadmium (Cd)', unit: 'mg/kg', aliases: ['cadmium', 'cd'] },
+  { key: 'cr', label: 'Chrom (Cr)', unit: 'mg/kg', aliases: ['chrom', 'cr'] },
+  { key: 'cu', label: 'Kupfer (Cu)', unit: 'mg/kg', aliases: ['kupfer', 'cu'] },
+  { key: 'hg', label: 'Quecksilber (Hg)', unit: 'mg/kg', aliases: ['quecksilber', 'hg'] },
+  { key: 'ni', label: 'Nickel (Ni)', unit: 'mg/kg', aliases: ['nickel', 'ni'] },
+  { key: 'zn', label: 'Zink (Zn)', unit: 'mg/kg', aliases: ['zink', 'zn'] },
+  { key: 'pak', label: 'PAK (Σ16 EPA)', unit: 'mg/kg', aliases: ['pak'] },
+  { key: 'bap', label: 'Benzo[a]pyren', unit: 'mg/kg', aliases: ['benzo(a)pyren', 'benzo[a]pyren', 'bap'] },
+  { key: 'pcb', label: 'PCB', unit: 'mg/kg', aliases: ['pcb'] },
+];
+
+export let VBBO_PARAMETERS = DEFAULT_VBBO_PARAMETERS.map(p => ({ ...p }));
+export function setVbboParameters(list) {
+  VBBO_PARAMETERS = Array.isArray(list) && list.length ? list : DEFAULT_VBBO_PARAMETERS.map(p => ({ ...p }));
+}
+export function loadVbboParameters() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_VBBO_PARAMETERS);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { /* fällt auf Standardliste zurück */ }
+  return DEFAULT_VBBO_PARAMETERS.map(p => ({ ...p }));
+}
+export function saveVbboParameters(list) {
+  localStorage.setItem(STORAGE_KEY_VBBO_PARAMETERS, JSON.stringify(list));
+}
+export function resetVbboParametersStorage() {
+  localStorage.removeItem(STORAGE_KEY_VBBO_PARAMETERS);
+  return DEFAULT_VBBO_PARAMETERS.map(p => ({ ...p }));
+}
+
+export const DEFAULT_VBBO_THRESHOLDS = {
+  pb:  { richtwert: 50,  pwDirekt: 300, pwNahrung: 200, pwFutter: 200, sanSpielplatz: 1000, sanGarten: 1000, sanLandwirtschaft: 2000 },
+  cd:  { richtwert: 0.8, pwDirekt: 10,  pwNahrung: 2,   pwFutter: 2,   sanSpielplatz: 20,   sanGarten: 20,   sanLandwirtschaft: 30 },
+  cu:  { richtwert: 40,  pwDirekt: null, pwNahrung: null, pwFutter: 150, sanSpielplatz: null, sanGarten: 1000, sanLandwirtschaft: 1000 },
+  zn:  { richtwert: 150, pwDirekt: null, pwNahrung: null, pwFutter: null, sanSpielplatz: null, sanGarten: 2000, sanLandwirtschaft: 2000 },
+  hg:  { richtwert: 0.5, pwDirekt: null, pwNahrung: null, pwFutter: null, sanSpielplatz: null, sanGarten: null, sanLandwirtschaft: null },
+  pak: { richtwert: 1,   pwDirekt: 10,  pwNahrung: 20,  pwFutter: null, sanSpielplatz: 100,  sanGarten: 100,  sanLandwirtschaft: 100 },
+  bap: { richtwert: 0.2, pwDirekt: 1,   pwNahrung: 2,   pwFutter: null, sanSpielplatz: 10,   sanGarten: 10,   sanLandwirtschaft: 10 },
+  pcb: { richtwert: null, pwDirekt: 0.1, pwNahrung: 0.2, pwFutter: 0.2, sanSpielplatz: 1,    sanGarten: 1,    sanLandwirtschaft: 3 },
+  cr:  { richtwert: null, pwDirekt: null, pwNahrung: null, pwFutter: null, sanSpielplatz: null, sanGarten: null, sanLandwirtschaft: null },
+  ni:  { richtwert: null, pwDirekt: null, pwNahrung: null, pwFutter: null, sanSpielplatz: null, sanGarten: null, sanLandwirtschaft: null },
+};
+export function loadVbboThresholds() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_VBBO_THRESHOLDS);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { /* fall through */ }
+  return JSON.parse(JSON.stringify(DEFAULT_VBBO_THRESHOLDS));
+}
+export function saveVbboThresholds(t) {
+  localStorage.setItem(STORAGE_KEY_VBBO_THRESHOLDS, JSON.stringify(t));
+}
+export function resetVbboThresholdsStorage() {
+  localStorage.removeItem(STORAGE_KEY_VBBO_THRESHOLDS);
+}
+
+// Baut aus den VBBo-Rohwerten + gewählter Nutzungsart ein Grenzwert-Objekt im
+// selben Format wie VVEA-Thresholds (eine Klasse -> ein Zahlenwert), damit
+// dieselbe classify()-Funktion wiederverwendet werden kann.
+export function buildVbboThresholdsForNutzung(vbboThresholds, nutzungsart) {
+  const nutzung = NUTZUNGSARTEN.find(n => n.id === nutzungsart) || NUTZUNGSARTEN[0];
+  const out = {};
+  for (const key of Object.keys(vbboThresholds)) {
+    const t = vbboThresholds[key] || {};
+    out[key] = {
+      unauffaellig: t.richtwert ?? null,
+      ueberRichtwert: t[nutzung.pruefwertSpalte] ?? null,
+      ueberPruefwert: t[nutzung.sanierungSpalte] ?? null,
+    };
+  }
+  return out;
+}
+
+export function classifyVBBO(werte, vbboThresholds, nutzungsart) {
+  const projected = buildVbboThresholdsForNutzung(vbboThresholds, nutzungsart);
+  return classify(werte, projected, VBBO_CLASSES, VBBO_PARAMETERS);
+}
+
+// ---------- VeVA-Codes (Aushub-/Bodenaushubmaterial) ----------
+
+export const DEFAULT_VEVA_CODES = [
+  { code: '17 05 04', bezeichnung: 'Oberboden – unverschmutzt', material: 'Oberboden', klasse: 'unbelastet' },
+  { code: '17 05 93', bezeichnung: 'Oberboden – schwach verschmutzt (Typ A)', material: 'Oberboden', klasse: 'typA' },
+  { code: '17 05 96 [ak]', bezeichnung: 'Oberboden – Inertstoff (Typ B)', material: 'Oberboden', klasse: 'typB' },
+  { code: '17 05 90 [akb]', bezeichnung: 'Oberboden – stark verschmutzt (Typ C/D/E)', material: 'Oberboden', klasse: 'typC' },
+  { code: '17 05 04', bezeichnung: 'Unterboden – unverschmutzt', material: 'Unterboden', klasse: 'unbelastet' },
+  { code: '17 05 93', bezeichnung: 'Unterboden – schwach verschmutzt (Typ A)', material: 'Unterboden', klasse: 'typA' },
+  { code: '17 05 96 [ak]', bezeichnung: 'Unterboden – Inertstoff (Typ B)', material: 'Unterboden', klasse: 'typB' },
+  { code: '17 05 90 [akb]', bezeichnung: 'Unterboden – stark verschmutzt (Typ C/D/E)', material: 'Unterboden', klasse: 'typC' },
+  { code: '17 05 06', bezeichnung: 'Aushub – unverschmutzt', material: 'Aushub', klasse: 'unbelastet' },
+  { code: '17 05 94', bezeichnung: 'Aushub – schwach verschmutzt (Typ A)', material: 'Aushub', klasse: 'typA' },
+  { code: '17 05 97 [ak]', bezeichnung: 'Aushub – Inertstoff (Typ B)', material: 'Aushub', klasse: 'typB' },
+  { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ C/D/E)', material: 'Aushub', klasse: 'typC' },
+];
+export function loadVevaCodes() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_VEVA_CODES);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { /* fall through */ }
+  return DEFAULT_VEVA_CODES.map(c => ({ ...c }));
+}
+export function saveVevaCodes(list) {
+  localStorage.setItem(STORAGE_KEY_VEVA_CODES, JSON.stringify(list));
+}
+export function resetVevaCodesStorage() {
+  localStorage.removeItem(STORAGE_KEY_VEVA_CODES);
+  return DEFAULT_VEVA_CODES.map(c => ({ ...c }));
+}
+
+// ---------- Parameter (VVEA) ----------
+
 export const DEFAULT_PARAMETERS = [
   { key: 'toc', label: 'TOC (organischer Kohlenstoff)', unit: '%', art: 'gesamt', aliases: ['toc', 'org. kohlenstoff', 'organischer kohlenstoff', 'gesamter organischer kohlenstoff'] },
-  { key: 'kw', label: 'Kohlenwasserstoffe C10–C40', unit: 'mg/kg', art: 'gesamt', aliases: ['mineralölkohlenwasserstoffe', 'tph', 'c10-c40', 'c10–c40', 'kw c10-c40', 'kw c10–c40'] },
+  { key: 'toc400', label: 'TOC400 (VVEA)', unit: 'mg/kg', art: 'gesamt', aliases: ['toc400', 'toc/toc400'] },
+  { key: 'kw', label: 'Kohlenwasserstoffe C10–C40', unit: 'mg/kg', art: 'gesamt', aliases: ['mineralölkohlenwasserstoffe', 'tph', 'c10-c40', 'c10–c40', 'kw c10-c40', 'kw c10–c40', 'kwin (c10-c40)'] },
+  { key: 'kw_c5', label: 'Kohlenwasserstoffe C5-C10', unit: 'mg/kg', art: 'gesamt', aliases: ['c5-c10', 'c5–c10', 'kw c5-c10'] },
   { key: 'pak', label: 'PAK (Σ16 EPA)', unit: 'mg/kg', art: 'gesamt', aliases: ['pak', 'pah', 'polyzyklische aromatische kohlenwasserstoffe', 'σ16 pak', 'epa-pak'] },
+  { key: 'bap', label: 'Benzo[a]pyren', unit: 'mg/kg', art: 'gesamt', aliases: ['benzo(a)pyren', 'benzo[a]pyren', 'benzo a pyren', 'bap'] },
   { key: 'pcb', label: 'PCB (Σ7 Kongenere)', unit: 'mg/kg', art: 'gesamt', aliases: ['pcb', 'polychlorierte biphenyle', 'σ7 pcb'] },
+  { key: 'btex', label: 'BTEX (Summe)', unit: 'mg/kg', art: 'gesamt', aliases: ['btex'] },
+  { key: 'benzol', label: 'Benzol', unit: 'mg/kg', art: 'gesamt', aliases: ['benzol'] },
+  { key: 'sb', label: 'Antimon (Sb)', unit: 'mg/kg', art: 'gesamt', aliases: ['antimon', 'sb'] },
+  { key: 'as', label: 'Arsen (As)', unit: 'mg/kg', art: 'gesamt', aliases: ['arsen', 'as'] },
   { key: 'pb', label: 'Blei (Pb)', unit: 'mg/kg', art: 'gesamt', aliases: ['blei', 'pb'] },
   { key: 'cd', label: 'Cadmium (Cd)', unit: 'mg/kg', art: 'gesamt', aliases: ['cadmium', 'cd'] },
-  { key: 'cr', label: 'Chrom, gesamt (Cr)', unit: 'mg/kg', art: 'gesamt', aliases: ['cr', 'chrom gesamt', 'chrom total'] },
+  { key: 'cr', label: 'Chrom, gesamt (Cr)', unit: 'mg/kg', art: 'gesamt', aliases: ['cr', 'chrom gesamt', 'chrom total', 'chrom ges.'] },
+  { key: 'cr6', label: 'Chrom(VI)', unit: 'mg/kg', art: 'gesamt', aliases: ['chrom vi', 'chrom(vi)', 'chrom 6', 'cr(vi)', 'cr vi'] },
+  { key: 'co', label: 'Kobalt (Co)', unit: 'mg/kg', art: 'gesamt', aliases: ['kobalt', 'cobalt'] },
   { key: 'cu', label: 'Kupfer (Cu)', unit: 'mg/kg', art: 'gesamt', aliases: ['kupfer', 'cu'] },
   { key: 'ni', label: 'Nickel (Ni)', unit: 'mg/kg', art: 'gesamt', aliases: ['nickel', 'ni'] },
   { key: 'hg', label: 'Quecksilber (Hg)', unit: 'mg/kg', art: 'gesamt', aliases: ['quecksilber', 'hg'] },
+  { key: 'tl', label: 'Thallium (Tl)', unit: 'mg/kg', art: 'gesamt', aliases: ['thallium', 'tl'] },
   { key: 'zn', label: 'Zink (Zn)', unit: 'mg/kg', art: 'gesamt', aliases: ['zink', 'zn'] },
-  { key: 'cn', label: 'Cyanid, gesamt (CN)', unit: 'mg/kg', art: 'gesamt', aliases: ['cyanid', 'cn'] },
-  { key: 'pH', label: 'pH-Wert (Eluat)', unit: '', art: 'eluat', aliases: ['ph', 'ph-wert'] },
+  { key: 'sn', label: 'Zinn (Sn)', unit: 'mg/kg', art: 'gesamt', aliases: ['zinn', 'sn'] },
+  { key: 'cn', label: 'Cyanid, gesamt (CN)', unit: 'mg/kg', art: 'gesamt', aliases: ['cyanid gesamt', 'cyanid, gesamt', 'cng'] },
+  { key: 'salze', label: 'Lösliche Salze', unit: 'Gew.-%', art: 'gesamt', aliases: ['lösliche salze', 'losliche salze'] },
+  { key: 'pH', label: 'pH-Wert (Eluat)', unit: '', art: 'eluat', aliases: ['ph-wert'] },
   { key: 'doc', label: 'DOC (Eluat)', unit: 'mg/l', art: 'eluat', aliases: ['doc', 'gelöster organischer kohlenstoff'] },
   { key: 'leitf', label: 'Leitfähigkeit (Eluat)', unit: 'µS/cm', art: 'eluat', aliases: ['leitfähigkeit', 'leitfaehigkeit', 'ec'] },
-  { key: 'chlorid', label: 'Chlorid (Eluat)', unit: 'mg/l', art: 'eluat', aliases: ['chlorid', 'cl-', 'cl'] },
-  { key: 'sulfat', label: 'Sulfat (Eluat)', unit: 'mg/l', art: 'eluat', aliases: ['sulfat', 'so4', 'so4--'] },
-  { key: 'fluorid', label: 'Fluorid (Eluat)', unit: 'mg/l', art: 'eluat', aliases: ['fluorid', 'f-'] },
+  { key: 'chlorid', label: 'Chlorid (Eluat)', unit: 'mg/l', art: 'eluat', aliases: ['chlorid', 'cl-'] },
+  { key: 'sulfat', label: 'Sulfat (Eluat)', unit: 'mg/l', art: 'eluat', aliases: ['sulfat', 'so4--'] },
+  { key: 'fluorid', label: 'Fluorid (Eluat)', unit: 'mg/l', art: 'eluat', aliases: ['fluorid', 'fluoride', 'f-'] },
+  { key: 'as_el', label: 'Arsen (As) – Eluat', unit: 'mg/l', art: 'eluat', aliases: ['arsen eluat'] },
+  { key: 'pb_el', label: 'Blei (Pb) – Eluat', unit: 'mg/l', art: 'eluat', aliases: ['blei eluat'] },
+  { key: 'cd_el', label: 'Cadmium (Cd) – Eluat', unit: 'mg/l', art: 'eluat', aliases: ['cadmium eluat'] },
+  { key: 'cr6_el', label: 'Chrom(VI) – Eluat', unit: 'mg/l', art: 'eluat', aliases: ['chrom vi eluat', 'chrom(vi) eluat'] },
+  { key: 'cr3_el', label: 'Chrom(III) – Eluat', unit: 'mg/l', art: 'eluat', aliases: ['chrom iii', 'chrom(iii)', 'cr(iii)', 'cr iii'] },
+  { key: 'cu_el', label: 'Kupfer (Cu) – Eluat', unit: 'mg/l', art: 'eluat', aliases: ['kupfer eluat'] },
+  { key: 'ni_el', label: 'Nickel (Ni) – Eluat', unit: 'mg/l', art: 'eluat', aliases: ['nickel eluat'] },
+  { key: 'hg_el', label: 'Quecksilber (Hg) – Eluat', unit: 'mg/l', art: 'eluat', aliases: ['quecksilber eluat'] },
+  { key: 'zn_el', label: 'Zink (Zn) – Eluat', unit: 'mg/l', art: 'eluat', aliases: ['zink eluat'] },
+  { key: 'co_el', label: 'Kobalt (Co) – Eluat', unit: 'mg/l', art: 'eluat', aliases: ['kobalt eluat', 'cobalt eluat'] },
+  { key: 'sn_el', label: 'Zinn (Sn) – Eluat', unit: 'mg/l', art: 'eluat', aliases: ['zinn eluat'] },
+  { key: 'al_el', label: 'Aluminium – Eluat', unit: 'mg/l', art: 'eluat', aliases: ['aluminium'] },
+  { key: 'ba_el', label: 'Barium – Eluat', unit: 'mg/l', art: 'eluat', aliases: ['barium'] },
+  { key: 'nh4_el', label: 'Ammoniak/Ammonium – Eluat', unit: 'mg N/l', art: 'eluat', aliases: ['ammoniak', 'ammonium'] },
+  { key: 'cnfrei_el', label: 'Cyanid, frei – Eluat', unit: 'mg CN/l', art: 'eluat', aliases: ['cyanid frei', 'cyanid, frei', 'cnf'] },
+  { key: 'no2_el', label: 'Nitrit – Eluat', unit: 'mg/l', art: 'eluat', aliases: ['nitrit', 'nitrite'] },
+  { key: 'so3_el', label: 'Sulfit – Eluat', unit: 'mg/l', art: 'eluat', aliases: ['sulfit', 'sulfite'] },
+  { key: 's2_el', label: 'Sulfid – Eluat', unit: 'mg/l', art: 'eluat', aliases: ['sulfid', 'sulfide'] },
+  { key: 'po4_el', label: 'Phosphat – Eluat', unit: 'mg P/l', art: 'eluat', aliases: ['phosphat'] },
 ];
 
-// Aktive Parameterliste — live gebunden: setParameters() (aufgerufen von
-// app.js nach loadParameters()) ersetzt den Inhalt; alle Importe von
-// {PARAMETERS} in anderen Modulen sehen die Änderung automatisch (ES-Module-
-// Live-Bindings), inkl. findParamByAlias/classify() unten.
 export let PARAMETERS = DEFAULT_PARAMETERS.map(p => ({ ...p }));
 export function setParameters(list) {
   PARAMETERS = Array.isArray(list) && list.length ? list : DEFAULT_PARAMETERS.map(p => ({ ...p }));
 }
-
 export function loadParameters() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_PARAMETERS);
@@ -78,20 +229,17 @@ function escapeRegExp(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Findet einen Alias nur als eigenständiges Wort/Token (Wortgrenzen), nie als
-// blossen Teilstring mitten in einem anderen Wort — sonst würde z.B. der
-// Alias "ni" (Nickel) fälschlich in "Alumi-ni-um" oder "Ammo-ni-um" matchen.
 function containsAliasAsToken(text, alias) {
   const re = new RegExp(`(^|[^a-zà-ÿ0-9])${escapeRegExp(alias)}($|[^a-zà-ÿ0-9])`, 'i');
   return re.test(text);
 }
 
-export function findParamByAlias(text) {
+export function findParamByAlias(text, list = PARAMETERS) {
   const t = text.trim().toLowerCase().replace(/\s+/g, ' ');
   let best = null;
-  for (const p of PARAMETERS) {
+  for (const p of list) {
     for (const a of (p.aliases || [])) {
-      if (t === a) return p; // exact match wins immediately
+      if (t === a) return p;
       if (containsAliasAsToken(t, a) && (!best || a.length > best._matchLen)) {
         best = p;
         best._matchLen = a.length;
@@ -111,28 +259,56 @@ export function slugifyParamKey(label, existingKeys) {
   return key;
 }
 
-// Platzhalter-Grenzwerte – siehe Hinweis oben. gesamt in mg/kg TS (TOC in %),
-// eluat in mg/l (pH dimensionslos). `null` = für diese Klasse nicht geregelt/
-// nicht beschränkend.
 export const DEMO_THRESHOLDS = {
-  toc:     { unbelastet: 1,   typA: 2,   typB: 5,    typC: null, typD: null, typE: null },
-  kw:      { unbelastet: 50,  typA: 100, typB: 500,  typC: 1000, typD: null, typE: null },
-  pak:     { unbelastet: 1,   typA: 5,   typB: 20,   typC: 50,   typD: null, typE: null },
-  pcb:     { unbelastet: 0.1, typA: 0.5, typB: 1,    typC: 5,    typD: null, typE: null },
-  pb:      { unbelastet: 50,  typA: 150, typB: 500,  typC: 1000, typD: null, typE: null },
-  cd:      { unbelastet: 0.8, typA: 2,   typB: 5,    typC: 20,   typD: null, typE: null },
-  cr:      { unbelastet: 50,  typA: 150, typB: 500,  typC: 1000, typD: null, typE: null },
-  cu:      { unbelastet: 40,  typA: 150, typB: 500,  typC: 1000, typD: null, typE: null },
-  ni:      { unbelastet: 50,  typA: 150, typB: 500,  typC: 1000, typD: null, typE: null },
-  hg:      { unbelastet: 0.5, typA: 1,   typB: 5,    typC: 20,   typD: null, typE: null },
-  zn:      { unbelastet: 150, typA: 500, typB: 2000, typC: 5000, typD: null, typE: null },
-  cn:      { unbelastet: 1,   typA: 5,   typB: 10,   typC: 50,   typD: null, typE: null },
-  pH:      { unbelastet: null, typA: null, typB: null, typC: null, typD: null, typE: null },
-  doc:     { unbelastet: 20,  typA: 50,  typB: 100,  typC: 200,  typD: null, typE: null },
-  leitf:   { unbelastet: null, typA: null, typB: null, typC: null, typD: null, typE: null },
-  chlorid: { unbelastet: null, typA: null, typB: null, typC: null, typD: null, typE: null },
-  sulfat:  { unbelastet: null, typA: null, typB: null, typC: null, typD: null, typE: null },
-  fluorid: { unbelastet: null, typA: null, typB: null, typC: null, typD: null, typE: null },
+  toc:      { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null, typE: null },
+  toc400:   { unbelastet: null, typA: 10000, typB: 20000, typC: 20000, typD: null, typE: 50000 },
+  kw:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: 500,   typD: null, typE: 5000 },
+  kw_c5:    { unbelastet: 1,    typA: 5,     typB: 10,    typC: 10,    typD: null, typE: 100 },
+  pak:      { unbelastet: 3,    typA: 12.5,  typB: 25,    typC: 25,    typD: null, typE: 250 },
+  bap:      { unbelastet: 0.3,  typA: 1.5,   typB: 3,     typC: 3,     typD: null, typE: 10 },
+  pcb:      { unbelastet: 0.1,  typA: 0.5,   typB: 1,     typC: 1,     typD: null, typE: 10 },
+  btex:     { unbelastet: 1,    typA: 5,     typB: 10,    typC: 10,    typD: null, typE: 100 },
+  benzol:   { unbelastet: 0.1,  typA: 0.5,   typB: 1,     typC: 1,     typD: null, typE: 1 },
+  sb:       { unbelastet: 3,    typA: 15,    typB: 30,    typC: null,  typD: null, typE: 50 },
+  as:       { unbelastet: 15,   typA: 15,    typB: 30,    typC: null,  typD: null, typE: 50 },
+  pb:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: null, typE: 2000 },
+  cd:       { unbelastet: 1,    typA: 5,     typB: 10,    typC: null,  typD: null, typE: 10 },
+  cr:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: null, typE: 1000 },
+  cr6:      { unbelastet: 0.05, typA: 0.05,  typB: 0.1,   typC: null,  typD: null, typE: 0.5 },
+  co:       { unbelastet: null, typA: null,  typB: 250,   typC: null,  typD: null, typE: null },
+  cu:       { unbelastet: 40,   typA: 250,   typB: 500,   typC: null,  typD: null, typE: 5000 },
+  ni:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: null, typE: 1000 },
+  hg:       { unbelastet: 0.5,  typA: 1,     typB: 2,     typC: null,  typD: null, typE: 5 },
+  tl:       { unbelastet: null, typA: null,  typB: 3,     typC: null,  typD: null, typE: null },
+  zn:       { unbelastet: 150,  typA: 500,   typB: 1000,  typC: null,  typD: null, typE: 5000 },
+  sn:       { unbelastet: null, typA: null,  typB: 100,   typC: null,  typD: null, typE: null },
+  cn:       { unbelastet: 0.5,  typA: null,  typB: null,  typC: null,  typD: null, typE: null },
+  salze:    { unbelastet: null, typA: null,  typB: 0.5,   typC: 3,     typD: null, typE: 5 },
+  pH:       { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null, typE: null },
+  doc:      { unbelastet: null, typA: null,  typB: 20,    typC: 20,    typD: null, typE: null },
+  leitf:    { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null, typE: null },
+  chlorid:  { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null, typE: null },
+  sulfat:   { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null, typE: null },
+  fluorid:  { unbelastet: null, typA: null,  typB: 2,     typC: 10,    typD: null, typE: null },
+  as_el:    { unbelastet: null, typA: null,  typB: null,  typC: 0.1,   typD: null, typE: null },
+  pb_el:    { unbelastet: null, typA: null,  typB: null,  typC: 1,     typD: null, typE: null },
+  cd_el:    { unbelastet: null, typA: null,  typB: null,  typC: 0.1,   typD: null, typE: null },
+  cr6_el:   { unbelastet: null, typA: null,  typB: null,  typC: 0.1,   typD: null, typE: null },
+  cr3_el:   { unbelastet: null, typA: null,  typB: null,  typC: 2,     typD: null, typE: null },
+  cu_el:    { unbelastet: null, typA: null,  typB: null,  typC: 0.5,   typD: null, typE: null },
+  ni_el:    { unbelastet: null, typA: null,  typB: null,  typC: 2,     typD: null, typE: null },
+  hg_el:    { unbelastet: null, typA: null,  typB: null,  typC: 0.01,  typD: null, typE: null },
+  zn_el:    { unbelastet: null, typA: null,  typB: null,  typC: 10,    typD: null, typE: null },
+  co_el:    { unbelastet: null, typA: null,  typB: null,  typC: 0.5,   typD: null, typE: null },
+  sn_el:    { unbelastet: null, typA: null,  typB: null,  typC: 2,     typD: null, typE: null },
+  al_el:    { unbelastet: null, typA: null,  typB: null,  typC: 10,    typD: null, typE: null },
+  ba_el:    { unbelastet: null, typA: null,  typB: null,  typC: 5,     typD: null, typE: null },
+  nh4_el:   { unbelastet: null, typA: null,  typB: 0.5,   typC: 5,     typD: null, typE: null },
+  cnfrei_el:{ unbelastet: null, typA: null,  typB: 0.02,  typC: 0.1,   typD: null, typE: 0.3 },
+  no2_el:   { unbelastet: null, typA: null,  typB: 1,     typC: 1,     typD: null, typE: null },
+  so3_el:   { unbelastet: null, typA: null,  typB: null,  typC: 1,     typD: null, typE: null },
+  s2_el:    { unbelastet: null, typA: null,  typB: null,  typC: 0.1,   typD: null, typE: null },
+  po4_el:   { unbelastet: null, typA: null,  typB: null,  typC: 10,    typD: null, typE: null },
 };
 
 export function loadThresholds() {
@@ -142,11 +318,9 @@ export function loadThresholds() {
   } catch (e) { /* fall through to default */ }
   return JSON.parse(JSON.stringify(DEMO_THRESHOLDS));
 }
-
 export function saveThresholds(thresholds) {
   localStorage.setItem(STORAGE_KEY_THRESHOLDS, JSON.stringify(thresholds));
 }
-
 export function resetThresholds() {
   localStorage.removeItem(STORAGE_KEY_THRESHOLDS);
 }
@@ -159,35 +333,33 @@ export function acknowledgeDisclaimer() {
 }
 
 /**
- * Klassifiziert eine Probe anhand ihrer Analysewerte.
- * @param {Array<{parameterKey:string, wert:number, art:'gesamt'|'eluat'}>} werte
- * @param {object} thresholds  Grenzwert-Set (siehe DEMO_THRESHOLDS)
- * @returns {{classId:string, classIndex:number, perParameter:Array, unbewertet:Array}}
+ * Klassifiziert eine Probe anhand ihrer Analysewerte. Generisch für VVEA und
+ * VBBo nutzbar — `classes`/`params` bestimmen das Klassifizierungssystem.
  */
-export function classify(werte, thresholds) {
+export function classify(werte, thresholds, classes = CLASSES, params = PARAMETERS) {
   const perParameter = [];
   const unbewertet = [];
   let worstIndex = 0;
 
   for (const w of werte) {
     const paramThresholds = thresholds[w.parameterKey];
-    const paramDef = PARAMETERS.find(p => p.key === w.parameterKey);
+    const paramDef = params.find(p => p.key === w.parameterKey);
     if (!paramThresholds || w.wert === null || w.wert === undefined || Number.isNaN(w.wert)) {
       unbewertet.push(w);
       continue;
     }
-    const anyLimitDefined = CLASSES.some(c => paramThresholds[c.id] !== null && paramThresholds[c.id] !== undefined);
+    const anyLimitDefined = classes.some(c => paramThresholds[c.id] !== null && paramThresholds[c.id] !== undefined);
     if (!anyLimitDefined) {
       unbewertet.push(w);
       continue;
     }
 
-    let matchedIndex = CLASSES.findIndex(c => c.terminal); // default: Sonderfall
-    for (let i = 0; i < CLASSES.length; i++) {
-      const c = CLASSES[i];
+    let matchedIndex = classes.findIndex(c => c.terminal);
+    for (let i = 0; i < classes.length; i++) {
+      const c = classes[i];
       if (c.terminal) continue;
       const limit = paramThresholds[c.id];
-      if (limit === null || limit === undefined) continue; // nicht geregelt auf dieser Stufe -> weiterprüfen
+      if (limit === null || limit === undefined) continue;
       if (w.wert <= limit) {
         matchedIndex = i;
         break;
@@ -198,16 +370,16 @@ export function classify(werte, thresholds) {
       label: paramDef ? paramDef.label : w.parameterKey,
       unit: paramDef ? paramDef.unit : '',
       classIndex: matchedIndex,
-      classId: CLASSES[matchedIndex].id,
-      color: CLASSES[matchedIndex].color,
+      classId: classes[matchedIndex].id,
+      color: classes[matchedIndex].color,
     });
     if (matchedIndex > worstIndex) worstIndex = matchedIndex;
   }
 
   return {
-    classId: CLASSES[worstIndex].id,
+    classId: classes[worstIndex].id,
     classIndex: worstIndex,
-    classInfo: CLASSES[worstIndex],
+    classInfo: classes[worstIndex],
     perParameter,
     unbewertet,
   };
@@ -238,14 +410,6 @@ function splitCsvLine(line, delim) {
   return out.map(s => s.trim().replace(/^"|"$/g, ''));
 }
 
-/**
- * Erwartetes Format (Header-Zeile nötig), z.B. per Excel "Speichern unter -> CSV":
- * Parameter;Art;Einheit;Verwertung;Typ A;Typ B;Typ C;Typ D;Typ E
- * Blei (Pb);Gesamt;mg/kg;50;150;500;1000;;
- *
- * Unbekannte Parameter-Namen werden als NEUE Parameter vorgeschlagen (nicht
- * automatisch übernommen — Vorschau vor dem Übernehmen prüfen lassen).
- */
 export function parseThresholdsCSV(text) {
   const lines = text.split(/\r\n|\n|\r/).filter(l => l.trim().length > 0);
   if (lines.length < 2) return [];
@@ -269,9 +433,6 @@ export function parseThresholdsCSV(text) {
     const unitRaw = unitCol >= 0 ? cells[unitCol] : '';
     let existing = findParamByAlias(nameRaw);
     const art = /eluat/i.test(artRaw) ? 'eluat' : (/gesamt/i.test(artRaw) ? 'gesamt' : (existing ? existing.art : 'gesamt'));
-    // Ein Namens-Treffer zählt nur, wenn auch die Art (Gesamt/Eluat) übereinstimmt
-    // — sonst würde z.B. "Blei (Pb) – Eluat" denselben Schlüssel wie das
-    // bestehende Gesamtgehalt-"Blei (Pb)" bekommen und dessen Werte überschreiben.
     if (existing && existing.art !== art) existing = null;
     const unit = unitRaw || (existing ? existing.unit : '');
     const values = {};

@@ -4,7 +4,10 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
-import { DEMO_THRESHOLDS, DEFAULT_PARAMETERS } from './vvea-defaults.js';
+import {
+  DEMO_THRESHOLDS, DEFAULT_PARAMETERS,
+  DEFAULT_VBBO_THRESHOLDS, DEFAULT_VBBO_PARAMETERS, DEFAULT_VEVA_CODES,
+} from './vvea-defaults.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataDir = path.join(__dirname, '..', 'data');
@@ -52,6 +55,10 @@ CREATE TABLE IF NOT EXISTS entries (
   bemerkungen TEXT DEFAULT '',
   analyseJson TEXT DEFAULT '[]',
   klassifizierungJson TEXT,
+  standard TEXT DEFAULT 'vvea', -- 'vvea' | 'vbbo'
+  nutzungsart TEXT,             -- nur bei standard='vbbo': 'spielplatz' | 'garten' | 'landwirtschaft'
+  entsorgungsweg TEXT DEFAULT '',
+  vevaCode TEXT DEFAULT '',
   createdBy TEXT REFERENCES users(id)
 );
 CREATE INDEX IF NOT EXISTS idx_entries_projekt ON entries(projektId);
@@ -73,25 +80,28 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 `);
 
-// Migration für bestehende Datenbanken (vor Einführung des Projekt-Konzepts):
-// entries.projektId nachrüsten, falls die Spalte noch fehlt.
+// Migrationen für bestehende Datenbanken: fehlende Spalten nachrüsten.
 const entryCols = db.prepare("PRAGMA table_info(entries)").all().map(c => c.name);
-if (!entryCols.includes('projektId')) {
-  db.exec('ALTER TABLE entries ADD COLUMN projektId TEXT REFERENCES projects(id)');
-  db.exec('CREATE INDEX IF NOT EXISTS idx_entries_projekt ON entries(projektId)');
-}
+const addColumnIfMissing = (col, ddl) => {
+  if (!entryCols.includes(col)) db.exec(`ALTER TABLE entries ADD COLUMN ${ddl}`);
+};
+addColumnIfMissing('projektId', "projektId TEXT REFERENCES projects(id)");
+addColumnIfMissing('standard', "standard TEXT DEFAULT 'vvea'");
+addColumnIfMissing('nutzungsart', "nutzungsart TEXT");
+addColumnIfMissing('entsorgungsweg', "entsorgungsweg TEXT DEFAULT ''");
+addColumnIfMissing('vevaCode', "vevaCode TEXT DEFAULT ''");
+db.exec('CREATE INDEX IF NOT EXISTS idx_entries_projekt ON entries(projektId)');
 
-// Grenzwerte mit Platzhalter-Beispielwerten vorbefüllen, falls noch nicht vorhanden.
-const thresholdsRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('vvea_thresholds');
-if (!thresholdsRow) {
-  db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)')
-    .run('vvea_thresholds', JSON.stringify(DEMO_THRESHOLDS));
+// Einstellungen mit Startwerten vorbefüllen, falls noch nicht vorhanden.
+function seedSetting(key, value) {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+  if (!row) db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run(key, JSON.stringify(value));
 }
-const parametersRow = db.prepare('SELECT value FROM settings WHERE key = ?').get('vvea_parameters');
-if (!parametersRow) {
-  db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)')
-    .run('vvea_parameters', JSON.stringify(DEFAULT_PARAMETERS));
-}
+seedSetting('vvea_thresholds', DEMO_THRESHOLDS);
+seedSetting('vvea_parameters', DEFAULT_PARAMETERS);
+seedSetting('vbbo_thresholds', DEFAULT_VBBO_THRESHOLDS);
+seedSetting('vbbo_parameters', DEFAULT_VBBO_PARAMETERS);
+seedSetting('veva_codes', DEFAULT_VEVA_CODES);
 
 // Ersten Admin-Benutzer aus den Umgebungsvariablen anlegen, falls noch keine
 // Benutzer existieren.

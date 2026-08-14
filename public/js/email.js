@@ -3,8 +3,8 @@
 // da mailto: selbst keine Dateianhänge setzen kann — Browser-Beschränkung).
 import { CLASSES } from './vvea.js';
 
-export function buildMailSummary(entry, classification) {
-  const overall = classification ? CLASSES[classification.classIndex] : null;
+export function buildMailSummary(entry, classification, classes = CLASSES) {
+  const overall = classification ? classes[classification.classIndex] : null;
   const lines = [];
   lines.push(`Probennahmejournal – ${entry.probeBezeichnung || '(ohne Bezeichnung)'}`);
   lines.push('');
@@ -13,13 +13,16 @@ export function buildMailSummary(entry, classification) {
   lines.push(`Material: ${entry.material || '–'}`);
   lines.push(`Probenehmer/in: ${entry.probenehmer || '–'}`);
   lines.push(`Datum: ${new Date(entry.createdAt).toLocaleString('de-CH')}`);
+  lines.push(`Standard: ${entry.standard === 'vbbo' ? 'VBBo (Bodenqualität)' : 'VVEA (Deponieklassen)'}`);
+  if (entry.vevaCode) lines.push(`VeVA-Code: ${entry.vevaCode}`);
+  if (entry.entsorgungsweg) lines.push(`Entsorgungsweg: ${entry.entsorgungsweg}`);
   lines.push('');
   lines.push(`Einstufung: ${overall ? overall.label : 'keine Analysewerte erfasst'}`);
   if (classification?.perParameter?.length) {
     lines.push('');
     lines.push('Analysewerte:');
     for (const p of classification.perParameter) {
-      lines.push(`  - ${p.label}: ${p.wert} ${p.unit} (${p.art === 'eluat' ? 'Eluat' : 'Gesamtgehalt'}) -> ${CLASSES[p.classIndex].short}`);
+      lines.push(`  - ${p.label}: ${p.wert} ${p.unit} (${p.art === 'eluat' ? 'Eluat' : 'Gesamtgehalt'}) -> ${classes[p.classIndex].short}`);
     }
   }
   if (entry.bemerkungen) {
@@ -33,10 +36,10 @@ export function buildMailSummary(entry, classification) {
   return lines.join('\n');
 }
 
-export function buildMailto(entry, classification, to = '') {
-  const overall = classification ? CLASSES[classification.classIndex].short : 'unklassifiziert';
+export function buildMailto(entry, classification, to = '', classes = CLASSES) {
+  const overall = classification ? classes[classification.classIndex].short : 'unklassifiziert';
   const subject = `Probennahmejournal – ${entry.baustelle || ''} – ${entry.probeBezeichnung || entry.id} – ${overall}`;
-  const body = buildMailSummary(entry, classification);
+  const body = buildMailSummary(entry, classification, classes);
   const params = new URLSearchParams();
   params.set('subject', subject);
   params.set('body', body);

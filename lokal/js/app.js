@@ -9,6 +9,11 @@ import {
   loadThresholds, saveThresholds, resetThresholds,
   loadParameters, saveParameters, resetParametersStorage,
   hasAcknowledgedDisclaimer, acknowledgeDisclaimer,
+  VBBO_CLASSES, NUTZUNGSARTEN, VBBO_PARAMETERS, DEFAULT_VBBO_PARAMETERS,
+  setVbboParameters, classifyVBBO,
+  loadVbboParameters, saveVbboParameters, resetVbboParametersStorage,
+  loadVbboThresholds, saveVbboThresholds, resetVbboThresholdsStorage,
+  loadVevaCodes, saveVevaCodes, resetVevaCodesStorage,
 } from './vvea.js';
 import { parseCSV } from './parse-csv.js';
 import { parsePDF } from './parse-pdf.js';
@@ -81,7 +86,12 @@ window.addEventListener('hashchange', route);
 
 // ---------- Journal (Liste mit Filtern) ----------
 let journalEntries = [];
-let journalFilter = { projekt: '', material: '', klasse: '', sort: 'neu' };
+let journalFilter = { projekt: '', material: '', standard: '', klasse: '', sort: 'neu' };
+
+// Klassen-Array passend zum Standard einer Probe (Default 'vvea' für alte Proben).
+function classesForEntry(entry) {
+  return entry?.standard === 'vbbo' ? VBBO_CLASSES : CLASSES;
+}
 
 async function renderJournal() {
   journalEntries = await getAllEntries();
@@ -106,14 +116,24 @@ async function renderJournal() {
         <option value="">Alle</option>
         ${materialien.map(m => `<option value="${escapeHtml(m)}" ${journalFilter.material === m ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('')}
       </select></div>
-      <div class="field"><label>Deponieklasse</label><select id="filter-klasse">
+      <div class="field"><label>Standard</label><select id="filter-standard">
         <option value="">Alle</option>
-        ${CLASSES.map(c => `<option value="${c.id}" ${journalFilter.klasse === c.id ? 'selected' : ''}>${escapeHtml(c.short)}</option>`).join('')}
+        <option value="vvea" ${journalFilter.standard === 'vvea' ? 'selected' : ''}>VVEA (Deponieklassen)</option>
+        <option value="vbbo" ${journalFilter.standard === 'vbbo' ? 'selected' : ''}>VBBo (Bodenqualität)</option>
+      </select></div>
+      <div class="field"><label>Klasse</label><select id="filter-klasse">
+        <option value="">Alle</option>
+        <optgroup label="VVEA">
+          ${CLASSES.map(c => `<option value="vvea:${c.id}" ${journalFilter.klasse === `vvea:${c.id}` ? 'selected' : ''}>${escapeHtml(c.short)}</option>`).join('')}
+        </optgroup>
+        <optgroup label="VBBo">
+          ${VBBO_CLASSES.map(c => `<option value="vbbo:${c.id}" ${journalFilter.klasse === `vbbo:${c.id}` ? 'selected' : ''}>${escapeHtml(c.short)}</option>`).join('')}
+        </optgroup>
       </select></div>
       <div class="field"><label>Sortierung</label><select id="filter-sort">
         <option value="neu" ${journalFilter.sort === 'neu' ? 'selected' : ''}>Neueste zuerst</option>
         <option value="alt" ${journalFilter.sort === 'alt' ? 'selected' : ''}>Älteste zuerst</option>
-        <option value="klasse" ${journalFilter.sort === 'klasse' ? 'selected' : ''}>Deponieklasse (kritischste zuerst)</option>
+        <option value="klasse" ${journalFilter.sort === 'klasse' ? 'selected' : ''}>Klasse (kritischste zuerst)</option>
       </select></div>
     </div>
     <p class="hint" id="filter-count"></p>
@@ -121,17 +141,20 @@ async function renderJournal() {
 
   $('#filter-projekt').addEventListener('change', ev => { journalFilter.projekt = ev.target.value; paintJournalList(); });
   $('#filter-material').addEventListener('change', ev => { journalFilter.material = ev.target.value; paintJournalList(); });
+  $('#filter-standard').addEventListener('change', ev => { journalFilter.standard = ev.target.value; paintJournalList(); });
   $('#filter-klasse').addEventListener('change', ev => { journalFilter.klasse = ev.target.value; paintJournalList(); });
   $('#filter-sort').addEventListener('change', ev => { journalFilter.sort = ev.target.value; paintJournalList(); });
   paintJournalList();
 }
 
 function paintJournalList() {
-  let list = journalEntries.filter(e =>
-    (!journalFilter.projekt || e.baustelle === journalFilter.projekt) &&
-    (!journalFilter.material || e.material === journalFilter.material) &&
-    (!journalFilter.klasse || e.klassifizierung?.classId === journalFilter.klasse)
-  );
+  let list = journalEntries.filter(e => {
+    const std = e.standard === 'vbbo' ? 'vbbo' : 'vvea';
+    return (!journalFilter.projekt || e.baustelle === journalFilter.projekt) &&
+      (!journalFilter.material || e.material === journalFilter.material) &&
+      (!journalFilter.standard || std === journalFilter.standard) &&
+      (!journalFilter.klasse || `${std}:${e.klassifizierung?.classId}` === journalFilter.klasse);
+  });
   if (journalFilter.sort === 'alt') list = [...list].sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
   else if (journalFilter.sort === 'klasse') list = [...list].sort((a, b) => (b.klassifizierung?.classIndex ?? -1) - (a.klassifizierung?.classIndex ?? -1));
   else list = [...list].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
@@ -151,10 +174,11 @@ function paintJournalList() {
     thumbEl.className = 'entry-thumb';
     if (thumbPhoto) thumbEl.style.backgroundImage = `url(${URL.createObjectURL(thumbPhoto.blob)})`;
     else thumbEl.textContent = '📷';
-    const cls = entry.klassifizierung ? CLASSES[entry.klassifizierung.classIndex] : null;
+    const cls = entry.klassifizierung ? classesForEntry(entry)[entry.klassifizierung.classIndex] : null;
+    const stdLabel = entry.standard === 'vbbo' ? 'VBBo' : 'VVEA';
     card.innerHTML = `<div class="entry-info">
         <h3 class="entry-title">${escapeHtml(entry.probeBezeichnung || '(ohne Bezeichnung)')}</h3>
-        <p class="entry-sub">${escapeHtml(entry.baustelle || '–')} · ${escapeHtml(entry.material || '')} · ${fmtDate(entry.createdAt)}</p>
+        <p class="entry-sub">${escapeHtml(entry.baustelle || '–')} · ${escapeHtml(entry.material || '')} · ${stdLabel} · ${fmtDate(entry.createdAt)}</p>
         ${cls ? `<span class="badge" style="background:${cls.color}">${escapeHtml(cls.short)}</span>` : '<span class="hint">keine Analyse</span>'}
       </div>`;
     card.prepend(thumbEl);
@@ -264,14 +288,21 @@ let currentEntry = null;
 let isNew = true;
 let currentClassification = null;
 let thresholds = loadThresholds();
+let vbboThresholds = loadVbboThresholds();
+let vevaCodes = loadVevaCodes();
 let formProjects = [];
 let formEntnahmeorte = [];
+let formEntsorgungswege = [];
 
 async function renderEntryForm(idOrNeu) {
   thresholds = loadThresholds();
   setParameters(loadParameters());
+  vbboThresholds = loadVbboThresholds();
+  setVbboParameters(loadVbboParameters());
+  vevaCodes = loadVevaCodes();
   if (idOrNeu === 'neu') {
     currentEntry = newEntry();
+    currentEntry.nutzungsart = NUTZUNGSARTEN[0].id;
     isNew = true;
     formProjects = await getAllProjects();
     if (formProjects.length === 0) {
@@ -283,6 +314,7 @@ async function renderEntryForm(idOrNeu) {
     }
     const allEntries = await getAllEntries();
     formEntnahmeorte = allEntries.map(en => en.entnahmeort).filter(Boolean);
+    formEntsorgungswege = allEntries.map(en => en.entsorgungsweg).filter(Boolean);
     currentEntry.projektId = formProjects[0].id;
     const recent = getRecentProbenehmer();
     if (recent.length) currentEntry.probenehmer = recent[0];
@@ -291,6 +323,10 @@ async function renderEntryForm(idOrNeu) {
     if (!loaded) { location.hash = '#/journal'; return; }
     currentEntry = loaded;
     isNew = false;
+    if (!currentEntry.standard) currentEntry.standard = 'vvea';
+    if (currentEntry.standard === 'vbbo' && !currentEntry.nutzungsart) currentEntry.nutzungsart = NUTZUNGSARTEN[0].id;
+    const allEntries = await getAllEntries();
+    formEntsorgungswege = allEntries.map(en => en.entsorgungsweg).filter(Boolean);
   }
   recomputeClassification();
   paintEntryForm();
@@ -300,7 +336,11 @@ function recomputeClassification() {
   const werte = (currentEntry.analyse || [])
     .filter(a => a.parameterKey && a.wert !== null && a.wert !== undefined && !Number.isNaN(a.wert))
     .map(a => ({ parameterKey: a.parameterKey, wert: a.wert, art: a.art || 'gesamt' }));
-  currentClassification = werte.length ? classify(werte, thresholds) : null;
+  if (currentEntry.standard === 'vbbo') {
+    currentClassification = werte.length ? classifyVBBO(werte, vbboThresholds, currentEntry.nutzungsart || NUTZUNGSARTEN[0].id) : null;
+  } else {
+    currentClassification = werte.length ? classify(werte, thresholds) : null;
+  }
   currentEntry.klassifizierung = currentClassification;
 }
 
@@ -362,6 +402,37 @@ function paintEntryForm() {
     </div>
 
     <div class="card">
+      <h2>Einstufung & Entsorgung</h2>
+      <div class="grid-2">
+        <div class="field">
+          <label>Standard</label>
+          <select id="f-standard">
+            <option value="vvea" ${e.standard !== 'vbbo' ? 'selected' : ''}>VVEA (Deponieklassen)</option>
+            <option value="vbbo" ${e.standard === 'vbbo' ? 'selected' : ''}>VBBo (Bodenqualität)</option>
+          </select>
+        </div>
+        <div class="field" id="f-nutzungsart-field" style="display:${e.standard === 'vbbo' ? 'block' : 'none'};">
+          <label>Nutzungsart <span class="hint">(nur VBBo)</span></label>
+          <select id="f-nutzungsart">
+            ${NUTZUNGSARTEN.map(n => `<option value="${n.id}" ${e.nutzungsart === n.id ? 'selected' : ''}>${escapeHtml(n.label)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>VeVA-Code <span class="hint">(Aushub/Boden)</span></label>
+          <select id="f-veva-code">
+            <option value="">– keiner –</option>
+            ${vevaCodes.map(c => `<option value="${escapeHtml(c.code)}" ${e.vevaCode === c.code ? 'selected' : ''}>${escapeHtml(c.code)} – ${escapeHtml(c.bezeichnung)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label>Entsorgungsweg</label>
+          <input id="f-entsorgungsweg" list="entsorgungsweg-vorschlaege" value="${escapeHtml(e.entsorgungsweg)}">
+          <datalist id="entsorgungsweg-vorschlaege">${[...new Set(formEntsorgungswege)].map(o => `<option value="${escapeHtml(o)}">`).join('')}</datalist>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
       <h2>Fotos</h2>
       <input type="file" accept="image/*" capture="environment" multiple id="photo-input" style="display:none">
       <button class="btn" id="btn-photo" type="button">📷 Foto(s) aufnehmen / hinzufügen</button>
@@ -416,6 +487,22 @@ function paintEntryForm() {
   $('#f-bemerkungen').addEventListener('input', ev => e.bemerkungen = ev.target.value);
   $('#f-datum').addEventListener('input', ev => { if (ev.target.value) e.createdAt = new Date(ev.target.value).toISOString(); });
 
+  $('#f-standard').addEventListener('change', ev => {
+    e.standard = ev.target.value;
+    if (e.standard === 'vbbo' && !e.nutzungsart) e.nutzungsart = NUTZUNGSARTEN[0].id;
+    $('#f-nutzungsart-field').style.display = e.standard === 'vbbo' ? 'block' : 'none';
+    recomputeClassification();
+    paintAnalyseTable();
+  });
+  const nutzungsartSel = $('#f-nutzungsart');
+  if (nutzungsartSel) nutzungsartSel.addEventListener('change', ev => {
+    e.nutzungsart = ev.target.value;
+    recomputeClassification();
+    paintClassificationBanner();
+  });
+  $('#f-veva-code').addEventListener('change', ev => { e.vevaCode = ev.target.value; });
+  $('#f-entsorgungsweg').addEventListener('input', ev => { e.entsorgungsweg = ev.target.value; });
+
   $('#btn-gps').addEventListener('click', () => {
     if (!navigator.geolocation) { toast('Geolocation nicht verfügbar'); return; }
     navigator.geolocation.getCurrentPosition(pos => {
@@ -445,7 +532,7 @@ function paintEntryForm() {
     ev.target.value = '';
     if (!file) return;
     const text = await file.text();
-    const rows = parseCSV(text);
+    const rows = parseCSV(text, activeParamList());
     showImportPreview(rows, 'CSV');
   });
   $('#btn-import-pdf').addEventListener('click', () => $('#pdf-input').click());
@@ -456,7 +543,7 @@ function paintEntryForm() {
     toast('PDF wird analysiert …');
     try {
       const buf = await file.arrayBuffer();
-      const rows = await parsePDF(buf);
+      const rows = await parsePDF(buf, activeParamList());
       if (!rows.length) toast('Keine bekannten Parameter im PDF gefunden – bitte manuell erfassen.');
       showImportPreview(rows, 'PDF');
     } catch (err) {
@@ -499,7 +586,7 @@ function paintEntryForm() {
     recomputeClassification();
     toast('PDF wird erstellt …');
     try {
-      const blob = await generateReportPDF(buildPdfReportEntry(), currentClassification);
+      const blob = await generateReportPDF(buildPdfReportEntry(), currentClassification, classesForEntry(e));
       downloadBlob(pdfFilename(), blob);
     } catch (err) {
       console.error(err);
@@ -511,15 +598,16 @@ function paintEntryForm() {
     recomputeClassification();
     toast('PDF wird erstellt …');
     try {
-      const blob = await generateReportPDF(buildPdfReportEntry(), currentClassification);
+      const classes = classesForEntry(e);
+      const blob = await generateReportPDF(buildPdfReportEntry(), currentClassification, classes);
       const subject = `Probennahmejournal – ${e.baustelle || ''} – ${e.probeBezeichnung || ''}`.trim();
-      const body = buildMailSummary(e, currentClassification);
+      const body = buildMailSummary(e, currentClassification, classes);
       const result = await sharePDFOrDownload(blob, pdfFilename(), subject, body);
       if (result === 'shared') {
         toast('Zum Teilen/Senden bereit – PDF ist angehängt.');
       } else if (result === 'downloaded') {
         toast('PDF heruntergeladen – bitte in der E-Mail manuell anhängen (mailto: kann keine Anhänge setzen).');
-        window.location.href = buildMailto(e, currentClassification);
+        window.location.href = buildMailto(e, currentClassification, '', classes);
       }
     } catch (err) {
       console.error(err);
@@ -560,14 +648,19 @@ function paintPhotoGrid() {
   });
 }
 
+function activeParamList() {
+  return currentEntry.standard === 'vbbo' ? VBBO_PARAMETERS : PARAMETERS;
+}
+
 function paramOptionsHtml(selected) {
-  return `<option value="">– wählen –</option>` + PARAMETERS.map(p =>
+  return `<option value="">– wählen –</option>` + activeParamList().map(p =>
     `<option value="${p.key}" ${p.key === selected ? 'selected' : ''}>${escapeHtml(p.label)}</option>`).join('');
 }
 
 function paintAnalyseTable() {
   const table = $('#analyse-table');
   const rows = currentEntry.analyse;
+  const isVbbo = currentEntry.standard === 'vbbo';
   if (rows.length === 0) {
     table.innerHTML = '<tr><td class="hint" colspan="5">Noch keine Werte – manuell hinzufügen oder CSV/PDF importieren.</td></tr>';
   } else {
@@ -577,10 +670,10 @@ function paintAnalyseTable() {
           <td><select data-i="${i}" data-f="parameterKey">${paramOptionsHtml(r.parameterKey)}</select></td>
           <td><input data-i="${i}" data-f="wert" type="number" step="any" inputmode="decimal" value="${r.wert ?? ''}"></td>
           <td class="hint">${escapeHtml(r.einheit || '')}</td>
-          <td><select data-i="${i}" data-f="art">
+          <td>${isVbbo ? '<span class="hint">Gesamtgehalt</span>' : `<select data-i="${i}" data-f="art">
                 <option value="gesamt" ${r.art === 'gesamt' ? 'selected' : ''}>Gesamtgehalt</option>
                 <option value="eluat" ${r.art === 'eluat' ? 'selected' : ''}>Eluat</option>
-              </select></td>
+              </select>`}</td>
           <td><button type="button" data-del="${i}" class="btn danger" style="padding:.2rem .5rem;">×</button></td>
         </tr>`).join('');
   }
@@ -592,10 +685,10 @@ function paintAnalyseTable() {
       if (f === 'wert') val = val === '' ? null : parseFloat(val);
       currentEntry.analyse[i][f] = val;
       if (f === 'parameterKey') {
-        const def = PARAMETERS.find(p => p.key === val);
+        const def = activeParamList().find(p => p.key === val);
         if (def) {
           currentEntry.analyse[i].einheit = def.unit;
-          currentEntry.analyse[i].art = def.art;
+          currentEntry.analyse[i].art = def.art || 'gesamt';
           paintAnalyseTable();
           return;
         }
@@ -621,7 +714,8 @@ function paintClassificationBanner() {
     el.innerHTML = '<p class="hint">Noch keine bewertbaren Analysewerte.</p>';
     return;
   }
-  const info = CLASSES[currentClassification.classIndex];
+  const classes = classesForEntry(currentEntry);
+  const info = classes[currentClassification.classIndex];
   const unbewertetHint = currentClassification.unbewertet.length
     ? `<p class="hint">${currentClassification.unbewertet.length} Wert(e) ohne hinterlegten Grenzwert – nicht in Klassifizierung eingeflossen.</p>`
     : '';
@@ -673,11 +767,33 @@ function showImportPreview(rows, source) {
   $('#btn-cancel-import').addEventListener('click', () => { el.innerHTML = ''; });
 }
 
+const VBBO_COLS = [
+  { key: 'richtwert', label: 'Richtwert' },
+  { key: 'pwDirekt', label: 'Prüfwert (Direktkontakt)' },
+  { key: 'pwNahrung', label: 'Prüfwert (Nahrungspfl.)' },
+  { key: 'pwFutter', label: 'Prüfwert (Futterpfl.)' },
+  { key: 'sanSpielplatz', label: 'Sanierung (Spielplatz)' },
+  { key: 'sanGarten', label: 'Sanierung (Garten)' },
+  { key: 'sanLandwirtschaft', label: 'Sanierung (Landwirtschaft)' },
+];
+const VEVA_MATERIALIEN = ['Oberboden', 'Unterboden', 'Aushub'];
+
 // ---------- Einstellungen ----------
 function renderSettings() {
-  const t = loadThresholds();
+  thresholds = loadThresholds();
   setParameters(loadParameters());
-  thresholds = t;
+  vbboThresholds = loadVbboThresholds();
+  setVbboParameters(loadVbboParameters());
+  vevaCodes = loadVevaCodes();
+  paintSettings();
+}
+
+// Zeichnet die Einstellungsseite aus dem bereits geladenen Zustand neu, ohne
+// erneut aus localStorage zu laden — wichtig, damit z.B. eine gerade erst
+// hinzugefügte, noch ungespeicherte VeVA-Code-Zeile beim Neuzeichnen nicht
+// verloren geht.
+function paintSettings() {
+  const t = thresholds;
   const editableClasses = CLASSES.filter(c => !c.terminal);
 
   appEl.innerHTML = `
@@ -719,7 +835,64 @@ function renderSettings() {
     </div>
 
     <div class="card">
-      <h2>Legende Deponieklassen</h2>
+      <h2>Grenzwerte (VBBo – Bodenqualität)</h2>
+      <p class="hint">Rohwerte je Substanz. Welche Prüfwert-/Sanierungswert-Spalte zur Anwendung kommt, hängt von
+      der bei der Probe gewählten Nutzungsart ab (siehe Legende unten). Leeres Feld = nicht geregelt.</p>
+      <div style="overflow-x:auto">
+      <table class="threshold-table" id="vbbo-threshold-table">
+        <tr><th>Parameter</th><th>Einheit</th>${VBBO_COLS.map(c => `<th>${escapeHtml(c.label)}</th>`).join('')}<th></th></tr>
+        ${VBBO_PARAMETERS.map(p => `
+          <tr>
+            <td>${escapeHtml(p.label)}</td>
+            <td class="readonly">${escapeHtml(p.unit || '–')}</td>
+            ${VBBO_COLS.map(c => `<td><input type="number" step="any" data-vp="${p.key}" data-vc="${c.key}" value="${vbboThresholds[p.key]?.[c.key] ?? ''}"></td>`).join('')}
+            <td><button type="button" class="btn danger" style="padding:.2rem .5rem;" data-del-vbbo-param="${p.key}">×</button></td>
+          </tr>`).join('')}
+      </table>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="btn-save-vbbo-thresholds">💾 VBBo-Grenzwerte speichern</button>
+        <button class="btn secondary" id="btn-reset-vbbo-thresholds">Zurücksetzen auf Beispielwerte</button>
+      </div>
+      <h3>Neuen VBBo-Parameter manuell hinzufügen</h3>
+      <div class="grid-2">
+        <div class="field"><label>Bezeichnung</label><input id="nvp-label" placeholder="z.B. Kupfer (Cu)"></div>
+        <div class="field"><label>Einheit</label><input id="nvp-unit" placeholder="z.B. mg/kg"></div>
+      </div>
+      <button class="btn secondary" id="btn-add-vbbo-param" type="button">+ Parameter hinzufügen</button>
+    </div>
+
+    <div class="card">
+      <h2>VeVA-Codes (Aushub/Boden)</h2>
+      <p class="hint">Abfallcodes für die Begleitschein-Zuordnung bei Aushub- und Bodenaushubmaterial.
+      <strong>Hinweis:</strong> Vor Verwendung auf einem offiziellen Begleitschein bitte die Codes gegen die
+      aktuelle VeVA-Liste prüfen.</p>
+      <div style="overflow-x:auto">
+      <table class="threshold-table" id="veva-codes-table">
+        <tr><th>Code</th><th>Bezeichnung</th><th>Material</th><th>VVEA-Klasse</th><th></th></tr>
+        ${vevaCodes.map((c, i) => `
+          <tr>
+            <td><input data-vv="${i}" data-vvf="code" value="${escapeHtml(c.code)}" style="width:9rem;"></td>
+            <td><input data-vv="${i}" data-vvf="bezeichnung" value="${escapeHtml(c.bezeichnung)}" style="width:16rem;"></td>
+            <td><select data-vv="${i}" data-vvf="material">
+              ${VEVA_MATERIALIEN.map(m => `<option value="${m}" ${c.material === m ? 'selected' : ''}>${m}</option>`).join('')}
+            </select></td>
+            <td><select data-vv="${i}" data-vvf="klasse">
+              ${CLASSES.map(k => `<option value="${k.id}" ${c.klasse === k.id ? 'selected' : ''}>${escapeHtml(k.short)}</option>`).join('')}
+            </select></td>
+            <td><button type="button" class="btn danger" style="padding:.2rem .5rem;" data-del-veva="${i}">×</button></td>
+          </tr>`).join('')}
+      </table>
+      </div>
+      <div class="btn-row">
+        <button class="btn secondary" id="btn-add-veva" type="button">+ Neuer Code</button>
+        <button class="btn" id="btn-save-veva" type="button">💾 VeVA-Codes speichern</button>
+        <button class="btn secondary" id="btn-reset-veva" type="button">Zurücksetzen auf Beispielwerte</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Legende Deponieklassen (VVEA)</h2>
       <div class="entry-list">
         ${CLASSES.map(c => `<div style="display:flex;align-items:center;gap:.5rem;">
           <span class="badge" style="background:${c.color}">${escapeHtml(c.short)}</span>
@@ -729,10 +902,23 @@ function renderSettings() {
     </div>
 
     <div class="card">
+      <h2>Legende Bodenqualität (VBBo)</h2>
+      <div class="entry-list">
+        ${VBBO_CLASSES.map(c => `<div style="display:flex;align-items:center;gap:.5rem;">
+          <span class="badge" style="background:${c.color}">${escapeHtml(c.short)}</span>
+          <span>${escapeHtml(c.label)}</span>
+        </div>`).join('')}
+      </div>
+      <p class="hint">Nutzungsarten und ihre Prüfwert-/Sanierungswert-Zuordnung:
+        ${NUTZUNGSARTEN.map(n => escapeHtml(n.label)).join(' · ')}</p>
+    </div>
+
+    <div class="card">
       <h2>Über diese App</h2>
       <p class="hint">Baustellen-Probennahmejournal – Fotodokumentation, Analyse-Import (CSV/PDF) mit
-      automatischer Farbcodierung nach Deponieklassen, sowie PDF/E-Mail-Export. Alle Daten werden ausschliesslich
-      lokal im Browser gespeichert (IndexedDB) – es findet keine automatische Übertragung an einen Server statt.</p>
+      automatischer Farbcodierung nach Deponieklassen (VVEA) oder Bodenqualität (VBBo), VeVA-Codes,
+      Entsorgungsweg sowie PDF/E-Mail-Export. Alle Daten werden ausschliesslich lokal im Browser gespeichert
+      (IndexedDB) – es findet keine automatische Übertragung an einen Server statt.</p>
     </div>
   `;
 
@@ -796,6 +982,88 @@ function renderSettings() {
     saveParameters(newParams);
     setParameters(newParams);
     toast('Parameter hinzugefügt');
+    renderSettings();
+  });
+
+  // ---------- VBBo-Grenzwerte ----------
+  function collectVbboThresholdsFromTable() {
+    const nt = JSON.parse(JSON.stringify(vbboThresholds));
+    $$('#vbbo-threshold-table input[data-vp]').forEach(inp => {
+      const p = inp.dataset.vp, c = inp.dataset.vc;
+      nt[p] = nt[p] || {};
+      nt[p][c] = inp.value === '' ? null : parseFloat(inp.value);
+    });
+    return nt;
+  }
+  $('#btn-save-vbbo-thresholds').addEventListener('click', () => {
+    const newT = collectVbboThresholdsFromTable();
+    saveVbboThresholds(newT);
+    vbboThresholds = newT;
+    toast('VBBo-Grenzwerte gespeichert');
+  });
+  $('#btn-reset-vbbo-thresholds').addEventListener('click', () => {
+    if (!confirm('VBBo-Grenzwerte UND Parameterliste wirklich auf die Beispielwerte zurücksetzen?')) return;
+    vbboThresholds = resetVbboThresholdsStorage();
+    setVbboParameters(resetVbboParametersStorage());
+    toast('Zurückgesetzt');
+    renderSettings();
+  });
+  $$('[data-del-vbbo-param]').forEach(btn => btn.addEventListener('click', () => {
+    if (!confirm(`VBBo-Parameter „${btn.dataset.delVbboParam}“ wirklich entfernen?`)) return;
+    const newParams = VBBO_PARAMETERS.filter(p => p.key !== btn.dataset.delVbboParam);
+    saveVbboParameters(newParams);
+    setVbboParameters(newParams);
+    toast('Parameter entfernt');
+    renderSettings();
+  }));
+  $('#btn-add-vbbo-param').addEventListener('click', () => {
+    const label = $('#nvp-label').value.trim();
+    const unit = $('#nvp-unit').value.trim();
+    if (!label) { toast('Bitte eine Bezeichnung angeben.'); return; }
+    const key = slugifyParamKey(label, new Set(VBBO_PARAMETERS.map(p => p.key)));
+    const newParams = [...VBBO_PARAMETERS, { key, label, unit, aliases: [label.toLowerCase()] }];
+    saveVbboParameters(newParams);
+    setVbboParameters(newParams);
+    toast('Parameter hinzugefügt');
+    renderSettings();
+  });
+
+  // ---------- VeVA-Codes ----------
+  function collectVevaCodesFromTable() {
+    const codes = vevaCodes.map(c => ({ ...c }));
+    $$('#veva-codes-table [data-vv]').forEach(el => {
+      const i = Number(el.dataset.vv), f = el.dataset.vvf;
+      if (codes[i]) codes[i][f] = el.value;
+    });
+    return codes;
+  }
+  $$('[data-del-veva]').forEach(btn => btn.addEventListener('click', () => {
+    if (!confirm('Diesen VeVA-Code wirklich entfernen?')) return;
+    const newCodes = collectVevaCodesFromTable();
+    newCodes.splice(Number(btn.dataset.delVeva), 1);
+    saveVevaCodes(newCodes);
+    vevaCodes = newCodes;
+    toast('Code entfernt');
+    renderSettings();
+  }));
+  $('#btn-add-veva').addEventListener('click', () => {
+    // Aktuelle (noch ungespeicherte) Tabelleneingaben übernehmen, damit sie beim
+    // Hinzufügen einer neuen Zeile nicht verloren gehen — Speichern bleibt bewusst
+    // ein separater Schritt, analog zu den VVEA-/VBBo-Grenzwerttabellen.
+    vevaCodes = collectVevaCodesFromTable();
+    vevaCodes.push({ code: '', bezeichnung: '', material: 'Aushub', klasse: 'unbelastet' });
+    paintSettings();
+  });
+  $('#btn-save-veva').addEventListener('click', () => {
+    const newCodes = collectVevaCodesFromTable();
+    saveVevaCodes(newCodes);
+    vevaCodes = newCodes;
+    toast('VeVA-Codes gespeichert');
+  });
+  $('#btn-reset-veva').addEventListener('click', () => {
+    if (!confirm('VeVA-Codes wirklich auf die Beispielwerte zurücksetzen?')) return;
+    vevaCodes = resetVevaCodesStorage();
+    toast('Zurückgesetzt');
     renderSettings();
   });
 }

@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import { db } from '../db.js';
 import { requireAuth, requireAdmin } from '../auth.js';
-import { DEMO_THRESHOLDS, DEFAULT_PARAMETERS } from '../vvea-defaults.js';
+import {
+  DEMO_THRESHOLDS, DEFAULT_PARAMETERS,
+  DEFAULT_VBBO_THRESHOLDS, DEFAULT_VBBO_PARAMETERS, DEFAULT_VEVA_CODES,
+} from '../vvea-defaults.js';
 
 export const settingsRouter = Router();
 settingsRouter.use(requireAuth);
@@ -15,30 +18,24 @@ function setSetting(key, value) {
     .run(key, JSON.stringify(value));
 }
 
-settingsRouter.get('/thresholds', (req, res) => {
-  res.json({ thresholds: getSetting('vvea_thresholds', DEMO_THRESHOLDS) });
-});
-settingsRouter.put('/thresholds', requireAdmin, (req, res) => {
-  const { thresholds } = req.body || {};
-  if (!thresholds || typeof thresholds !== 'object') return res.status(400).json({ error: 'Ungültige Grenzwerte.' });
-  setSetting('vvea_thresholds', thresholds);
-  res.json({ ok: true });
-});
-settingsRouter.post('/thresholds/reset', requireAdmin, (req, res) => {
-  setSetting('vvea_thresholds', DEMO_THRESHOLDS);
-  res.json({ thresholds: DEMO_THRESHOLDS });
-});
+function crud(path, settingKey, defaultValue, bodyKey) {
+  settingsRouter.get(`/${path}`, (req, res) => {
+    res.json({ [bodyKey]: getSetting(settingKey, defaultValue) });
+  });
+  settingsRouter.put(`/${path}`, requireAdmin, (req, res) => {
+    const value = req.body?.[bodyKey];
+    if (value === undefined) return res.status(400).json({ error: 'Ungültige Daten.' });
+    setSetting(settingKey, value);
+    res.json({ ok: true });
+  });
+  settingsRouter.post(`/${path}/reset`, requireAdmin, (req, res) => {
+    setSetting(settingKey, defaultValue);
+    res.json({ [bodyKey]: defaultValue });
+  });
+}
 
-settingsRouter.get('/parameters', (req, res) => {
-  res.json({ parameters: getSetting('vvea_parameters', DEFAULT_PARAMETERS) });
-});
-settingsRouter.put('/parameters', requireAdmin, (req, res) => {
-  const { parameters } = req.body || {};
-  if (!Array.isArray(parameters)) return res.status(400).json({ error: 'Ungültige Parameterliste.' });
-  setSetting('vvea_parameters', parameters);
-  res.json({ ok: true });
-});
-settingsRouter.post('/parameters/reset', requireAdmin, (req, res) => {
-  setSetting('vvea_parameters', DEFAULT_PARAMETERS);
-  res.json({ parameters: DEFAULT_PARAMETERS });
-});
+crud('thresholds', 'vvea_thresholds', DEMO_THRESHOLDS, 'thresholds');
+crud('parameters', 'vvea_parameters', DEFAULT_PARAMETERS, 'parameters');
+crud('vbbo-thresholds', 'vbbo_thresholds', DEFAULT_VBBO_THRESHOLDS, 'thresholds');
+crud('vbbo-parameters', 'vbbo_parameters', DEFAULT_VBBO_PARAMETERS, 'parameters');
+crud('veva-codes', 'veva_codes', DEFAULT_VEVA_CODES, 'codes');

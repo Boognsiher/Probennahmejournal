@@ -4,6 +4,12 @@ Node.js/Express-Backend: Login mit individuellen Accounts, gemeinsame Datenbank 
 Foto-Ablage im Dateisystem des Servers. Liefert zugleich das Frontend aus `../public` mit aus –
 ein einzelner Prozess reicht für den Betrieb.
 
+Jede Probe kann wahlweise nach **VVEA** (Deponietyp A–E) oder **VBBo** (Bodenqualität,
+Nutzungsart-abhängig) eingestuft werden, dazu ein **VeVA-Code** und ein **Entsorgungsweg** zugeordnet
+werden. Grenzwerte, Parameterlisten und VeVA-Codes werden je Server zentral in den `settings`
+vorgehalten (siehe API-Tabelle unten) und beim ersten Start automatisch mit sinnvollen Startwerten
+vorbefüllt.
+
 ## Einrichtung
 
 ```bash
@@ -89,12 +95,21 @@ Alle `/api/*`-Endpunkte ausser `/api/auth/login` erfordern den Header `Authoriza
 | GET | `/api/settings/thresholds` | Aktuelle VVEA-Grenzwerte |
 | PUT | `/api/settings/thresholds` | Grenzwerte speichern (nur Admin) |
 | POST | `/api/settings/thresholds/reset` | Auf Beispielwerte zurücksetzen (nur Admin) |
-| GET | `/api/settings/parameters` | Aktuelle Parameterliste (Grenzwert-Zeilen) |
+| GET | `/api/settings/parameters` | Aktuelle VVEA-Parameterliste (Grenzwert-Zeilen) |
 | PUT | `/api/settings/parameters` | Parameterliste speichern, inkl. neue eigene Parameter (nur Admin) |
 | POST | `/api/settings/parameters/reset` | Auf Standardliste zurücksetzen (nur Admin) |
+| GET | `/api/settings/vbbo-thresholds` | Aktuelle VBBo-Grenzwerte (Richtwert/Prüfwert/Sanierungswert je Substanz) |
+| PUT | `/api/settings/vbbo-thresholds` | VBBo-Grenzwerte speichern (nur Admin) |
+| POST | `/api/settings/vbbo-thresholds/reset` | Auf Beispielwerte zurücksetzen (nur Admin) |
+| GET | `/api/settings/vbbo-parameters` | Aktuelle VBBo-Parameterliste |
+| PUT | `/api/settings/vbbo-parameters` | VBBo-Parameterliste speichern, inkl. neue eigene Parameter (nur Admin) |
+| POST | `/api/settings/vbbo-parameters/reset` | Auf Standardliste zurücksetzen (nur Admin) |
+| GET | `/api/settings/veva-codes` | Aktuelle VeVA-Codes (Aushub-/Bodenaushubcodes) |
+| PUT | `/api/settings/veva-codes` | VeVA-Codes speichern (nur Admin) |
+| POST | `/api/settings/veva-codes/reset` | Auf Beispielwerte zurücksetzen (nur Admin) |
 | GET | `/api/entries` | Alle Proben |
 | GET | `/api/entries/:id` | Einzelne Probe inkl. Foto-Metadaten |
-| POST | `/api/entries` | Neue Probe anlegen — `projektId` erforderlich; Chargenname (`probeBezeichnung`) wird serverseitig aus Projekt-Kürzel + fortlaufender Nummer vergeben |
+| POST | `/api/entries` | Neue Probe anlegen — `projektId` erforderlich; Chargenname (`probeBezeichnung`) wird serverseitig aus Projekt-Kürzel + fortlaufender Nummer vergeben. Weitere Felder: `standard` (`vvea`/`vbbo`), `nutzungsart` (nur bei `vbbo`), `entsorgungsweg`, `vevaCode` |
 | PUT | `/api/entries/:id` | Probe aktualisieren (Projekt/Chargenname bleiben nach dem Anlegen fix) |
 | DELETE | `/api/entries/:id` | Probe löschen (inkl. zugehöriger Fotos) |
 | POST | `/api/entries/:id/photos` | Fotos hochladen (multipart, Feld `photos`) |

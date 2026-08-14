@@ -51,6 +51,10 @@ export function newEntry(partial = {}) {
     material: '',
     probenehmer: '',
     bemerkungen: '',
+    standard: 'vvea', // 'vvea' | 'vbbo'
+    nutzungsart: null, // nur bei standard='vbbo': 'spielplatz' | 'garten' | 'landwirtschaft'
+    entsorgungsweg: '',
+    vevaCode: '',
     photos: [], // {id, blob, filename, takenAt}
     analyse: [], // {parameterKey, wert, art, quelle}
     klassifizierung: null,

@@ -17,7 +17,7 @@ function blobToDataURL(blob) {
   });
 }
 
-export async function generateReportHTML(entry, classification) {
+export async function generateReportHTML(entry, classification, classes = CLASSES) {
   const photoTags = [];
   for (const p of entry.photos || []) {
     try {
@@ -32,7 +32,7 @@ export async function generateReportHTML(entry, classification) {
       <td>${p.wert}</td>
       <td>${escapeHtml(p.unit)}</td>
       <td>${p.art === 'eluat' ? 'Eluat' : 'Gesamtgehalt'}</td>
-      <td><span class="badge" style="background:${p.color}">${escapeHtml(CLASSES[p.classIndex].short)}</span></td>
+      <td><span class="badge" style="background:${p.color}">${escapeHtml(classes[p.classIndex].short)}</span></td>
     </tr>`).join('');
 
   const unbewertetRows = (classification?.unbewertet || []).map(p => `
@@ -43,7 +43,7 @@ export async function generateReportHTML(entry, classification) {
       <td colspan="2">nicht bewertet (kein Grenzwert hinterlegt)</td>
     </tr>`).join('');
 
-  const overall = classification ? CLASSES[classification.classIndex] : null;
+  const overall = classification ? classes[classification.classIndex] : null;
 
   return `<!doctype html>
 <html lang="de"><head><meta charset="utf-8">

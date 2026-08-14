@@ -15,18 +15,24 @@ Für die Team-Variante mit gemeinsamem Server, Login pro Person und zentraler Fo
   Entnahmeort mit Vorschlägen — wenig Tippen, grosse Bedienelemente für Handschuhe/Schutzausrüstung
 - 📷 Fotodokumentation des Materials über die Gerätekamera (im Browser gespeichert)
 - 📥 Analyse-Import aus CSV/Excel-CSV oder PDF-Laborberichten
-- 🎨 Automatische Farbcodierung der Werte nach Deponieklassen (VVEA-Struktur, Grenzwerte inkl. Einheiten,
-  per CSV/Excel importierbar, eigene Parameter ergänzbar) — siehe „Einstellungen“
+- 🎯 **Standard je Probe wählbar**: **VVEA** (Deponietyp A–E) oder **VBBo** (Bodenqualität, abhängig von der
+  gewählten Nutzungsart Kinderspielplatz / Haus-Familiengarten / Landwirtschaft-Gartenbau)
+- 🎨 Automatische Farbcodierung der Werte nach dem gewählten Standard (Grenzwerte inkl. Einheiten, per
+  CSV/Excel importierbar, eigene Parameter ergänzbar) — siehe „Einstellungen“
+- 🚚 **VeVA-Code** (Aushub-/Bodenaushubcodes) und freies **Entsorgungsweg**-Feld je Probe
 - 📄 **Echter PDF-Export** je Probe (Fotos, Werte, Einstufung)
 - ✉️ **„E-Mail mit PDF senden“** versucht zuerst die native Teilen-Funktion des Geräts (PDF direkt als
   Anhang), sonst PDF-Download + `mailto:` mit vorausgefülltem Text zum manuellen Anhängen
-- 🔎 Journal mit Filtern (Projekt, Material, Deponieklasse) und Sortierung
+- 🔎 Journal mit Filtern (Projekt, Material, Standard, Klasse) und Sortierung
 - 📶 Vollständig offline nutzbar (Service Worker + IndexedDB), installierbar als App
 
-## ⚠️ Hinweis zu den Grenzwerten
+## ⚠️ Hinweis zu Grenzwerten, VeVA-Codes und Nutzungsart-Zuordnung
 
-Die hinterlegten VVEA-Grenzwerte sind **Platzhalter/Beispielwerte** – vor produktivem Einsatz durch eine
-Fachperson prüfen und unter „Einstellungen“ anpassen. Details siehe Hinweis-Banner in der App.
+Die hinterlegten VVEA-/VBBo-Grenzwerte und VeVA-Codes stammen aus vom Auftraggeber bereitgestellten
+Unterlagen und sind **vor produktivem Einsatz durch eine Fachperson zu prüfen** (inkl. der vereinfachten
+Zuordnung Nutzungsart → Prüfwert-/Sanierungswert-Spalte) — insbesondere bevor ein VeVA-Code auf einem
+offiziellen Begleitschein verwendet wird. Details siehe Hinweis-Banner in der App und der entsprechende
+Abschnitt in [`../README.md`](../README.md).
 
 ## Lokal starten
 
@@ -54,7 +60,7 @@ Dieser Ordner ist komplett eigenständig (keine Abhängigkeit zu `../server`). F
 index.html            App-Shell, Navigation, Disclaimer-Banner
 css/style.css          Styling (hell/dunkel automatisch)
 js/db.js               IndexedDB-Speicherung der Journal-Einträge (inkl. Fotos als Blob) und Projekte
-js/vvea.js              Deponieklassen, Parameterliste, Grenzwert-Konfiguration, CSV-Import & Klassifizierungs-Engine
+js/vvea.js              VVEA-Deponieklassen + VBBo-Bodenqualität, Parameterlisten, VeVA-Codes, Grenzwert-Konfiguration, CSV-Import & Klassifizierungs-Engine
 js/parse-csv.js         CSV/Excel-CSV-Import (Analysewerte)
 js/parse-pdf.js         PDF-Import (lädt pdf.js zur Laufzeit von einem CDN)
 js/report.js            Erzeugt den herunterladbaren HTML-Bericht je Probe

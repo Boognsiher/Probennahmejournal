@@ -121,6 +121,45 @@ export async function resetParametersApi() {
   return data.parameters;
 }
 
+// ---------- VBBo-Grenzwerte ----------
+export async function getVbboThresholdsApi() {
+  const data = await request('/settings/vbbo-thresholds');
+  return data.thresholds;
+}
+export async function saveVbboThresholdsApi(thresholds) {
+  await request('/settings/vbbo-thresholds', { method: 'PUT', body: { thresholds } });
+}
+export async function resetVbboThresholdsApi() {
+  const data = await request('/settings/vbbo-thresholds/reset', { method: 'POST' });
+  return data.thresholds;
+}
+
+// ---------- VBBo-Parameter ----------
+export async function getVbboParametersApi() {
+  const data = await request('/settings/vbbo-parameters');
+  return data.parameters;
+}
+export async function saveVbboParametersApi(parameters) {
+  await request('/settings/vbbo-parameters', { method: 'PUT', body: { parameters } });
+}
+export async function resetVbboParametersApi() {
+  const data = await request('/settings/vbbo-parameters/reset', { method: 'POST' });
+  return data.parameters;
+}
+
+// ---------- VeVA-Codes ----------
+export async function getVevaCodesApi() {
+  const data = await request('/settings/veva-codes');
+  return data.codes;
+}
+export async function saveVevaCodesApi(codes) {
+  await request('/settings/veva-codes', { method: 'PUT', body: { codes } });
+}
+export async function resetVevaCodesApi() {
+  const data = await request('/settings/veva-codes/reset', { method: 'POST' });
+  return data.codes;
+}
+
 // ---------- Benutzer (Admin) ----------
 export async function listUsersApi() {
   const data = await request('/users');

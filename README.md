@@ -7,11 +7,16 @@ App zur Führung eines Probennahmejournals auf der Baustelle:
 - **Möglichst wenig Tippen**: Material, Probenehmer/in als Auswahllisten, Entnahmeort mit Vorschlägen,
   grosse Bedienelemente — gedacht für die Bedienung mit Handschuhen/Schutzausrüstung
 - Fotodokumentation des Materials
-- Analyse-Import aus CSV/Excel-CSV oder PDF-Laborberichten, mit automatischer Farbcodierung nach
-  Deponieklassen (Grenzwerte inkl. Einheiten, per CSV/Excel importierbar, eigene Parameter ergänzbar)
+- **Zwei wählbare Einstufungsstandards pro Probe**: **VVEA** (Deponietyp A–E, Aushub-/Bauabfälle) oder
+  **VBBo** (Bodenqualität, Richtwert/Prüfwert/Sanierungswert – abhängig von der gewählten **Nutzungsart**
+  Kinderspielplatz / Haus-Familiengarten / Landwirtschaft-Gartenbau)
+- Analyse-Import aus CSV/Excel-CSV oder PDF-Laborberichten, mit automatischer Farbcodierung nach dem
+  gewählten Standard (Grenzwerte inkl. Einheiten, per CSV/Excel importierbar, eigene Parameter ergänzbar)
+- **VeVA-Code-Zuordnung** je Probe (Aushub-/Bodenaushubcodes) und ein freies **Entsorgungsweg**-Feld
+  (mit Vorschlägen aus bereits erfassten Proben)
 - **Echter PDF-Export** je Probe, E-Mail-Versand mit PDF nach Möglichkeit direkt angehängt (native
   Teilen-Funktion des Geräts)
-- **Journal mit Filtern** (Projekt, Material, Deponieklasse) und Sortierung zum Aufräumen/Wiederfinden
+- **Journal mit Filtern** (Projekt, Material, Standard, Klasse) und Sortierung zum Aufräumen/Wiederfinden
 
 Es gibt **drei eigenständige Varianten** im selben Repository – je nach Bedarf wählbar:
 
@@ -28,15 +33,25 @@ Es gibt **drei eigenständige Varianten** im selben Repository – je nach Bedar
 Foto-Upload etc.) durchzuklicken/vorzuführen, bevor der echte Server aufgesetzt wird. Sobald das passt, wird
 einfach `server/` + `public/` deployt statt `shell/` — am Anwendungscode ändert sich nichts.
 
-## ⚠️ Wichtiger Hinweis zu den Grenzwerten (gilt für alle drei Varianten)
+## ⚠️ Wichtiger Hinweis zu Grenzwerten, VeVA-Codes und Nutzungsart-Zuordnung (gilt für alle drei Varianten)
 
-Die App liefert unter **Einstellungen → Grenzwerte** eine Beispiel-Tabelle mit Zahlenwerten pro Deponieklasse
-(Typ A–E) mit. **Diese Zahlen sind Platzhalter zur Illustration der Funktion** – sie wurden nicht anhand der
-aktuell rechtsgültigen VVEA (Anhang 5) bzw. kantonaler Vollzugshilfen verifiziert (der Zugriff auf die
-offiziellen Quellen war beim Erstellen dieser App technisch nicht möglich). **Vor dem produktiven Einsatz
-müssen die Grenzwerte durch eine Fachperson (Umweltbaubegleitung/Altlastenfachperson) anhand der aktuell
-gültigen VVEA und ggf. kantonaler Vorgaben geprüft und angepasst werden.** Die App zeigt diesen Hinweis auch
-beim ersten Start an.
+Die App liefert unter **Einstellungen → Grenzwerte** vorbefüllte Zahlenwerte für **VVEA** (Deponietyp A–E,
+Feststoff- und Eluatwerte) und **VBBo** (Richtwert/Prüfwert/Sanierungswert) sowie eine Liste mit **VeVA-Codes**
+für Aushub-/Bodenaushubmaterial mit. Diese Werte stammen aus vom Auftraggeber bereitgestellten Unterlagen
+(Auszüge/eigene Zusammenstellung, u.a. aus einer teils schräg eingescannten PDF-Tabelle für die VeVA-Codes).
+**Vor dem produktiven Einsatz müssen** die Grenzwerte, die VeVA-Codes **und** die hinterlegte Zuordnung von
+Nutzungsart → Prüfwert-/Sanierungswert-Spalte (Kinderspielplatz → Direktkontakt/Spielplatz, Haus-/
+Familiengarten → Nahrungspflanzen/Garten, Landwirtschaft/Gartenbau → Futterpflanzen/Landwirtschaft — eine
+vereinfachte Interpretation der VBBo-Anhang-2-Expositionspfade) **durch eine Fachperson
+(Umweltbaubegleitung/Altlastenfachperson) anhand der aktuell gültigen VVEA/VBBo, kantonaler Vollzugshilfen und
+der offiziellen VeVA-Codeliste geprüft und bei Bedarf angepasst werden** — insbesondere bevor ein VeVA-Code auf
+einem offiziellen Begleitschein verwendet wird. Die App zeigt einen entsprechenden Hinweis auch beim ersten
+Start an.
+
+Wurde die App vor diesem Update bereits in Betrieb genommen (bestehende Server-Datenbank, bereits geöffnete
+`shell/`- oder `lokal/`-Instanz), werden die neuen VBBo-Grenzwerte/-Parameter und VeVA-Codes automatisch als
+Startwerte ergänzt, sobald noch keine eigenen gespeichert sind — die bestehende VVEA-Grenzwerttabelle bleibt
+dabei unverändert erhalten.
 
 ## Schnellstart
 

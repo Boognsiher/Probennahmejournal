@@ -41,5 +41,5 @@ Dann `http://localhost:8080` öffnen.
 - **Fotos** werden als Base64 im `localStorage` gehalten — für ein paar Testfotos unproblematisch, aber
   `localStorage` hat pro Browser ein begrenztes Kontingent (üblicherweise 5–10 MB); für grössere Mengen an
   Testfotos ggf. zwischendurch „Testdaten zurücksetzen“ verwenden.
-- Grenzwerte sind dieselben Platzhalter/Beispielwerte wie in den anderen Varianten (siehe Hinweis in
-  [`../README.md`](../README.md)).
+- Grenzwerte, VBBo-Werte und VeVA-Codes sind dieselben Startwerte wie in den anderen Varianten (siehe Hinweis
+  in [`../README.md`](../README.md)) — inkl. VVEA-/VBBo-Standardwahl je Probe, VeVA-Code und Entsorgungsweg.

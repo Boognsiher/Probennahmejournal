@@ -52,19 +52,21 @@ function parseNumber(str) {
 
 /**
  * @param {ArrayBuffer} arrayBuffer
+ * @param {Array} [paramList]  Parameterliste für den Alias-Abgleich (VVEA
+ *   PARAMETERS oder VBBO_PARAMETERS, je nach gewähltem Standard der Probe).
  * @returns {Promise<Array<{roh:string, parameterKey:string|null, wert:number, einheit:string, art:string}>>}
  */
-export async function parsePDF(arrayBuffer) {
+export async function parsePDF(arrayBuffer, paramList) {
   const lines = await extractText(arrayBuffer);
   const results = [];
   for (const line of lines) {
-    const paramDef = findParamByAlias(line);
+    const paramDef = findParamByAlias(line, paramList);
     if (!paramDef) continue;
     const match = line.match(NUMBER_UNIT_RE);
     if (!match) continue;
     const wert = parseNumber(match[1]);
     if (Number.isNaN(wert)) continue;
-    const art = /eluat/i.test(line) ? 'eluat' : paramDef.art;
+    const art = /eluat/i.test(line) ? 'eluat' : (paramDef.art || 'gesamt');
     results.push({
       roh: line,
       parameterKey: paramDef.key,
