@@ -113,6 +113,8 @@ export function newProject(partial = {}) {
   return {
     id: uuid(),
     name: '', kuerzel: '', auftraggeber: '', ort: '', bemerkungen: '',
+    entsorgungswege: [], // vordefinierte Entsorgungswege (Dropdown bei der Probe)
+    entnahmeorte: [],    // vordefinierte Beprobungsorte (Dropdown bei der Probe)
     nextChargeNumber: 1,
     createdAt: new Date().toISOString(),
     ...partial,

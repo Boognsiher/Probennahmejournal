@@ -15,7 +15,14 @@ function rowToProject(row) {
     id: row.id, name: row.name, kuerzel: row.kuerzel,
     auftraggeber: row.auftraggeber, ort: row.ort, bemerkungen: row.bemerkungen,
     nextChargeNumber: row.nextChargeNumber, createdAt: row.createdAt,
+    entsorgungswege: JSON.parse(row.entsorgungswegeJson || '[]'),
+    entnahmeorte: JSON.parse(row.entnahmeorteJson || '[]'),
   };
+}
+
+function sanitizeList(list) {
+  if (!Array.isArray(list)) return [];
+  return list.map(s => String(s ?? '').trim()).filter(Boolean);
 }
 
 projectsRouter.get('/', (req, res) => {
@@ -37,11 +44,13 @@ projectsRouter.post('/', (req, res) => {
   const { name, ort, auftraggeber, bemerkungen } = req.body || {};
   const kuerzel = sanitizeKuerzel(req.body?.kuerzel);
   if (!name || !kuerzel) return res.status(400).json({ error: 'Projektname und Kürzel sind erforderlich.' });
+  const entsorgungswegeJson = JSON.stringify(sanitizeList(req.body?.entsorgungswege));
+  const entnahmeorteJson = JSON.stringify(sanitizeList(req.body?.entnahmeorte));
   const id = randomUUID();
   const now = new Date().toISOString();
-  db.prepare(`INSERT INTO projects (id, name, kuerzel, auftraggeber, ort, bemerkungen, nextChargeNumber, createdAt, createdBy)
-    VALUES (?,?,?,?,?,?,1,?,?)`)
-    .run(id, name, kuerzel, auftraggeber || '', ort || '', bemerkungen || '', now, req.user.id);
+  db.prepare(`INSERT INTO projects (id, name, kuerzel, auftraggeber, ort, bemerkungen, entsorgungswegeJson, entnahmeorteJson, nextChargeNumber, createdAt, createdBy)
+    VALUES (?,?,?,?,?,?,?,?,1,?,?)`)
+    .run(id, name, kuerzel, auftraggeber || '', ort || '', bemerkungen || '', entsorgungswegeJson, entnahmeorteJson, now, req.user.id);
   const row = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
   res.status(201).json({ project: rowToProject(row) });
 });
@@ -52,8 +61,10 @@ projectsRouter.put('/:id', (req, res) => {
   const { name, ort, auftraggeber, bemerkungen } = req.body || {};
   const kuerzel = sanitizeKuerzel(req.body?.kuerzel);
   if (!name || !kuerzel) return res.status(400).json({ error: 'Projektname und Kürzel sind erforderlich.' });
-  db.prepare('UPDATE projects SET name=?, kuerzel=?, auftraggeber=?, ort=?, bemerkungen=? WHERE id=?')
-    .run(name, kuerzel, auftraggeber || '', ort || '', bemerkungen || '', req.params.id);
+  const entsorgungswegeJson = JSON.stringify(sanitizeList(req.body?.entsorgungswege));
+  const entnahmeorteJson = JSON.stringify(sanitizeList(req.body?.entnahmeorte));
+  db.prepare('UPDATE projects SET name=?, kuerzel=?, auftraggeber=?, ort=?, bemerkungen=?, entsorgungswegeJson=?, entnahmeorteJson=? WHERE id=?')
+    .run(name, kuerzel, auftraggeber || '', ort || '', bemerkungen || '', entsorgungswegeJson, entnahmeorteJson, req.params.id);
   const row = db.prepare('SELECT * FROM projects WHERE id = ?').get(req.params.id);
   res.json({ project: rowToProject(row) });
 });

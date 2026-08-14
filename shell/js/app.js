@@ -15,7 +15,7 @@ import {
   parseThresholdsCSV, buildThresholdsCSVTemplate,
   hasAcknowledgedDisclaimer, acknowledgeDisclaimer,
   VBBO_CLASSES, NUTZUNGSARTEN, VBBO_PARAMETERS, DEFAULT_VBBO_PARAMETERS,
-  setVbboParameters, classifyVBBO,
+  setVbboParameters, classifyVBBO, suggestVevaCode,
 } from './vvea.js';
 import { parseCSV } from './parse-csv.js';
 import { parsePDF } from './parse-pdf.js';
@@ -305,6 +305,8 @@ function paintProjects(projects) {
             <div class="entry-info">
               <h3 class="entry-title">${escapeHtml(p.name)} <span class="hint">(${escapeHtml(p.kuerzel)})</span></h3>
               <p class="entry-sub">${escapeHtml(p.auftraggeber || '–')} · ${escapeHtml(p.ort || '–')} · nächste Charge: ${escapeHtml(p.kuerzel)}-${pad3(p.nextChargeNumber)}</p>
+              <p class="hint">Beprobungsorte: ${(p.entnahmeorte || []).length ? escapeHtml(p.entnahmeorte.join(', ')) : '–'}</p>
+              <p class="hint">Entsorgungswege: ${(p.entsorgungswege || []).length ? escapeHtml(p.entsorgungswege.join(', ')) : '–'}</p>
             </div>
             <div class="btn-row" style="margin:0;">
               <button class="btn secondary" type="button" data-edit-project="${p.id}">Bearbeiten</button>
@@ -323,6 +325,16 @@ function paintProjects(projects) {
         <div class="field"><label>Ort</label><input id="p-ort" value="${escapeHtml(editing?.ort || '')}"></div>
       </div>
       <div class="field"><label>Bemerkungen</label><textarea id="p-bemerkungen" rows="2">${escapeHtml(editing?.bemerkungen || '')}</textarea></div>
+      <div class="grid-2">
+        <div class="field">
+          <label>Beprobungsorte <span class="hint">(ein Eintrag pro Zeile — als Dropdown bei der Probe verfügbar, alternativ zu GPS)</span></label>
+          <textarea id="p-entnahmeorte" rows="3" placeholder="z.B. Baugrube Nord, Schicht 1">${escapeHtml((editing?.entnahmeorte || []).join('\n'))}</textarea>
+        </div>
+        <div class="field">
+          <label>Entsorgungswege <span class="hint">(ein Eintrag pro Zeile — als Dropdown bei der Probe verfügbar)</span></label>
+          <textarea id="p-entsorgungswege" rows="3" placeholder="z.B. Deponie Muster AG, Zürich">${escapeHtml((editing?.entsorgungswege || []).join('\n'))}</textarea>
+        </div>
+      </div>
       <div class="btn-row">
         <button class="btn" id="btn-save-project" type="button">${editing ? '💾 Speichern' : '+ Projekt anlegen'}</button>
         ${editing ? '<button class="btn secondary" id="btn-cancel-edit-project" type="button">Abbrechen</button>' : ''}
@@ -353,6 +365,8 @@ function paintProjects(projects) {
   const cancelBtn = $('#btn-cancel-edit-project');
   if (cancelBtn) cancelBtn.addEventListener('click', () => { editingProjectId = null; paintProjects(projects); });
 
+  const parseLines = text => text.split('\n').map(s => s.trim()).filter(Boolean);
+
   $('#btn-save-project').addEventListener('click', async () => {
     const payload = {
       name: $('#p-name').value.trim(),
@@ -360,6 +374,8 @@ function paintProjects(projects) {
       auftraggeber: $('#p-auftraggeber').value.trim(),
       ort: $('#p-ort').value.trim(),
       bemerkungen: $('#p-bemerkungen').value.trim(),
+      entnahmeorte: parseLines($('#p-entnahmeorte').value),
+      entsorgungswege: parseLines($('#p-entsorgungswege').value),
     };
     if (!payload.name || !payload.kuerzel) { toast('Bitte Projektname und Kürzel angeben.'); return; }
     try {
@@ -385,8 +401,7 @@ let vbboThresholds = {};
 let vevaCodes = [];
 let formProjects = [];
 let formRoster = [];
-let formEntnahmeorte = [];
-let formEntsorgungswege = [];
+let vevaCodeTouched = false; // true, sobald der VeVA-Code im Formular manuell überschrieben wurde
 
 function newDraftEntry() {
   return {
@@ -427,18 +442,13 @@ async function renderEntryForm(idOrNeu) {
       </div>`;
       return;
     }
-    const allEntries = await listEntries().catch(() => []);
-    formEntnahmeorte = allEntries.map(en => en.entnahmeort).filter(Boolean);
-    formEntsorgungswege = allEntries.map(en => en.entsorgungsweg).filter(Boolean);
     currentEntry.projektId = formProjects[0].id;
   } else {
     currentEntry = await getEntryApi(idOrNeu);
     isNew = false;
     if (!currentEntry.standard) currentEntry.standard = 'vvea';
     if (currentEntry.standard === 'vbbo' && !currentEntry.nutzungsart) currentEntry.nutzungsart = NUTZUNGSARTEN[0].id;
-    const allEntries = await listEntries().catch(() => []);
-    formEntnahmeorte = allEntries.map(en => en.entnahmeort).filter(Boolean);
-    formEntsorgungswege = allEntries.map(en => en.entsorgungsweg).filter(Boolean);
+    formProjects = await listProjectsApi().catch(() => []);
   }
   formRoster = await getUserRosterApi().catch(() => []);
   recomputeClassification();
@@ -466,9 +476,15 @@ function projektHint() {
 function paintEntryForm() {
   const e = currentEntry;
   const me = getCurrentUser();
+  const project = formProjects.find(p => p.id === e.projektId) || null;
+  const projectEntnahmeorte = project?.entnahmeorte || [];
+  const projectEntsorgungswege = project?.entsorgungswege || [];
   const materialIsCustom = e.material && !MATERIAL_OPTIONS.includes(e.material);
   const probenehmerIsCustom = e.probenehmer && !formRoster.some(u => u.name === e.probenehmer);
+  const entnahmeortIsCustom = e.entnahmeort && !projectEntnahmeorte.includes(e.entnahmeort);
+  const entsorgungswegIsCustom = e.entsorgungsweg && !projectEntsorgungswege.includes(e.entsorgungsweg);
   if (isNew && !e.probenehmer && me) e.probenehmer = me.name;
+  vevaCodeTouched = false;
 
   appEl.innerHTML = `
     <div class="card">
@@ -504,9 +520,14 @@ function paintEntryForm() {
           <input id="f-person-andere" placeholder="Name angeben" style="margin-top:.4rem;display:${probenehmerIsCustom ? 'block' : 'none'};" value="${escapeHtml(probenehmerIsCustom ? e.probenehmer : '')}">
         </div>
         <div class="field">
-          <label>Entnahmeort</label>
-          <input id="f-ort" list="entnahmeort-vorschlaege" value="${escapeHtml(e.entnahmeort)}">
-          <datalist id="entnahmeort-vorschlaege">${[...new Set(formEntnahmeorte)].map(o => `<option value="${escapeHtml(o)}">`).join('')}</datalist>
+          <label>Beprobungsort <span class="hint">(oder per GPS unten)</span></label>
+          <select id="f-ort">
+            <option value="">– wählen –</option>
+            ${projectEntnahmeorte.map(o => `<option value="${escapeHtml(o)}" ${e.entnahmeort === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
+            <option value="${ANDERE}" ${entnahmeortIsCustom ? 'selected' : ''}>Andere (Freitext)…</option>
+          </select>
+          <input id="f-ort-andere" placeholder="Beprobungsort angeben" style="margin-top:.4rem;display:${entnahmeortIsCustom ? 'block' : 'none'};" value="${escapeHtml(entnahmeortIsCustom ? e.entnahmeort : '')}">
+          ${projectEntnahmeorte.length === 0 ? '<p class="hint">Noch keine Beprobungsorte im Projekt hinterlegt – unter „Projekte“ ergänzbar.</p>' : ''}
         </div>
         <div class="field"><label>Datum</label><input id="f-datum" type="datetime-local" value="${toLocalInputValue(e.createdAt)}"></div>
       </div>
@@ -532,16 +553,22 @@ function paintEntryForm() {
           </select>
         </div>
         <div class="field">
-          <label>VeVA-Code <span class="hint">(Aushub/Boden)</span></label>
+          <label>VeVA-Code <span class="hint">(automatisch aus Material + Standard + Einstufung)</span></label>
           <select id="f-veva-code">
             <option value="">– keiner –</option>
             ${vevaCodes.map(c => `<option value="${escapeHtml(c.code)}" ${e.vevaCode === c.code ? 'selected' : ''}>${escapeHtml(c.code)} – ${escapeHtml(c.bezeichnung)}</option>`).join('')}
           </select>
+          <p class="hint" id="veva-code-hint"></p>
         </div>
         <div class="field">
           <label>Entsorgungsweg</label>
-          <input id="f-entsorgungsweg" list="entsorgungsweg-vorschlaege" value="${escapeHtml(e.entsorgungsweg)}">
-          <datalist id="entsorgungsweg-vorschlaege">${[...new Set(formEntsorgungswege)].map(o => `<option value="${escapeHtml(o)}">`).join('')}</datalist>
+          <select id="f-entsorgungsweg">
+            <option value="">– wählen –</option>
+            ${projectEntsorgungswege.map(w => `<option value="${escapeHtml(w)}" ${e.entsorgungsweg === w ? 'selected' : ''}>${escapeHtml(w)}</option>`).join('')}
+            <option value="${ANDERE}" ${entsorgungswegIsCustom ? 'selected' : ''}>Andere (Freitext)…</option>
+          </select>
+          <input id="f-entsorgungsweg-andere" placeholder="Entsorgungsweg angeben" style="margin-top:.4rem;display:${entsorgungswegIsCustom ? 'block' : 'none'};" value="${escapeHtml(entsorgungswegIsCustom ? e.entsorgungsweg : '')}">
+          ${projectEntsorgungswege.length === 0 ? '<p class="hint">Noch keine Entsorgungswege im Projekt hinterlegt – unter „Projekte“ ergänzbar.</p>' : ''}
         </div>
       </div>
     </div>
@@ -580,7 +607,11 @@ function paintEntryForm() {
   if (isNew) {
     $('#f-projekt').addEventListener('change', ev => {
       e.projektId = ev.target.value;
-      $('#projekt-hint').innerHTML = projektHint();
+      // Beprobungsorte/Entsorgungswege sind projektabhängig — bei Projektwechsel
+      // neu aufbauen, statt Werte des vorherigen Projekts zu übernehmen.
+      e.entnahmeort = '';
+      e.entsorgungsweg = '';
+      paintEntryForm();
     });
   }
 
@@ -588,8 +619,9 @@ function paintEntryForm() {
   materialSel.addEventListener('change', () => {
     if (materialSel.value === ANDERE) { materialAndere.style.display = 'block'; e.material = materialAndere.value; }
     else { materialAndere.style.display = 'none'; e.material = materialSel.value; }
+    updateVevaCodeUI();
   });
-  materialAndere.addEventListener('input', () => { e.material = materialAndere.value; });
+  materialAndere.addEventListener('input', () => { e.material = materialAndere.value; updateVevaCodeUI(); });
 
   const personSel = $('#f-person'), personAndere = $('#f-person-andere');
   personSel.addEventListener('change', () => {
@@ -598,7 +630,27 @@ function paintEntryForm() {
   });
   personAndere.addEventListener('input', () => { e.probenehmer = personAndere.value; });
 
-  $('#f-ort').addEventListener('input', ev => e.entnahmeort = ev.target.value);
+  const ortSel = $('#f-ort'), ortAndere = $('#f-ort-andere');
+  ortSel.addEventListener('change', () => {
+    if (ortSel.value === ANDERE) { ortAndere.style.display = 'block'; e.entnahmeort = ortAndere.value; }
+    else { ortAndere.style.display = 'none'; e.entnahmeort = ortSel.value; }
+  });
+  ortAndere.addEventListener('input', () => { e.entnahmeort = ortAndere.value; });
+
+  const entsorgungswegSel = $('#f-entsorgungsweg'), entsorgungswegAndere = $('#f-entsorgungsweg-andere');
+  entsorgungswegSel.addEventListener('change', () => {
+    if (entsorgungswegSel.value === ANDERE) { entsorgungswegAndere.style.display = 'block'; e.entsorgungsweg = entsorgungswegAndere.value; }
+    else { entsorgungswegAndere.style.display = 'none'; e.entsorgungsweg = entsorgungswegSel.value; }
+  });
+  entsorgungswegAndere.addEventListener('input', () => { e.entsorgungsweg = entsorgungswegAndere.value; });
+
+  $('#f-veva-code').addEventListener('change', ev => {
+    vevaCodeTouched = true;
+    e.vevaCode = ev.target.value;
+    const hint = $('#veva-code-hint');
+    if (hint) hint.textContent = 'Manuell gewählt.';
+  });
+
   $('#f-bemerkungen').addEventListener('input', ev => e.bemerkungen = ev.target.value);
   $('#f-datum').addEventListener('input', ev => { if (ev.target.value) e.createdAt = new Date(ev.target.value).toISOString(); });
 
@@ -673,6 +725,7 @@ function paintEntryForm() {
     btn.disabled = true;
     try {
       recomputeClassification();
+      updateVevaCodeUI();
       const payload = { ...e };
       delete payload.photos;
       let saved;
@@ -870,16 +923,41 @@ function paintClassificationBanner() {
   const el = $('#classification-banner');
   if (!currentClassification) {
     el.innerHTML = '<p class="hint">Noch keine bewertbaren Analysewerte.</p>';
-    return;
-  }
-  const classes = classesForEntry(currentEntry);
-  const info = classes[currentClassification.classIndex];
-  const unbewertetHint = currentClassification.unbewertet.length
-    ? `<p class="hint">${currentClassification.unbewertet.length} Wert(e) ohne hinterlegten Grenzwert – nicht in Klassifizierung eingeflossen.</p>`
-    : '';
-  el.innerHTML = `<div class="classification-banner" style="background:${info.color}">
+  } else {
+    const classes = classesForEntry(currentEntry);
+    const info = classes[currentClassification.classIndex];
+    const unbewertetHint = currentClassification.unbewertet.length
+      ? `<p class="hint">${currentClassification.unbewertet.length} Wert(e) ohne hinterlegten Grenzwert – nicht in Klassifizierung eingeflossen.</p>`
+      : '';
+    el.innerHTML = `<div class="classification-banner" style="background:${info.color}">
       Einstufung: ${escapeHtml(info.label)}
     </div>${unbewertetHint}`;
+  }
+  updateVevaCodeUI();
+}
+
+// Schlägt automatisch einen VeVA-Aushubcode vor (Material + Standard +
+// aktuelle Einstufung) und trägt ihn ins Formular ein — solange die
+// Auswahl nicht manuell überschrieben wurde (vevaCodeTouched).
+function updateVevaCodeUI() {
+  const sel = $('#f-veva-code');
+  const hint = $('#veva-code-hint');
+  if (!sel || !hint) return; // Formular (noch) nicht im DOM, z.B. beim ersten recomputeClassification()
+  if (vevaCodeTouched) {
+    hint.textContent = 'Manuell gewählt.';
+    return;
+  }
+  const classId = currentClassification?.classId || null;
+  const suggestion = suggestVevaCode(currentEntry.material, currentEntry.standard, classId, vevaCodes);
+  currentEntry.vevaCode = suggestion ? suggestion.code : '';
+  sel.value = currentEntry.vevaCode;
+  if (!classId) {
+    hint.textContent = 'Noch keine bewertbaren Analysewerte – automatische Zuordnung folgt nach der ersten Einstufung.';
+  } else if (suggestion) {
+    hint.textContent = `🤖 automatisch zugeordnet: ${suggestion.bezeichnung}`;
+  } else {
+    hint.textContent = 'Kein passender VeVA-Aushubcode für Material/Einstufung gefunden – bei Bedarf manuell wählen.';
+  }
 }
 
 function showImportPreview(rows, source) {

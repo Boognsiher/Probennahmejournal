@@ -88,8 +88,8 @@ Alle `/api/*`-Endpunkte ausser `/api/auth/login` erfordern den Header `Authoriza
 | POST | `/api/users` | Benutzer anlegen (nur Admin) |
 | DELETE | `/api/users/:id` | Benutzer löschen (nur Admin) |
 | GET | `/api/users/roster` | Namensliste aller Benutzer (für „Probenehmer/in“-Dropdown, jede Rolle) |
-| GET | `/api/projects` | Alle Projekte |
-| POST | `/api/projects` | Projekt anlegen |
+| GET | `/api/projects` | Alle Projekte (inkl. `entnahmeorte`/`entsorgungswege`) |
+| POST | `/api/projects` | Projekt anlegen — optional `entnahmeorte`/`entsorgungswege` (Arrays, für die Dropdowns bei der Probe) |
 | PUT | `/api/projects/:id` | Projekt bearbeiten |
 | DELETE | `/api/projects/:id` | Projekt löschen (nur wenn keine Proben mehr referenzieren) |
 | GET | `/api/settings/thresholds` | Aktuelle VVEA-Grenzwerte |

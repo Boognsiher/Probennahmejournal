@@ -3,8 +3,10 @@
 App zur Führung eines Probennahmejournals auf der Baustelle:
 
 - **Projekt zuerst auswählen** — Projektdaten werden einmal hinterlegt, der **Chargenname wird danach
-  automatisch und fortlaufend pro Projekt vergeben** (z.B. `A123-001`, `A123-002`, …)
-- **Möglichst wenig Tippen**: Material, Probenehmer/in als Auswahllisten, Entnahmeort mit Vorschlägen,
+  automatisch und fortlaufend pro Projekt vergeben** (z.B. `A123-001`, `A123-002`, …). Im Projekt lassen sich
+  ausserdem **Beprobungsorte und Entsorgungswege vordefinieren**, die dann bei jeder Probe als Dropdown zur
+  Verfügung stehen (Beprobungsort alternativ auch per GPS erfassbar).
+- **Möglichst wenig Tippen**: Material, Probenehmer/in, Beprobungsort und Entsorgungsweg als Auswahllisten,
   grosse Bedienelemente — gedacht für die Bedienung mit Handschuhen/Schutzausrüstung
 - Fotodokumentation des Materials
 - **Zwei wählbare Einstufungsstandards pro Probe**: **VVEA** (Deponietyp A–E, Aushub-/Bauabfälle) oder
@@ -12,8 +14,9 @@ App zur Führung eines Probennahmejournals auf der Baustelle:
   Kinderspielplatz / Haus-Familiengarten / Landwirtschaft-Gartenbau)
 - Analyse-Import aus CSV/Excel-CSV oder PDF-Laborberichten, mit automatischer Farbcodierung nach dem
   gewählten Standard (Grenzwerte inkl. Einheiten, per CSV/Excel importierbar, eigene Parameter ergänzbar)
-- **VeVA-Code-Zuordnung** je Probe (Aushub-/Bodenaushubcodes) und ein freies **Entsorgungsweg**-Feld
-  (mit Vorschlägen aus bereits erfassten Proben)
+- **VeVA-Code wird automatisch zugeteilt** — aus Material (z.B. Aushub/Ober-/Unterboden), gewähltem Standard
+  (VVEA/VBBo) und dem Einstufungsergebnis; bleibt manuell überschreibbar, falls kein passender Code gefunden
+  wird oder eine andere Zuordnung gewünscht ist
 - **Echter PDF-Export** je Probe, E-Mail-Versand mit PDF nach Möglichkeit direkt angehängt (native
   Teilen-Funktion des Geräts)
 - **Journal mit Filtern** (Projekt, Material, Standard, Klasse) und Sortierung zum Aufräumen/Wiederfinden
@@ -47,6 +50,13 @@ vereinfachte Interpretation der VBBo-Anhang-2-Expositionspfade) **durch eine Fac
 der offiziellen VeVA-Codeliste geprüft und bei Bedarf angepasst werden** — insbesondere bevor ein VeVA-Code auf
 einem offiziellen Begleitschein verwendet wird. Die App zeigt einen entsprechenden Hinweis auch beim ersten
 Start an.
+
+Der VeVA-Code wird automatisch aus Material (Ober-/Unterboden/Aushub — andere Materialien wie Mischabbruch
+erhalten bewusst keinen Code, da die Liste nur Aushub-/Bodenaushubcodes enthält), gewähltem Standard und
+Einstufungsergebnis vorgeschlagen. Bei einer **VBBo**-eingestuften Probe wird die VBBo-Klasse dafür
+näherungsweise auf die "vergleichbare" VVEA-Klasse abgebildet (unauffällig→unbelastet,
+über Richtwert→Typ A, über Prüfwert→Typ B, über Sanierungswert→Typ C) — eine vereinfachende fachliche
+Einschätzung, keine normative Gleichsetzung. Der Vorschlag ist im Formular jederzeit manuell überschreibbar.
 
 Wurde die App vor diesem Update bereits in Betrieb genommen (bestehende Server-Datenbank, bereits geöffnete
 `shell/`- oder `lokal/`-Instanz), werden die neuen VBBo-Grenzwerte/-Parameter und VeVA-Codes automatisch als

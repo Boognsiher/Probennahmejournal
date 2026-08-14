@@ -28,10 +28,10 @@ const DEFAULT_VEVA_CODES = [
   { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ C/D/E)', material: 'Aushub', klasse: 'typC' },
 ];
 
-// v3: VBBo-Grenzwerte/-Parameter, VeVA-Codes sowie Standard/Nutzungsart/
-// Entsorgungsweg/VeVA-Code je Probe dazugekommen — Version angehoben, damit
-// bereits laufende Test-Sessions automatisch die neuen Startdaten erhalten.
-const DB_KEY = 'pnj_mock_db_v3';
+// v4: Projekte haben jetzt vordefinierte Entsorgungswege/Beprobungsorte
+// (Dropdown bei der Probe) — Version angehoben, damit bereits laufende
+// Test-Sessions das Demo-Projekt mit Beispielwerten dafür erhalten.
+const DB_KEY = 'pnj_mock_db_v4';
 const TOKEN_KEY = 'pnj_token';
 const USER_KEY = 'pnj_user';
 
@@ -51,7 +51,12 @@ function seedDb() {
       { id: uid(), email: 'team@demo.ch', password: 'demo1234', name: 'Demo Team-Mitglied', role: 'user', createdAt: now },
     ],
     projects: [
-      { id: uid(), name: 'Demo Baustelle Zürich', kuerzel: 'DEMO', auftraggeber: 'Muster AG', ort: 'Zürich', bemerkungen: '', nextChargeNumber: 1, createdAt: now },
+      {
+        id: uid(), name: 'Demo Baustelle Zürich', kuerzel: 'DEMO', auftraggeber: 'Muster AG', ort: 'Zürich', bemerkungen: '',
+        entsorgungswege: ['Deponie Muster AG, Zürich', 'Aushubdeponie Musterhausen'],
+        entnahmeorte: ['Baugrube Nord, Schicht 1', 'Baugrube Süd, Schicht 2'],
+        nextChargeNumber: 1, createdAt: now,
+      },
     ],
     entries: [],
     thresholds: JSON.parse(JSON.stringify(DEMO_THRESHOLDS)),
@@ -382,6 +387,10 @@ export async function listProjectsApi() {
 function sanitizeKuerzel(k) {
   return String(k || '').toUpperCase().replace(/[^A-Z0-9\-]/g, '').slice(0, 12);
 }
+function sanitizeList(list) {
+  if (!Array.isArray(list)) return [];
+  return list.map(s => String(s ?? '').trim()).filter(Boolean);
+}
 export async function createProjectApi(project) {
   await delay();
   const user = requireAuth();
@@ -390,6 +399,8 @@ export async function createProjectApi(project) {
   const created = {
     id: uid(), name: project.name, kuerzel,
     auftraggeber: project.auftraggeber || '', ort: project.ort || '', bemerkungen: project.bemerkungen || '',
+    entsorgungswege: sanitizeList(project.entsorgungswege),
+    entnahmeorte: sanitizeList(project.entnahmeorte),
     nextChargeNumber: 1, createdAt: new Date().toISOString(), createdBy: user.id,
   };
   db.projects.push(created);
@@ -406,6 +417,8 @@ export async function updateProjectApi(id, project) {
   Object.assign(existing, {
     name: project.name, kuerzel,
     auftraggeber: project.auftraggeber || '', ort: project.ort || '', bemerkungen: project.bemerkungen || '',
+    entsorgungswege: sanitizeList(project.entsorgungswege),
+    entnahmeorte: sanitizeList(project.entnahmeorte),
   });
   persist();
   return existing;

@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS projects (
   ort TEXT DEFAULT '',
   bemerkungen TEXT DEFAULT '',
   nextChargeNumber INTEGER NOT NULL DEFAULT 1,
+  entsorgungswegeJson TEXT DEFAULT '[]', -- vordefinierte Entsorgungswege (Dropdown bei der Probe)
+  entnahmeorteJson TEXT DEFAULT '[]',    -- vordefinierte Beprobungsorte (Dropdown bei der Probe)
   createdAt TEXT NOT NULL,
   createdBy TEXT REFERENCES users(id)
 );
@@ -82,15 +84,19 @@ CREATE TABLE IF NOT EXISTS settings (
 
 // Migrationen für bestehende Datenbanken: fehlende Spalten nachrüsten.
 const entryCols = db.prepare("PRAGMA table_info(entries)").all().map(c => c.name);
-const addColumnIfMissing = (col, ddl) => {
-  if (!entryCols.includes(col)) db.exec(`ALTER TABLE entries ADD COLUMN ${ddl}`);
+const addColumnIfMissing = (table, cols, col, ddl) => {
+  if (!cols.includes(col)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
 };
-addColumnIfMissing('projektId', "projektId TEXT REFERENCES projects(id)");
-addColumnIfMissing('standard', "standard TEXT DEFAULT 'vvea'");
-addColumnIfMissing('nutzungsart', "nutzungsart TEXT");
-addColumnIfMissing('entsorgungsweg', "entsorgungsweg TEXT DEFAULT ''");
-addColumnIfMissing('vevaCode', "vevaCode TEXT DEFAULT ''");
+addColumnIfMissing('entries', entryCols, 'projektId', "projektId TEXT REFERENCES projects(id)");
+addColumnIfMissing('entries', entryCols, 'standard', "standard TEXT DEFAULT 'vvea'");
+addColumnIfMissing('entries', entryCols, 'nutzungsart', "nutzungsart TEXT");
+addColumnIfMissing('entries', entryCols, 'entsorgungsweg', "entsorgungsweg TEXT DEFAULT ''");
+addColumnIfMissing('entries', entryCols, 'vevaCode', "vevaCode TEXT DEFAULT ''");
 db.exec('CREATE INDEX IF NOT EXISTS idx_entries_projekt ON entries(projektId)');
+
+const projectCols = db.prepare("PRAGMA table_info(projects)").all().map(c => c.name);
+addColumnIfMissing('projects', projectCols, 'entsorgungswegeJson', "entsorgungswegeJson TEXT DEFAULT '[]'");
+addColumnIfMissing('projects', projectCols, 'entnahmeorteJson', "entnahmeorteJson TEXT DEFAULT '[]'");
 
 // Einstellungen mit Startwerten vorbefüllen, falls noch nicht vorhanden.
 function seedSetting(key, value) {

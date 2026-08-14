@@ -152,6 +152,50 @@ export function resetVevaCodesStorage() {
   return DEFAULT_VEVA_CODES.map(c => ({ ...c }));
 }
 
+// ---------- VeVA-Code-Zuteilung (automatisch) ----------
+
+// Ordnet die freie Material-Bezeichnung der Probe (z.B. "Unverschmutzter
+// Aushub", "Humus/Oberboden") einem der drei Material-Eimer zu, die die
+// hinterlegten VeVA-Aushubcodes unterscheiden. Materialien, die nicht
+// Boden/Aushub sind (Mischabbruch, Betonabbruch, Asphalt, …), liefern
+// bewusst `null` — dafür gibt es keine VeVA-Aushubcodes in der Liste.
+export function materialToVevaBucket(material) {
+  const text = String(material || '');
+  if (/ober/i.test(text)) return 'Oberboden';
+  if (/unter/i.test(text)) return 'Unterboden';
+  if (/aushub/i.test(text)) return 'Aushub';
+  return null;
+}
+
+// VBBo kennt keine eigene Deponietyp-Systematik — die hinterlegten
+// VeVA-Aushubcodes sind aber an den VVEA-Klassen (Typ A/B/C) orientiert.
+// Für die automatische Zuteilung bei einer VBBo-eingestuften Probe wird die
+// VBBo-Klasse daher näherungsweise auf die "vergleichbare" VVEA-Klasse
+// abgebildet. Das ist eine vereinfachende fachliche Einschätzung (keine
+// normative Gleichsetzung) — bei Sanierungsfällen zusätzlich prüfen lassen.
+const VBBO_TO_VEVA_KLASSE = {
+  unauffaellig: 'unbelastet',
+  ueberRichtwert: 'typA',
+  ueberPruefwert: 'typB',
+  ueberSanierungswert: 'typC',
+};
+
+/**
+ * Schlägt automatisch einen VeVA-Aushubcode vor, basierend auf Material,
+ * gewähltem Standard (VVEA/VBBo) und dem Einstufungsergebnis (classId aus
+ * classify()/classifyVBBO()). Gibt den passenden Eintrag aus `vevaCodes`
+ * zurück (mit `code`/`bezeichnung`) oder `null`, wenn nichts passt (z.B.
+ * Material ist kein Boden/Aushub, oder noch keine Einstufung vorhanden).
+ */
+export function suggestVevaCode(material, standard, classId, vevaCodes) {
+  if (!classId || !Array.isArray(vevaCodes)) return null;
+  const bucket = materialToVevaBucket(material);
+  if (!bucket) return null;
+  const klasse = standard === 'vbbo' ? VBBO_TO_VEVA_KLASSE[classId] : classId;
+  if (!klasse) return null;
+  return vevaCodes.find(c => c.material === bucket && c.klasse === klasse) || null;
+}
+
 // ---------- Parameter (VVEA) ----------
 
 export const DEFAULT_PARAMETERS = [
