@@ -31,12 +31,12 @@ export const CLASSES = [
 // erweitert werden.
 export const DEFAULT_PARAMETERS = [
   { key: 'toc', label: 'TOC (organischer Kohlenstoff)', unit: '%', art: 'gesamt', aliases: ['toc', 'org. kohlenstoff', 'organischer kohlenstoff', 'gesamter organischer kohlenstoff'] },
-  { key: 'kw', label: 'Kohlenwasserstoffe C10–C40', unit: 'mg/kg', art: 'gesamt', aliases: ['kw', 'kohlenwasserstoffe', 'mineralölkohlenwasserstoffe', 'tph', 'c10-c40', 'c10–c40'] },
+  { key: 'kw', label: 'Kohlenwasserstoffe C10–C40', unit: 'mg/kg', art: 'gesamt', aliases: ['mineralölkohlenwasserstoffe', 'tph', 'c10-c40', 'c10–c40', 'kw c10-c40', 'kw c10–c40'] },
   { key: 'pak', label: 'PAK (Σ16 EPA)', unit: 'mg/kg', art: 'gesamt', aliases: ['pak', 'pah', 'polyzyklische aromatische kohlenwasserstoffe', 'σ16 pak', 'epa-pak'] },
   { key: 'pcb', label: 'PCB (Σ7 Kongenere)', unit: 'mg/kg', art: 'gesamt', aliases: ['pcb', 'polychlorierte biphenyle', 'σ7 pcb'] },
   { key: 'pb', label: 'Blei (Pb)', unit: 'mg/kg', art: 'gesamt', aliases: ['blei', 'pb'] },
   { key: 'cd', label: 'Cadmium (Cd)', unit: 'mg/kg', art: 'gesamt', aliases: ['cadmium', 'cd'] },
-  { key: 'cr', label: 'Chrom, gesamt (Cr)', unit: 'mg/kg', art: 'gesamt', aliases: ['chrom', 'cr', 'chrom gesamt'] },
+  { key: 'cr', label: 'Chrom, gesamt (Cr)', unit: 'mg/kg', art: 'gesamt', aliases: ['cr', 'chrom gesamt', 'chrom total'] },
   { key: 'cu', label: 'Kupfer (Cu)', unit: 'mg/kg', art: 'gesamt', aliases: ['kupfer', 'cu'] },
   { key: 'ni', label: 'Nickel (Ni)', unit: 'mg/kg', art: 'gesamt', aliases: ['nickel', 'ni'] },
   { key: 'hg', label: 'Quecksilber (Hg)', unit: 'mg/kg', art: 'gesamt', aliases: ['quecksilber', 'hg'] },
@@ -74,13 +74,25 @@ export function resetParametersStorage() {
   return DEFAULT_PARAMETERS.map(p => ({ ...p }));
 }
 
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Findet einen Alias nur als eigenständiges Wort/Token (Wortgrenzen), nie als
+// blossen Teilstring mitten in einem anderen Wort — sonst würde z.B. der
+// Alias "ni" (Nickel) fälschlich in "Alumi-ni-um" oder "Ammo-ni-um" matchen.
+function containsAliasAsToken(text, alias) {
+  const re = new RegExp(`(^|[^a-zà-ÿ0-9])${escapeRegExp(alias)}($|[^a-zà-ÿ0-9])`, 'i');
+  return re.test(text);
+}
+
 export function findParamByAlias(text) {
   const t = text.trim().toLowerCase().replace(/\s+/g, ' ');
   let best = null;
   for (const p of PARAMETERS) {
     for (const a of (p.aliases || [])) {
       if (t === a) return p; // exact match wins immediately
-      if (t.includes(a) && (!best || a.length > best._matchLen)) {
+      if (containsAliasAsToken(t, a) && (!best || a.length > best._matchLen)) {
         best = p;
         best._matchLen = a.length;
       }
@@ -255,8 +267,12 @@ export function parseThresholdsCSV(text) {
     if (!nameRaw) continue;
     const artRaw = artCol >= 0 ? cells[artCol] : '';
     const unitRaw = unitCol >= 0 ? cells[unitCol] : '';
-    const existing = findParamByAlias(nameRaw);
+    let existing = findParamByAlias(nameRaw);
     const art = /eluat/i.test(artRaw) ? 'eluat' : (/gesamt/i.test(artRaw) ? 'gesamt' : (existing ? existing.art : 'gesamt'));
+    // Ein Namens-Treffer zählt nur, wenn auch die Art (Gesamt/Eluat) übereinstimmt
+    // — sonst würde z.B. "Blei (Pb) – Eluat" denselben Schlüssel wie das
+    // bestehende Gesamtgehalt-"Blei (Pb)" bekommen und dessen Werte überschreiben.
+    if (existing && existing.art !== art) existing = null;
     const unit = unitRaw || (existing ? existing.unit : '');
     const values = {};
     for (const { classId, col } of classCols) {
