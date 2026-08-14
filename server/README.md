@@ -81,17 +81,29 @@ Alle `/api/*`-Endpunkte ausser `/api/auth/login` erfordern den Header `Authoriza
 | GET | `/api/users` | Benutzerliste (nur Admin) |
 | POST | `/api/users` | Benutzer anlegen (nur Admin) |
 | DELETE | `/api/users/:id` | Benutzer löschen (nur Admin) |
+| GET | `/api/users/roster` | Namensliste aller Benutzer (für „Probenehmer/in“-Dropdown, jede Rolle) |
+| GET | `/api/projects` | Alle Projekte |
+| POST | `/api/projects` | Projekt anlegen |
+| PUT | `/api/projects/:id` | Projekt bearbeiten |
+| DELETE | `/api/projects/:id` | Projekt löschen (nur wenn keine Proben mehr referenzieren) |
 | GET | `/api/settings/thresholds` | Aktuelle VVEA-Grenzwerte |
 | PUT | `/api/settings/thresholds` | Grenzwerte speichern (nur Admin) |
 | POST | `/api/settings/thresholds/reset` | Auf Beispielwerte zurücksetzen (nur Admin) |
+| GET | `/api/settings/parameters` | Aktuelle Parameterliste (Grenzwert-Zeilen) |
+| PUT | `/api/settings/parameters` | Parameterliste speichern, inkl. neue eigene Parameter (nur Admin) |
+| POST | `/api/settings/parameters/reset` | Auf Standardliste zurücksetzen (nur Admin) |
 | GET | `/api/entries` | Alle Proben |
 | GET | `/api/entries/:id` | Einzelne Probe inkl. Foto-Metadaten |
-| POST | `/api/entries` | Neue Probe anlegen |
-| PUT | `/api/entries/:id` | Probe aktualisieren |
+| POST | `/api/entries` | Neue Probe anlegen — `projektId` erforderlich; Chargenname (`probeBezeichnung`) wird serverseitig aus Projekt-Kürzel + fortlaufender Nummer vergeben |
+| PUT | `/api/entries/:id` | Probe aktualisieren (Projekt/Chargenname bleiben nach dem Anlegen fix) |
 | DELETE | `/api/entries/:id` | Probe löschen (inkl. zugehöriger Fotos) |
 | POST | `/api/entries/:id/photos` | Fotos hochladen (multipart, Feld `photos`) |
 | GET | `/api/entries/:id/photos/:photoId/file` | Fotodatei abrufen |
 | DELETE | `/api/entries/:id/photos/:photoId` | Foto löschen |
+
+PDF-Erzeugung und der Versand-Anhang (Web-Share-API) laufen komplett im Browser (siehe
+[`../public/js/report-pdf.js`](../public/js/report-pdf.js)) — der Server ist daran nicht beteiligt und muss
+dafür nichts bereitstellen.
 
 ## Bekannte Einschränkung: Offline-Erfassung
 

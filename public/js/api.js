@@ -108,6 +108,19 @@ export async function resetThresholdsApi() {
   return data.thresholds;
 }
 
+// ---------- Parameter (Grenzwerte-Zeilen) ----------
+export async function getParametersApi() {
+  const data = await request('/settings/parameters');
+  return data.parameters;
+}
+export async function saveParametersApi(parameters) {
+  await request('/settings/parameters', { method: 'PUT', body: { parameters } });
+}
+export async function resetParametersApi() {
+  const data = await request('/settings/parameters/reset', { method: 'POST' });
+  return data.parameters;
+}
+
 // ---------- Benutzer (Admin) ----------
 export async function listUsersApi() {
   const data = await request('/users');
@@ -119,4 +132,25 @@ export async function createUserApi(user) {
 }
 export async function deleteUserApi(id) {
   await request(`/users/${id}`, { method: 'DELETE' });
+}
+export async function getUserRosterApi() {
+  const data = await request('/users/roster');
+  return data.users;
+}
+
+// ---------- Projekte ----------
+export async function listProjectsApi() {
+  const data = await request('/projects');
+  return data.projects;
+}
+export async function createProjectApi(project) {
+  const data = await request('/projects', { method: 'POST', body: project });
+  return data.project;
+}
+export async function updateProjectApi(id, project) {
+  const data = await request(`/projects/${id}`, { method: 'PUT', body: project });
+  return data.project;
+}
+export async function deleteProjectApi(id) {
+  await request(`/projects/${id}`, { method: 'DELETE' });
 }

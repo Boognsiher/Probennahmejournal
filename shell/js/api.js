@@ -4,9 +4,9 @@
 // wird alles lokal in diesem Browser simuliert (localStorage). Kein Netzwerk,
 // kein echtes Login, keine echte Sicherheit — nur zum Durchklicken/Testen der
 // Oberfläche, bevor der echte Server (siehe ../server) angebunden wird.
-import { DEMO_THRESHOLDS } from './vvea.js';
+import { DEMO_THRESHOLDS, DEFAULT_PARAMETERS } from './vvea.js';
 
-const DB_KEY = 'pnj_mock_db_v1';
+const DB_KEY = 'pnj_mock_db_v2';
 const TOKEN_KEY = 'pnj_token';
 const USER_KEY = 'pnj_user';
 
@@ -16,6 +16,7 @@ function uid() {
     return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
   });
 }
+function pad3(n) { return String(n).padStart(3, '0'); }
 
 function seedDb() {
   const now = new Date().toISOString();
@@ -24,8 +25,12 @@ function seedDb() {
       { id: uid(), email: 'admin@demo.ch', password: 'demo1234', name: 'Demo Admin', role: 'admin', createdAt: now },
       { id: uid(), email: 'team@demo.ch', password: 'demo1234', name: 'Demo Team-Mitglied', role: 'user', createdAt: now },
     ],
+    projects: [
+      { id: uid(), name: 'Demo Baustelle Zürich', kuerzel: 'DEMO', auftraggeber: 'Muster AG', ort: 'Zürich', bemerkungen: '', nextChargeNumber: 1, createdAt: now },
+    ],
     entries: [],
     thresholds: JSON.parse(JSON.stringify(DEMO_THRESHOLDS)),
+    parameters: JSON.parse(JSON.stringify(DEFAULT_PARAMETERS)),
   };
 }
 
@@ -98,16 +103,27 @@ export async function getEntryApi(id) {
   if (!entry) throw new ApiError('Probe nicht gefunden.', 404);
   return stripPhotoData(entry);
 }
+
+// Chargenname (Probenbezeichnung) wird ausschliesslich hier vergeben — analog
+// zum echten Server — aus Projekt-Kürzel + fortlaufender Nummer.
 export async function createEntryApi(entry) {
   await delay();
   const user = requireAuth();
+  if (!entry.projektId) throw new ApiError('Bitte zuerst ein Projekt auswählen.', 400);
+  const project = db.projects.find(p => p.id === entry.projektId);
+  if (!project) throw new ApiError('Projekt nicht gefunden.', 400);
+  const seq = project.nextChargeNumber;
+  const probeBezeichnung = `${project.kuerzel}-${pad3(seq)}`;
+  project.nextChargeNumber = seq + 1;
+
   const now = new Date().toISOString();
   const created = {
     id: uid(),
     createdAt: entry.createdAt || now,
     updatedAt: now,
-    baustelle: entry.baustelle || '',
-    probeBezeichnung: entry.probeBezeichnung || '',
+    projektId: project.id,
+    baustelle: project.name,
+    probeBezeichnung,
     entnahmeort: entry.entnahmeort || '',
     gps: entry.gps || null,
     material: entry.material || '',
@@ -122,13 +138,13 @@ export async function createEntryApi(entry) {
   persist();
   return stripPhotoData(created);
 }
+// Projekt und Chargenname bleiben nach dem Anlegen fix (Nachvollziehbarkeit).
 export async function updateEntryApi(id, entry) {
   await delay();
   requireAuth();
   const existing = db.entries.find(e => e.id === id);
   if (!existing) throw new ApiError('Probe nicht gefunden.', 404);
   Object.assign(existing, {
-    baustelle: entry.baustelle ?? '', probeBezeichnung: entry.probeBezeichnung ?? '',
     entnahmeort: entry.entnahmeort ?? '', gps: entry.gps ?? null,
     material: entry.material ?? '', probenehmer: entry.probenehmer ?? '',
     bemerkungen: entry.bemerkungen ?? '', analyse: entry.analyse ?? [],
@@ -209,6 +225,26 @@ export async function resetThresholdsApi() {
   return db.thresholds;
 }
 
+// ---------- Parameter (Grenzwerte-Zeilen) ----------
+export async function getParametersApi() {
+  await delay();
+  requireAuth();
+  return JSON.parse(JSON.stringify(db.parameters));
+}
+export async function saveParametersApi(parameters) {
+  await delay();
+  requireAdmin();
+  db.parameters = parameters;
+  persist();
+}
+export async function resetParametersApi() {
+  await delay();
+  requireAdmin();
+  db.parameters = JSON.parse(JSON.stringify(DEFAULT_PARAMETERS));
+  persist();
+  return db.parameters;
+}
+
 // ---------- Benutzer (Admin) ----------
 export async function listUsersApi() {
   await delay();
@@ -233,5 +269,56 @@ export async function deleteUserApi(id) {
   const me = requireAdmin();
   if (id === me.id) throw new ApiError('Eigenes Konto kann nicht gelöscht werden.', 400);
   db.users = db.users.filter(u => u.id !== id);
+  persist();
+}
+export async function getUserRosterApi() {
+  await delay();
+  requireAuth();
+  return db.users.map(u => ({ id: u.id, name: u.name }));
+}
+
+// ---------- Projekte ----------
+export async function listProjectsApi() {
+  await delay();
+  requireAuth();
+  return [...db.projects].sort((a, b) => a.name.localeCompare(b.name));
+}
+function sanitizeKuerzel(k) {
+  return String(k || '').toUpperCase().replace(/[^A-Z0-9\-]/g, '').slice(0, 12);
+}
+export async function createProjectApi(project) {
+  await delay();
+  const user = requireAuth();
+  const kuerzel = sanitizeKuerzel(project.kuerzel);
+  if (!project.name || !kuerzel) throw new ApiError('Projektname und Kürzel sind erforderlich.', 400);
+  const created = {
+    id: uid(), name: project.name, kuerzel,
+    auftraggeber: project.auftraggeber || '', ort: project.ort || '', bemerkungen: project.bemerkungen || '',
+    nextChargeNumber: 1, createdAt: new Date().toISOString(), createdBy: user.id,
+  };
+  db.projects.push(created);
+  persist();
+  return created;
+}
+export async function updateProjectApi(id, project) {
+  await delay();
+  requireAuth();
+  const existing = db.projects.find(p => p.id === id);
+  if (!existing) throw new ApiError('Projekt nicht gefunden.', 404);
+  const kuerzel = sanitizeKuerzel(project.kuerzel);
+  if (!project.name || !kuerzel) throw new ApiError('Projektname und Kürzel sind erforderlich.', 400);
+  Object.assign(existing, {
+    name: project.name, kuerzel,
+    auftraggeber: project.auftraggeber || '', ort: project.ort || '', bemerkungen: project.bemerkungen || '',
+  });
+  persist();
+  return existing;
+}
+export async function deleteProjectApi(id) {
+  await delay();
+  requireAuth();
+  const used = db.entries.filter(e => e.projektId === id).length;
+  if (used > 0) throw new ApiError(`Projekt hat noch ${used} Probe(n) und kann nicht gelöscht werden.`, 409);
+  db.projects = db.projects.filter(p => p.id !== id);
   persist();
 }

@@ -1,7 +1,6 @@
-// email.js — bereitet eine E-Mail über mailto: vor. mailto: kann keine
-// Dateianhänge setzen (Browser-Beschränkung) — deshalb wird im Body auf den
-// zuvor heruntergeladenen HTML-Bericht/Fotos als manuell anzuhängende Datei
-// hingewiesen (siehe report.js).
+// email.js — baut die Textzusammenfassung/den mailto:-Link. Der eigentliche
+// PDF-Anhang läuft über report-pdf.js (Web-Share-API bzw. Download-Fallback,
+// da mailto: selbst keine Dateianhänge setzen kann — Browser-Beschränkung).
 import { CLASSES } from './vvea.js';
 
 export function buildMailSummary(entry, classification) {
@@ -28,8 +27,7 @@ export function buildMailSummary(entry, classification) {
     lines.push(`Bemerkungen: ${entry.bemerkungen}`);
   }
   lines.push('');
-  lines.push(`Fotos: ${(entry.photos || []).length} Stück – bitte den heruntergeladenen Bericht`
-    + ' bzw. die Fotos dieser E-Mail manuell als Anhang beifügen (mailto: unterstützt keine automatischen Anhänge).');
+  lines.push(`Fotos: ${(entry.photos || []).length} Stück (im PDF-Anhang enthalten, falls beigefügt).`);
   lines.push('');
   lines.push('— Erstellt mit dem Baustellen-Probennahmejournal');
   return lines.join('\n');

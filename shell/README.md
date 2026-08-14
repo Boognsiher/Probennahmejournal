@@ -5,22 +5,24 @@ CSV/PDF-Import, Grenzwerte-Verwaltung), aber **ohne echten Server**: `js/api.js`
 Simulation ersetzt, die alles in `localStorage` dieses Browsers ablegt. Damit lässt sich die komplette UI/UX
 durchklicken und testen, bevor der echte Server (siehe [`../server`](../server/README.md)) aufgesetzt wird.
 
-**`js/app.js`, `js/vvea.js`, `js/parse-csv.js`, `js/parse-pdf.js`, `js/report.js`, `js/email.js` sind 1:1
-identisch mit [`../public`](../public)** — nur `js/api.js` unterscheidet sich (Mock statt echter HTTP-Aufrufe).
-Sobald die UI/Logik so passt, wird einfach `../server` + `../public` deployt statt dieser Schale — am
-Anwendungscode ändert sich nichts.
+**`js/app.js`, `js/vvea.js`, `js/parse-csv.js`, `js/parse-pdf.js`, `js/report.js`, `js/report-pdf.js`,
+`js/email.js` sind 1:1 identisch mit [`../public`](../public)** — nur `js/api.js` unterscheidet sich (Mock
+statt echter HTTP-Aufrufe). Sobald die UI/Logik so passt, wird einfach `../server` + `../public` deployt statt
+dieser Schale — am Anwendungscode ändert sich nichts.
 
 ## Demo-Zugänge
 
-Beim ersten Aufruf automatisch angelegt (steht auch im blauen Banner oben in der App):
+Beim ersten Aufruf automatisch angelegt (steht auch im blauen Banner oben in der App), inkl. einem
+Beispielprojekt „Demo Baustelle Zürich“ (Kürzel `DEMO`) zum sofortigen Ausprobieren der Probenerfassung:
 
 | E-Mail | Passwort | Rolle |
 |---|---|---|
-| `admin@demo.ch` | `demo1234` | Administrator (Benutzerverwaltung, Grenzwerte bearbeiten) |
+| `admin@demo.ch` | `demo1234` | Administrator (Benutzerverwaltung, Grenzwerte/Parameter bearbeiten) |
 | `team@demo.ch` | `demo1234` | Team-Mitglied (eingeschränkte Rechte) |
 
-Über „Testdaten zurücksetzen“ im Banner lassen sich alle simulierten Daten (Proben, Fotos, zusätzlich
-angelegte Benutzer, Grenzwerte) jederzeit löschen und die Schale mit den zwei Demo-Zugängen neu starten.
+Über „Testdaten zurücksetzen“ im Banner lassen sich alle simulierten Daten (Proben, Fotos, Projekte,
+zusätzlich angelegte Benutzer, Grenzwerte/Parameter) jederzeit löschen und die Schale mit den Demo-Zugängen
+neu starten.
 
 ## Lokal starten
 

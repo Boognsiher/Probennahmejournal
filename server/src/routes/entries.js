@@ -39,6 +39,7 @@ function rowToEntry(row) {
     id: row.id,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+    projektId: row.projektId,
     baustelle: row.baustelle,
     probeBezeichnung: row.probeBezeichnung,
     entnahmeort: row.entnahmeort,
@@ -66,8 +67,6 @@ entriesRouter.get('/:id', (req, res) => {
 
 function upsertFields(body) {
   return {
-    baustelle: body.baustelle ?? '',
-    probeBezeichnung: body.probeBezeichnung ?? '',
     entnahmeort: body.entnahmeort ?? '',
     gpsLat: body.gps?.lat ?? null,
     gpsLng: body.gps?.lng ?? null,
@@ -79,24 +78,40 @@ function upsertFields(body) {
   };
 }
 
+// Chargenname (Probenbezeichnung) wird ausschliesslich serverseitig aus dem
+// Projekt-Kürzel + fortlaufender Nummer vergeben — Client kann sie nicht setzen.
 entriesRouter.post('/', (req, res) => {
+  const projektId = req.body?.projektId;
+  if (!projektId) return res.status(400).json({ error: 'Bitte zuerst ein Projekt auswählen.' });
+  const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projektId);
+  if (!project) return res.status(400).json({ error: 'Projekt nicht gefunden.' });
+
+  const seq = project.nextChargeNumber;
+  const probeBezeichnung = `${project.kuerzel}-${String(seq).padStart(3, '0')}`;
+  db.prepare('UPDATE projects SET nextChargeNumber = ? WHERE id = ?').run(seq + 1, project.id);
+
   const id = randomUUID();
   const now = new Date().toISOString();
   const f = upsertFields(req.body || {});
   db.prepare(`INSERT INTO entries
-    (id, createdAt, updatedAt, baustelle, probeBezeichnung, entnahmeort, gpsLat, gpsLng, material, probenehmer, bemerkungen, analyseJson, klassifizierungJson, createdBy)
-    VALUES (@id, @createdAt, @updatedAt, @baustelle, @probeBezeichnung, @entnahmeort, @gpsLat, @gpsLng, @material, @probenehmer, @bemerkungen, @analyseJson, @klassifizierungJson, @createdBy)`)
-    .run({ id, createdAt: req.body?.createdAt || now, updatedAt: now, createdBy: req.user.id, ...f });
+    (id, createdAt, updatedAt, projektId, baustelle, probeBezeichnung, entnahmeort, gpsLat, gpsLng, material, probenehmer, bemerkungen, analyseJson, klassifizierungJson, createdBy)
+    VALUES (@id, @createdAt, @updatedAt, @projektId, @baustelle, @probeBezeichnung, @entnahmeort, @gpsLat, @gpsLng, @material, @probenehmer, @bemerkungen, @analyseJson, @klassifizierungJson, @createdBy)`)
+    .run({
+      id, createdAt: req.body?.createdAt || now, updatedAt: now, createdBy: req.user.id,
+      projektId: project.id, baustelle: project.name, probeBezeichnung, ...f,
+    });
   const row = db.prepare('SELECT * FROM entries WHERE id = ?').get(id);
   res.status(201).json({ entry: rowToEntry(row) });
 });
 
+// Projekt und Chargenname sind nach dem Anlegen fix (Nachvollziehbarkeit der
+// fortlaufenden Nummerierung) — ein PUT kann nur die übrigen Felder ändern.
 entriesRouter.put('/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM entries WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Probe nicht gefunden.' });
   const f = upsertFields(req.body || {});
   db.prepare(`UPDATE entries SET
-      baustelle=@baustelle, probeBezeichnung=@probeBezeichnung, entnahmeort=@entnahmeort,
+      entnahmeort=@entnahmeort,
       gpsLat=@gpsLat, gpsLng=@gpsLng, material=@material, probenehmer=@probenehmer,
       bemerkungen=@bemerkungen, analyseJson=@analyseJson, klassifizierungJson=@klassifizierungJson,
       updatedAt=@updatedAt

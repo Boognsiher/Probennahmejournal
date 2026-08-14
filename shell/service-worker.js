@@ -1,7 +1,7 @@
 // Minimaler Service Worker: Cache-first für die App-Shell (schnelles Laden,
 // Offline-Ansicht der Oberfläche), Network-only für die Server-API (/api/*),
 // damit Journal-Daten und Fotos immer aktuell sind.
-const CACHE_NAME = 'probennahmejournal-shell-v1';
+const CACHE_NAME = 'probennahmejournal-shell-v2';
 const APP_SHELL = [
   './',
   './index.html',
@@ -14,6 +14,7 @@ const APP_SHELL = [
   './js/parse-csv.js',
   './js/parse-pdf.js',
   './js/report.js',
+  './js/report-pdf.js',
   './js/email.js',
   './icons/icon.svg',
 ];

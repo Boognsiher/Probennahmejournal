@@ -6,6 +6,7 @@ import { authRouter } from './routes/auth.js';
 import { usersRouter } from './routes/users.js';
 import { settingsRouter } from './routes/settings.js';
 import { entriesRouter } from './routes/entries.js';
+import { projectsRouter } from './routes/projects.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, '..', '..', 'public');
@@ -18,6 +19,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/entries', entriesRouter);
+app.use('/api/projects', projectsRouter);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 

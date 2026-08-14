@@ -6,7 +6,11 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!btn) return;
   btn.addEventListener('click', () => {
     if (!confirm('Alle Testdaten in diesem Browser löschen und mit den Demo-Zugängen neu starten?')) return;
-    localStorage.removeItem('pnj_mock_db_v1');
+    // Alle "pnj_mock_db*"-Schlüssel entfernen (robust gegen künftige Versionsbumps
+    // des Mock-Datenbankschemas in js/api.js).
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('pnj_mock_db'))
+      .forEach(k => localStorage.removeItem(k));
     localStorage.removeItem('pnj_token');
     localStorage.removeItem('pnj_user');
     location.href = location.pathname;

@@ -5,6 +5,14 @@ import { db } from '../db.js';
 import { requireAuth, requireAdmin } from '../auth.js';
 
 export const usersRouter = Router();
+
+// Namensliste für Dropdowns (z.B. "Probenehmer/in") — jede angemeldete Person
+// darf sie sehen, unabhängig von der Rolle. Muss vor dem Admin-Guard stehen.
+usersRouter.get('/roster', requireAuth, (req, res) => {
+  const users = db.prepare('SELECT id, name FROM users ORDER BY name COLLATE NOCASE').all();
+  res.json({ users });
+});
+
 usersRouter.use(requireAuth, requireAdmin);
 
 usersRouter.get('/', (req, res) => {

@@ -1,7 +1,17 @@
 # Baustellen-Probennahmejournal
 
-App zur Führung eines Probennahmejournals auf der Baustelle: Fotodokumentation des Materials, Import von
-Laboranalysen (CSV/PDF) mit automatischer Farbcodierung nach Deponieklassen, und E-Mail-Export.
+App zur Führung eines Probennahmejournals auf der Baustelle:
+
+- **Projekt zuerst auswählen** — Projektdaten werden einmal hinterlegt, der **Chargenname wird danach
+  automatisch und fortlaufend pro Projekt vergeben** (z.B. `A123-001`, `A123-002`, …)
+- **Möglichst wenig Tippen**: Material, Probenehmer/in als Auswahllisten, Entnahmeort mit Vorschlägen,
+  grosse Bedienelemente — gedacht für die Bedienung mit Handschuhen/Schutzausrüstung
+- Fotodokumentation des Materials
+- Analyse-Import aus CSV/Excel-CSV oder PDF-Laborberichten, mit automatischer Farbcodierung nach
+  Deponieklassen (Grenzwerte inkl. Einheiten, per CSV/Excel importierbar, eigene Parameter ergänzbar)
+- **Echter PDF-Export** je Probe, E-Mail-Versand mit PDF nach Möglichkeit direkt angehängt (native
+  Teilen-Funktion des Geräts)
+- **Journal mit Filtern** (Projekt, Material, Deponieklasse) und Sortierung zum Aufräumen/Wiederfinden
 
 Es gibt **drei eigenständige Varianten** im selben Repository – je nach Bedarf wählbar:
 
@@ -48,3 +58,14 @@ npm start
 
 Details, Deployment-Optionen (Docker, GitHub Pages, Reverse-Proxy/HTTPS) und Architekturübersicht jeweils in
 den verlinkten READMEs oben.
+
+## PDF & E-Mail-Versand
+
+„Als PDF generieren“ erzeugt eine echte PDF-Datei (Fotos, Analysewerte, Klassifizierung) direkt im Browser.
+„E-Mail mit PDF senden“ versucht zuerst, die PDF über die **native Teilen-Funktion** des Geräts (Web-Share-API,
+v.a. Handys) direkt als Anhang bereitzustellen — der PDF-Anhang ist dann bereits gesetzt, es muss nur noch die
+Mail-App gewählt werden. Wo das nicht unterstützt wird (v.a. Desktop-Browser), wird die PDF stattdessen
+heruntergeladen und ein `mailto:` mit vorausgefülltem Text geöffnet — die Datei muss dort manuell angehängt
+werden. Das ist eine Browser-/Betriebssystem-Einschränkung: `mailto:`-Links können aus keinem Browser heraus
+automatisch Dateianhänge setzen, das lässt sich ohne eigenen Mailversand-Server (SMTP/E-Mail-API) nicht
+umgehen.

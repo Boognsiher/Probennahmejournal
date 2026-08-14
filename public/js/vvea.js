@@ -24,7 +24,9 @@ export const CLASSES = [
 
 // Bekannte Parameter inkl. Alias-Liste für den automatischen Import (CSV/PDF).
 // `art`: 'gesamt' (Gesamtgehalt, i.d.R. mg/kg TS) oder 'eluat' (i.d.R. mg/l).
-export const PARAMETERS = [
+// Startbefüllung — die tatsächlich aktive Liste (`PARAMETERS`) wird vom Server
+// geladen und kann dort um eigene Parameter erweitert werden (Einstellungen).
+export const DEFAULT_PARAMETERS = [
   { key: 'toc', label: 'TOC (organischer Kohlenstoff)', unit: '%', art: 'gesamt', aliases: ['toc', 'org. kohlenstoff', 'organischer kohlenstoff', 'gesamter organischer kohlenstoff'] },
   { key: 'kw', label: 'Kohlenwasserstoffe C10–C40', unit: 'mg/kg', art: 'gesamt', aliases: ['kw', 'kohlenwasserstoffe', 'mineralölkohlenwasserstoffe', 'tph', 'c10-c40', 'c10–c40'] },
   { key: 'pak', label: 'PAK (Σ16 EPA)', unit: 'mg/kg', art: 'gesamt', aliases: ['pak', 'pah', 'polyzyklische aromatische kohlenwasserstoffe', 'σ16 pak', 'epa-pak'] },
@@ -45,11 +47,21 @@ export const PARAMETERS = [
   { key: 'fluorid', label: 'Fluorid (Eluat)', unit: 'mg/l', art: 'eluat', aliases: ['fluorid', 'f-'] },
 ];
 
-function findParamByAlias(text) {
+// Aktive Parameterliste — live gebunden: setParameters() (aufgerufen von
+// app.js nach dem Laden vom Server/aus dem lokalen Speicher) ersetzt den
+// Inhalt; alle Importe von {PARAMETERS} in anderen Modulen sehen die
+// Änderung automatisch (ES-Module-Live-Bindings), inkl. findParamByAlias/
+// classify() unten.
+export let PARAMETERS = DEFAULT_PARAMETERS.map(p => ({ ...p }));
+export function setParameters(list) {
+  PARAMETERS = Array.isArray(list) && list.length ? list : DEFAULT_PARAMETERS.map(p => ({ ...p }));
+}
+
+export function findParamByAlias(text) {
   const t = text.trim().toLowerCase().replace(/\s+/g, ' ');
   let best = null;
   for (const p of PARAMETERS) {
-    for (const a of p.aliases) {
+    for (const a of (p.aliases || [])) {
       if (t === a) return p; // exact match wins immediately
       if (t.includes(a) && (!best || a.length > best._matchLen)) {
         best = p;
@@ -59,7 +71,16 @@ function findParamByAlias(text) {
   }
   return best;
 }
-export { findParamByAlias };
+
+export function slugifyParamKey(label, existingKeys) {
+  let base = String(label).toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '') // Umlaute/Akzente entfernen
+    .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 24) || 'parameter';
+  let key = base;
+  let i = 2;
+  while (existingKeys.has(key)) { key = `${base}_${i}`; i++; }
+  return key;
+}
 
 // Platzhalter-Grenzwerte – siehe Hinweis oben. gesamt in mg/kg TS (TOC in %),
 // eluat in mg/l (pH dimensionslos). `null` = für diese Klasse nicht geregelt/
@@ -85,10 +106,10 @@ export const DEMO_THRESHOLDS = {
   fluorid: { unbelastet: null, typA: null, typB: null, typC: null, typD: null, typE: null },
 };
 
-// Hinweis: Die Grenzwerte werden serverseitig gespeichert und über api.js
-// (getThresholdsApi/saveThresholdsApi/resetThresholdsApi) geladen/gespeichert,
-// damit alle Benutzer:innen dieselbe Klassifizierung sehen. DEMO_THRESHOLDS
-// dient hier nur noch als Fallback, falls der Server (noch) nicht erreichbar ist.
+// Hinweis: Grenzwerte & Parameterliste werden zentral gespeichert (Server bzw.
+// simulierter Speicher der Test-Schale) und über api.js geladen/gespeichert,
+// damit alle Benutzer:innen dieselbe Klassifizierung sehen. DEMO_THRESHOLDS/
+// DEFAULT_PARAMETERS dienen hier nur als Fallback bzw. Reset-Vorlage.
 
 export function hasAcknowledgedDisclaimer() {
   return localStorage.getItem(STORAGE_KEY_ACK) === '1';
@@ -150,4 +171,88 @@ export function classify(werte, thresholds) {
     perParameter,
     unbewertet,
   };
+}
+
+// ---------- Grenzwerte-Import aus CSV (z.B. aus Excel exportiert) ----------
+
+function parseThresholdNumber(str) {
+  if (str === undefined || str === null) return null;
+  const s = String(str).trim();
+  if (s === '') return null;
+  let n = s.replace(/[^\d,.\-]/g, '');
+  if (n.includes(',') && n.includes('.')) n = n.replace(/\./g, '').replace(',', '.');
+  else if (n.includes(',')) n = n.replace(',', '.');
+  const val = parseFloat(n);
+  return Number.isNaN(val) ? null : val;
+}
+
+function splitCsvLine(line, delim) {
+  const out = [];
+  let cur = '', inQuotes = false;
+  for (const ch of line) {
+    if (ch === '"') inQuotes = !inQuotes;
+    else if (ch === delim && !inQuotes) { out.push(cur); cur = ''; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out.map(s => s.trim().replace(/^"|"$/g, ''));
+}
+
+/**
+ * Erwartetes Format (Header-Zeile nötig), z.B. per Excel "Speichern unter -> CSV":
+ * Parameter;Art;Einheit;Verwertung;Typ A;Typ B;Typ C;Typ D;Typ E
+ * Blei (Pb);Gesamt;mg/kg;50;150;500;1000;;
+ *
+ * Unbekannte Parameter-Namen werden als NEUE Parameter vorgeschlagen (nicht
+ * automatisch übernommen — Vorschau vor dem Übernehmen prüfen lassen).
+ */
+export function parseThresholdsCSV(text) {
+  const lines = text.split(/\r\n|\n|\r/).filter(l => l.trim().length > 0);
+  if (lines.length < 2) return [];
+  const delim = (lines[0].match(/;/g) || []).length >= (lines[0].match(/,/g) || []).length ? ';' : ',';
+  const header = splitCsvLine(lines[0], delim).map(h => h.trim().toLowerCase());
+  const paramCol = header.findIndex(h => /parameter|analyt|bezeichnung/.test(h));
+  const artCol = header.findIndex(h => /^art$|typ.*matrix|matrix/.test(h));
+  const unitCol = header.findIndex(h => /einheit|unit/.test(h));
+  const classCols = CLASSES.filter(c => !c.terminal).map(c => ({
+    classId: c.id,
+    col: header.findIndex(h => h === c.short.toLowerCase() || h === c.label.toLowerCase()),
+  }));
+
+  const existingKeys = new Set(PARAMETERS.map(p => p.key));
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cells = splitCsvLine(lines[i], delim);
+    const nameRaw = paramCol >= 0 ? cells[paramCol] : cells[0];
+    if (!nameRaw) continue;
+    const artRaw = artCol >= 0 ? cells[artCol] : '';
+    const unitRaw = unitCol >= 0 ? cells[unitCol] : '';
+    const existing = findParamByAlias(nameRaw);
+    const art = /eluat/i.test(artRaw) ? 'eluat' : (/gesamt/i.test(artRaw) ? 'gesamt' : (existing ? existing.art : 'gesamt'));
+    const unit = unitRaw || (existing ? existing.unit : '');
+    const values = {};
+    for (const { classId, col } of classCols) {
+      values[classId] = col >= 0 ? parseThresholdNumber(cells[col]) : null;
+    }
+    const isNew = !existing;
+    const key = existing ? existing.key : slugifyParamKey(nameRaw, existingKeys);
+    if (isNew) existingKeys.add(key); // Duplikate innerhalb der Datei vermeiden
+    rows.push({ roh: nameRaw, key, label: existing ? existing.label : nameRaw, unit, art, isNew, values });
+  }
+  return rows;
+}
+
+export function buildThresholdsCSVTemplate(parameters, thresholds) {
+  const editableClasses = CLASSES.filter(c => !c.terminal);
+  const header = ['Parameter', 'Art', 'Einheit', ...editableClasses.map(c => c.short)];
+  const lines = [header.join(';')];
+  for (const p of parameters) {
+    const t = thresholds[p.key] || {};
+    const row = [
+      p.label, p.art === 'eluat' ? 'Eluat' : 'Gesamt', p.unit || '',
+      ...editableClasses.map(c => (t[c.id] ?? '')),
+    ];
+    lines.push(row.join(';'));
+  }
+  return lines.join('\r\n');
 }
