@@ -42,6 +42,36 @@ regelmässiges Backup-Skript, das beide Ordner auf einen anderen Ort kopiert/syn
 Backup dieser zwei Ordner sind Journal-Daten und Fotos bei Datenverlust auf dem Server nicht
 wiederherstellbar.
 
+### Backup nach OneDrive
+
+Ohne eigene Microsoft-Graph-API-Anbindung (Azure-App-Registrierung, OAuth) lässt sich ein Backup am
+einfachsten über den **lokal installierten OneDrive-Desktop-Client** realisieren — der Client
+synchronisiert automatisch alles, was in seinem Sync-Ordner landet, kein API-Zugang nötig:
+
+1. OneDrive-Client auf dem Rechner installieren, auf dem der Server läuft, und anmelden.
+2. [`scripts/backup-to-onedrive.sh`](scripts/backup-to-onedrive.sh) regelmässig ausführen — es kopiert
+   Datenbank (per SQLite-Online-Backup, funktioniert auch im laufenden Betrieb) und Fotos in einen
+   Unterordner **innerhalb** des OneDrive-Sync-Ordners:
+   ```bash
+   ONEDRIVE_BACKUP_DIR="$HOME/OneDrive/Probennahmejournal-Backup" ./scripts/backup-to-onedrive.sh
+   ```
+3. Per Cron automatisieren (z.B. stündlich):
+   ```
+   0 * * * * ONEDRIVE_BACKUP_DIR=/home/user/OneDrive/Probennahmejournal-Backup /pfad/zu/server/scripts/backup-to-onedrive.sh >> /var/log/pnj-backup.log 2>&1
+   ```
+   Alte Sicherungen werden automatisch aufgeräumt (`ONEDRIVE_BACKUP_KEEP`, Default: die letzten 30
+   Durchläufe bleiben erhalten).
+
+**Wichtig zu PDF-Berichten:** Die PDF-Datei je Probe wird aktuell ausschliesslich **im Browser**
+erzeugt und direkt heruntergeladen — der Server speichert sie nicht. Für eine automatische
+OneDrive-Sicherung der PDFs müsste die App zusätzlich so erweitert werden, dass generierte PDFs auch
+serverseitig abgelegt werden (analog zu den Fotos) — das Backup-Skript legt dafür bereits vorsorglich
+einen `pdf-reports/`-Ordner mit ab, sobald ein solcher existiert.
+
+Eine direkte API-Anbindung (Microsoft Graph, `Files.ReadWrite` via Azure-App-Registrierung) wäre die
+robustere Alternative, falls kein Desktop-Client auf dem Server laufen soll — dafür wird eine
+App-Registrierung in Microsoft Entra ID (Client-ID/-Secret, Tenant-ID) benötigt.
+
 ## Deployment-Optionen
 
 ### Mit Docker (empfohlen)
