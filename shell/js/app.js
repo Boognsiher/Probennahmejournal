@@ -28,6 +28,23 @@ const $$ = sel => Array.from(document.querySelectorAll(sel));
 const appEl = $('#app');
 const ANDERE = '__andere__';
 
+// Aktives Projekt: rein geräte-/browserlokale UI-Vorauswahl (nicht mit dem
+// Server/anderen Benutzer:innen geteilt) — bestimmt, worauf neue Proben und
+// der Journal-Filter standardmässig zeigen, bis explizit gewechselt wird.
+const STORAGE_KEY_ACTIVE_PROJECT = 'pnj_active_project_id';
+const STORAGE_KEY_ACTIVE_PROJECT_NAME = 'pnj_active_project_name';
+function getActiveProjectId() { return localStorage.getItem(STORAGE_KEY_ACTIVE_PROJECT) || null; }
+function getActiveProjectName() { return localStorage.getItem(STORAGE_KEY_ACTIVE_PROJECT_NAME) || ''; }
+function setActiveProject(id, name) {
+  if (id) {
+    localStorage.setItem(STORAGE_KEY_ACTIVE_PROJECT, id);
+    localStorage.setItem(STORAGE_KEY_ACTIVE_PROJECT_NAME, name || '');
+  } else {
+    localStorage.removeItem(STORAGE_KEY_ACTIVE_PROJECT);
+    localStorage.removeItem(STORAGE_KEY_ACTIVE_PROJECT_NAME);
+  }
+}
+
 // Häufige Materialkategorien für die Baustelle — als Auswahl statt Freitext,
 // damit möglichst wenig getippt werden muss (Handschuhe/Schutzausrüstung).
 // Der Standard (VVEA/VBBo) wird automatisch aus dem gewählten Material
@@ -79,6 +96,17 @@ function initDisclaimer() {
 // ---------- Topbar / Auth-Status ----------
 function paintTopbar() {
   document.body.classList.toggle('logged-out', !isLoggedIn());
+  let projectBox = $('#project-box');
+  if (!projectBox) {
+    projectBox = document.createElement('div');
+    projectBox.id = 'project-box';
+    projectBox.className = 'hint';
+    $('.topbar').insertBefore(projectBox, $('.tabs'));
+  }
+  const activeName = getActiveProjectName();
+  projectBox.innerHTML = isLoggedIn() && activeName
+    ? `📍 ${escapeHtml(activeName)} · <a href="#/start">Projekt wechseln</a>`
+    : '';
   let userBox = $('#user-box');
   if (!userBox) {
     userBox = document.createElement('div');
@@ -108,13 +136,13 @@ function setActiveTab(route) {
 
 async function route() {
   paintTopbar();
-  const hash = location.hash || '#/journal';
+  const hash = location.hash || '#/start';
 
   if (!isLoggedIn()) {
     renderLogin();
     return;
   }
-  if (hash === '#/login') { location.hash = '#/journal'; return; }
+  if (hash === '#/login') { location.hash = '#/start'; return; }
 
   const parts = hash.replace('#/', '').split('/');
   try {
@@ -127,9 +155,12 @@ async function route() {
     } else if (parts[0] === 'einstellungen') {
       setActiveTab('einstellungen');
       await renderSettings();
-    } else {
+    } else if (parts[0] === 'journal') {
       setActiveTab('journal');
       await renderJournal();
+    } else {
+      setActiveTab('start');
+      await renderStart();
     }
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) {
@@ -162,7 +193,7 @@ function renderLogin() {
     try {
       await login(email, pass);
       paintTopbar();
-      location.hash = '#/journal';
+      location.hash = '#/start';
       route();
     } catch (err) {
       $('#li-error').textContent = errMsg(err);
@@ -170,6 +201,46 @@ function renderLogin() {
   };
   $('#li-submit').addEventListener('click', submit);
   $('#li-pass').addEventListener('keydown', ev => { if (ev.key === 'Enter') submit(); });
+}
+
+// ---------- Start (Projektauswahl) ----------
+async function renderStart() {
+  appEl.innerHTML = '<p class="hint">Lade Projekte …</p>';
+  const projects = await listProjectsApi();
+  if (projects.length === 0) {
+    appEl.innerHTML = `<div class="empty-state">
+      <p>Noch keine Projekte angelegt.</p>
+      <a class="btn" href="#/projekte">+ Projekt anlegen</a>
+    </div>`;
+    return;
+  }
+  const activeId = getActiveProjectId();
+  appEl.innerHTML = `
+    <div class="card">
+      <h2>Womit arbeitest du gerade?</h2>
+      <p class="hint">Projekt/Baustelle auswählen — Journal und neue Proben beziehen sich danach darauf.
+      Jederzeit über „Projekt wechseln“ in der Kopfzeile änderbar.</p>
+      <div class="entry-list" id="start-project-list"></div>
+    </div>
+    <div class="btn-row"><a class="btn secondary" href="#/projekte">+ Neues Projekt anlegen / verwalten</a></div>
+  `;
+  const list = $('#start-project-list');
+  for (const p of projects) {
+    const card = document.createElement('article');
+    card.className = 'entry-card';
+    card.innerHTML = `<div class="entry-info">
+        <h3 class="entry-title">${escapeHtml(p.name)} <span class="hint">(${escapeHtml(p.kuerzel)})</span></h3>
+        <p class="entry-sub">${escapeHtml(p.auftraggeber || '–')} · ${escapeHtml(p.ort || '–')}</p>
+      </div>
+      ${p.id === activeId ? '<span class="badge" style="background:#2e7d32;">Zuletzt aktiv</span>' : ''}`;
+    card.addEventListener('click', () => {
+      setActiveProject(p.id, p.name);
+      journalFilter.projekt = p.name;
+      location.hash = '#/journal';
+      route();
+    });
+    list.appendChild(card);
+  }
 }
 
 // ---------- Journal (Liste mit Filtern) ----------
@@ -367,6 +438,7 @@ function paintProjects(projects) {
     if (!confirm('Dieses Projekt wirklich löschen? Geht nur, wenn keine Proben mehr darauf verweisen.')) return;
     try {
       await deleteProjectApi(btn.dataset.delProject);
+      if (getActiveProjectId() === btn.dataset.delProject) { setActiveProject(null); paintTopbar(); }
       toast('Projekt gelöscht');
       await renderProjects();
     } catch (err) { toast('Fehler: ' + errMsg(err)); }
@@ -452,7 +524,8 @@ async function renderEntryForm(idOrNeu) {
       </div>`;
       return;
     }
-    currentEntry.projektId = formProjects[0].id;
+    const activeId = getActiveProjectId();
+    currentEntry.projektId = (activeId && formProjects.some(p => p.id === activeId)) ? activeId : formProjects[0].id;
   } else {
     currentEntry = await getEntryApi(idOrNeu);
     isNew = false;

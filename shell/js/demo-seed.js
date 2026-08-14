@@ -140,6 +140,10 @@ async function generateDemoBaustelle(onProgress) {
     entnahmeorte: DEMO_ENTNAHMEORTE,
     entsorgungswege: DEMO_ENTSORGUNGSWEGE,
   });
+  // Demo-Projekt gleich als aktives Projekt setzen (siehe Startbildschirm in
+  // app.js), damit man nach dem Generieren direkt im Journal dieses Projekts landet.
+  localStorage.setItem('pnj_active_project_id', project.id);
+  localStorage.setItem('pnj_active_project_name', project.name);
 
   const vevaCodes = await getVevaCodesApi().catch(() => []);
 

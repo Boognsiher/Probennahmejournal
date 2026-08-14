@@ -26,6 +26,29 @@ const $$ = sel => Array.from(document.querySelectorAll(sel));
 const appEl = $('#app');
 const ANDERE = '__andere__';
 
+// Aktives Projekt: rein geräte-/browserlokale UI-Vorauswahl — bestimmt,
+// worauf neue Proben und der Journal-Filter standardmässig zeigen, bis
+// explizit gewechselt wird.
+const STORAGE_KEY_ACTIVE_PROJECT = 'pnj_active_project_id';
+const STORAGE_KEY_ACTIVE_PROJECT_NAME = 'pnj_active_project_name';
+function getActiveProjectId() { return localStorage.getItem(STORAGE_KEY_ACTIVE_PROJECT) || null; }
+function getActiveProjectName() { return localStorage.getItem(STORAGE_KEY_ACTIVE_PROJECT_NAME) || ''; }
+function setActiveProject(id, name) {
+  if (id) {
+    localStorage.setItem(STORAGE_KEY_ACTIVE_PROJECT, id);
+    localStorage.setItem(STORAGE_KEY_ACTIVE_PROJECT_NAME, name || '');
+  } else {
+    localStorage.removeItem(STORAGE_KEY_ACTIVE_PROJECT);
+    localStorage.removeItem(STORAGE_KEY_ACTIVE_PROJECT_NAME);
+  }
+}
+function paintProjectBox() {
+  const box = $('#project-box');
+  if (!box) return;
+  const name = getActiveProjectName();
+  box.innerHTML = name ? `📍 ${escapeHtml(name)} · <a href="#/start">Projekt wechseln</a>` : '';
+}
+
 // Der Standard (VVEA/VBBo) wird automatisch aus dem gewählten Material
 // abgeleitet (siehe materialToStandard() in vvea.js) — Humus/Ober-/
 // Unterboden -> VBBo, alle anderen Materialien -> VVEA.
@@ -74,7 +97,8 @@ function setActiveTab(route) {
 }
 
 async function route() {
-  const hash = location.hash || '#/journal';
+  paintProjectBox();
+  const hash = location.hash || '#/start';
   const parts = hash.replace('#/', '').split('/');
   if (parts[0] === 'eintrag') {
     setActiveTab('eintrag');
@@ -85,12 +109,55 @@ async function route() {
   } else if (parts[0] === 'einstellungen') {
     setActiveTab('einstellungen');
     renderSettings();
-  } else {
+  } else if (parts[0] === 'journal') {
     setActiveTab('journal');
     await renderJournal();
+  } else {
+    setActiveTab('start');
+    await renderStart();
   }
 }
 window.addEventListener('hashchange', route);
+
+// ---------- Start (Projektauswahl) ----------
+async function renderStart() {
+  appEl.innerHTML = '<p class="hint">Lade Projekte …</p>';
+  const projects = await getAllProjects();
+  if (projects.length === 0) {
+    appEl.innerHTML = `<div class="empty-state">
+      <p>Noch keine Projekte angelegt.</p>
+      <a class="btn" href="#/projekte">+ Projekt anlegen</a>
+    </div>`;
+    return;
+  }
+  const activeId = getActiveProjectId();
+  appEl.innerHTML = `
+    <div class="card">
+      <h2>Womit arbeitest du gerade?</h2>
+      <p class="hint">Projekt/Baustelle auswählen — Journal und neue Proben beziehen sich danach darauf.
+      Jederzeit über „Projekt wechseln“ in der Kopfzeile änderbar.</p>
+      <div class="entry-list" id="start-project-list"></div>
+    </div>
+    <div class="btn-row"><a class="btn secondary" href="#/projekte">+ Neues Projekt anlegen / verwalten</a></div>
+  `;
+  const list = $('#start-project-list');
+  for (const p of projects) {
+    const card = document.createElement('article');
+    card.className = 'entry-card';
+    card.innerHTML = `<div class="entry-info">
+        <h3 class="entry-title">${escapeHtml(p.name)} <span class="hint">(${escapeHtml(p.kuerzel)})</span></h3>
+        <p class="entry-sub">${escapeHtml(p.auftraggeber || '–')} · ${escapeHtml(p.ort || '–')}</p>
+      </div>
+      ${p.id === activeId ? '<span class="badge" style="background:#2e7d32;">Zuletzt aktiv</span>' : ''}`;
+    card.addEventListener('click', () => {
+      setActiveProject(p.id, p.name);
+      journalFilter.projekt = p.name;
+      location.hash = '#/journal';
+      route();
+    });
+    list.appendChild(card);
+  }
+}
 
 // ---------- Journal (Liste mit Filtern) ----------
 let journalEntries = [];
@@ -277,6 +344,7 @@ function paintProjects(projects) {
     }
     if (!confirm('Dieses Projekt wirklich löschen?')) return;
     await deleteProject(btn.dataset.delProject);
+    if (getActiveProjectId() === btn.dataset.delProject) { setActiveProject(null); paintProjectBox(); }
     toast('Projekt gelöscht');
     await renderProjects();
   }));
@@ -337,7 +405,8 @@ async function renderEntryForm(idOrNeu) {
       </div>`;
       return;
     }
-    currentEntry.projektId = formProjects[0].id;
+    const activeId = getActiveProjectId();
+    currentEntry.projektId = (activeId && formProjects.some(p => p.id === activeId)) ? activeId : formProjects[0].id;
     const recent = getRecentProbenehmer();
     if (recent.length) currentEntry.probenehmer = recent[0];
   } else {

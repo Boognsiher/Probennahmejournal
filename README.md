@@ -2,6 +2,10 @@
 
 App zur Führung eines Probennahmejournals auf der Baustelle:
 
+- **Startbildschirm mit Projektauswahl** — nach dem Anmelden zuerst wählen, an welchem Projekt/welcher
+  Baustelle man gerade arbeitet; neue Proben und der Journal-Filter beziehen sich danach automatisch darauf.
+  Über „Projekt wechseln“ in der Kopfzeile jederzeit änderbar (rein geräte-/browserlokale Auswahl, nicht mit
+  dem Server/anderen Benutzer:innen geteilt).
 - **Projekt zuerst auswählen** — Projektdaten werden einmal hinterlegt, der **Chargenname wird danach
   automatisch und fortlaufend pro Projekt vergeben** (z.B. `A123-001`, `A123-002`, …). Im Projekt lassen sich
   ausserdem **Beprobungsorte und Entsorgungswege vordefinieren**, die dann bei jeder Probe als Dropdown zur
