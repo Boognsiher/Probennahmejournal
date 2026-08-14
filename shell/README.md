@@ -24,6 +24,11 @@ Beispielprojekt „Demo Baustelle Zürich“ (Kürzel `DEMO`) zum sofortigen Aus
 zusätzlich angelegte Benutzer, Grenzwerte/Parameter) jederzeit löschen und die Schale mit den Demo-Zugängen
 neu starten.
 
+Über „🧪 Probebaustelle mit 150 Demo-Proben anlegen“ lässt sich zusätzlich ein Demo-Projekt mit 150
+automatisch generierten Proben erstellen, deren Einstufung bewusst den ganzen VVEA-Bereich von Typ A bis
+Sonderabfall abdeckt — praktisch, um Journal-Filter, Farbcodierung und Sortierung mit realistisch vielen
+Proben auszuprobieren (Details/Implementierung: [`js/demo-seed.js`](js/demo-seed.js)).
+
 ## Lokal starten
 
 ```bash
