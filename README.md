@@ -69,6 +69,19 @@ Typ B in die Gesamtbewertung ein — bei Typ B oder besser wird ein hinterlegter
 berücksichtigt (der Wert wird in der Analysetabelle trotzdem angezeigt, nur eben nicht in die Gesamteinstufung
 eingerechnet).
 
+**Deponietyp C/D/E bei Schwermetallen:** Für den Feststoffgehalt (Gesamtgehalt) von Schwermetallen ist bewusst
+kein eigener Typ-D-Grenzwert hinterlegt — bei erhöhten Feststoffgehalten wird grundsätzlich auf Typ E
+eingestuft. Übersteigt der Feststoffgehalt auch den Typ-E-Grenzwert, gilt die Probe zunächst als Sonderfall
+(„nicht deponierbar / Sonderabfall"), kann aber auf Typ C heruntergestuft werden, wenn zusätzlich Eluatwerte
+(i.d.R. aus einer Prüfung nach einer Behandlung/Stabilisierung) für die Schwermetalle erfasst sind und **alle**
+erfassten Eluat-Schwermetallwerte den Typ-C-Grenzwert einhalten — fehlt eine solche Eluatprüfung oder
+überschreitet auch nur ein erfasster Eluatwert den Typ-C-Grenzwert, bleibt es beim Sonderfall. Bei organischen
+Schadstoffen (TOC400, Kohlenwasserstoffe, PAK, PCB, BTEX, Benzol) gilt weiterhin ein eigener Typ-D-Grenzwert
+(= Wert von Typ B, siehe oben) — in den hier hinterlegten Quelldaten sind die Typ-B/C/D-Grenzwerte für die
+meisten organischen Parameter jedoch identisch, wodurch Typ D über diese Parameter in der Praxis kaum je
+erreicht wird. Auch das ist eine Näherung, keine normative Aussage — bitte durch eine Fachperson anhand der
+aktuellen VVEA-Vollzugshilfen (insb. Anhang 5) prüfen.
+
 Wurde die App vor diesem Update bereits in Betrieb genommen (bestehende Server-Datenbank, bereits geöffnete
 `shell/`- oder `lokal/`-Instanz), werden die neuen VBBo-Grenzwerte/-Parameter und VeVA-Codes automatisch als
 Startwerte ergänzt, sobald noch keine eigenen gespeichert sind — die bestehende VVEA-Grenzwerttabelle bleibt

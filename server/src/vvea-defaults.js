@@ -87,10 +87,14 @@ export const DEFAULT_PARAMETERS = [
 
 // Grenzwerte gemäss VVEA (Verwertung=unbelastet, Typ A/B/C/D/E). Typ D war
 // in den Quelldaten für keinen Parameter separat erfasst; auf Anweisung des
-// Auftraggebers als Näherung ergänzt: bei Schwermetallen = Wert von Typ E
-// (Reaktordeponien unterscheiden sich bei Schwermetallen i.d.R. nicht
-// zwischen Typ D/E), bei organischen Schadstoffen = Wert von Typ B. Für
-// Parameter ohne Typ-B- bzw. Typ-E-Wert bleibt Typ D entsprechend leer.
+// Auftraggebers als Näherung ergänzt: bei organischen Schadstoffen = Wert
+// von Typ B. Für Feststoff-Schwermetalle gibt es dagegen bewusst KEINEN
+// eigenen Typ-D-Grenzwert: bei erhöhten Feststoffgehalten der Metalle ist
+// gemäss Auftraggeber grundsätzlich Typ E einzustufen (nicht Typ D). Die
+// dazugehörige Sonderfall->Typ-C-Rückstufung (Eluatprüfung nach Behandlung)
+// ist client-seitig in public/js/vvea.js bzw. shell/js/vvea.js implementiert
+// (classify() / METAL_GESAMT_KEYS / METAL_ELUAT_KEYS) — der Server liefert
+// hier nur die Grenzwert-Rohdaten, die Klassifizierung läuft im Browser.
 export const DEMO_THRESHOLDS = {
   toc:      { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null,  typE: null },
   toc400:   { unbelastet: null, typA: 10000, typB: 20000, typC: 20000, typD: 20000, typE: 50000 },
@@ -101,18 +105,18 @@ export const DEMO_THRESHOLDS = {
   pcb:      { unbelastet: 0.1,  typA: 0.5,   typB: 1,     typC: 1,     typD: 1,     typE: 10 },
   btex:     { unbelastet: 1,    typA: 5,     typB: 10,    typC: 10,    typD: 10,    typE: 100 },
   benzol:   { unbelastet: 0.1,  typA: 0.5,   typB: 1,     typC: 1,     typD: 1,     typE: 1 },
-  sb:       { unbelastet: 3,    typA: 15,    typB: 30,    typC: null,  typD: 50,    typE: 50 },
-  as:       { unbelastet: 15,   typA: 15,    typB: 30,    typC: null,  typD: 50,    typE: 50 },
-  pb:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: 2000,  typE: 2000 },
-  cd:       { unbelastet: 1,    typA: 5,     typB: 10,    typC: null,  typD: 10,    typE: 10 },
-  cr:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: 1000,  typE: 1000 },
-  cr6:      { unbelastet: 0.05, typA: 0.05,  typB: 0.1,   typC: null,  typD: 0.5,   typE: 0.5 },
+  sb:       { unbelastet: 3,    typA: 15,    typB: 30,    typC: null,  typD: null,  typE: 50 },
+  as:       { unbelastet: 15,   typA: 15,    typB: 30,    typC: null,  typD: null,  typE: 50 },
+  pb:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: null,  typE: 2000 },
+  cd:       { unbelastet: 1,    typA: 5,     typB: 10,    typC: null,  typD: null,  typE: 10 },
+  cr:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: null,  typE: 1000 },
+  cr6:      { unbelastet: 0.05, typA: 0.05,  typB: 0.1,   typC: null,  typD: null,  typE: 0.5 },
   co:       { unbelastet: null, typA: null,  typB: 250,   typC: null,  typD: null,  typE: null },
-  cu:       { unbelastet: 40,   typA: 250,   typB: 500,   typC: null,  typD: 5000,  typE: 5000 },
-  ni:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: 1000,  typE: 1000 },
-  hg:       { unbelastet: 0.5,  typA: 1,     typB: 2,     typC: null,  typD: 5,     typE: 5 },
+  cu:       { unbelastet: 40,   typA: 250,   typB: 500,   typC: null,  typD: null,  typE: 5000 },
+  ni:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: null,  typE: 1000 },
+  hg:       { unbelastet: 0.5,  typA: 1,     typB: 2,     typC: null,  typD: null,  typE: 5 },
   tl:       { unbelastet: null, typA: null,  typB: 3,     typC: null,  typD: null,  typE: null },
-  zn:       { unbelastet: 150,  typA: 500,   typB: 1000,  typC: null,  typD: 5000,  typE: 5000 },
+  zn:       { unbelastet: 150,  typA: 500,   typB: 1000,  typC: null,  typD: null,  typE: 5000 },
   sn:       { unbelastet: null, typA: null,  typB: 100,   typC: null,  typD: null,  typE: null },
   cn:       { unbelastet: 0.5,  typA: null,  typB: null,  typC: null,  typD: null,  typE: null },
   salze:    { unbelastet: null, typA: null,  typB: 0.5,   typC: 3,     typD: null, typE: 5 },

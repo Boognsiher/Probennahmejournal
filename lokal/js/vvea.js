@@ -7,9 +7,11 @@
 // VVEA/VBBo und kantonaler Vollzugshilfen geprüft werden – siehe
 // Einstellungen > Grenzwerte.
 
-// v3: Typ-D-Werte ergänzt (Schwermetalle = Typ E, organische Schadstoffe = Typ B) —
-// Version angehoben, damit bestehende Installationen die korrigierten Werte erhalten.
-export const STORAGE_KEY_THRESHOLDS = 'pnj_vvea_thresholds_v3';
+// v4: Typ-D-Grenzwert bei Schwermetallen wieder entfernt (führte dazu, dass
+// Typ E nie erreicht wurde) — bei Metallen gilt grundsätzlich Typ E, bei
+// organischen Schadstoffen bleibt Typ D = Typ B. Version angehoben, damit
+// bestehende Installationen die korrigierten Werte erhalten.
+export const STORAGE_KEY_THRESHOLDS = 'pnj_vvea_thresholds_v4';
 export const STORAGE_KEY_PARAMETERS = 'pnj_vvea_parameters_v2';
 export const STORAGE_KEY_VBBO_THRESHOLDS = 'pnj_vbbo_thresholds_v1';
 export const STORAGE_KEY_VBBO_PARAMETERS = 'pnj_vbbo_parameters_v1';
@@ -357,9 +359,13 @@ export function slugifyParamKey(label, existingKeys) {
 }
 
 // Typ D war in den Quelldaten für keinen Parameter separat erfasst; auf
-// Anweisung des Auftraggebers als Näherung ergänzt: bei Schwermetallen =
-// Wert von Typ E, bei organischen Schadstoffen = Wert von Typ B. Für
-// Parameter ohne Typ-B- bzw. Typ-E-Wert bleibt Typ D entsprechend leer.
+// Anweisung des Auftraggebers als Näherung ergänzt: bei organischen
+// Schadstoffen = Wert von Typ B. Für Feststoff-Schwermetalle gibt es
+// dagegen bewusst KEINEN eigenen Typ-D-Grenzwert: bei erhöhten
+// Feststoffgehalten der Metalle ist gemäss Auftraggeber grundsätzlich
+// Typ E einzustufen (nicht Typ D) — siehe METAL_GESAMT_KEYS /
+// METAL_ELUAT_KEYS und die Sonderfall->Typ-C-Rückstufung in classify()
+// weiter unten.
 export const DEMO_THRESHOLDS = {
   toc:      { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null,  typE: null },
   toc400:   { unbelastet: null, typA: 10000, typB: 20000, typC: 20000, typD: 20000, typE: 50000 },
@@ -370,18 +376,18 @@ export const DEMO_THRESHOLDS = {
   pcb:      { unbelastet: 0.1,  typA: 0.5,   typB: 1,     typC: 1,     typD: 1,     typE: 10 },
   btex:     { unbelastet: 1,    typA: 5,     typB: 10,    typC: 10,    typD: 10,    typE: 100 },
   benzol:   { unbelastet: 0.1,  typA: 0.5,   typB: 1,     typC: 1,     typD: 1,     typE: 1 },
-  sb:       { unbelastet: 3,    typA: 15,    typB: 30,    typC: null,  typD: 50,    typE: 50 },
-  as:       { unbelastet: 15,   typA: 15,    typB: 30,    typC: null,  typD: 50,    typE: 50 },
-  pb:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: 2000,  typE: 2000 },
-  cd:       { unbelastet: 1,    typA: 5,     typB: 10,    typC: null,  typD: 10,    typE: 10 },
-  cr:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: 1000,  typE: 1000 },
-  cr6:      { unbelastet: 0.05, typA: 0.05,  typB: 0.1,   typC: null,  typD: 0.5,   typE: 0.5 },
+  sb:       { unbelastet: 3,    typA: 15,    typB: 30,    typC: null,  typD: null,  typE: 50 },
+  as:       { unbelastet: 15,   typA: 15,    typB: 30,    typC: null,  typD: null,  typE: 50 },
+  pb:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: null,  typE: 2000 },
+  cd:       { unbelastet: 1,    typA: 5,     typB: 10,    typC: null,  typD: null,  typE: 10 },
+  cr:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: null,  typE: 1000 },
+  cr6:      { unbelastet: 0.05, typA: 0.05,  typB: 0.1,   typC: null,  typD: null,  typE: 0.5 },
   co:       { unbelastet: null, typA: null,  typB: 250,   typC: null,  typD: null,  typE: null },
-  cu:       { unbelastet: 40,   typA: 250,   typB: 500,   typC: null,  typD: 5000,  typE: 5000 },
-  ni:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: 1000,  typE: 1000 },
-  hg:       { unbelastet: 0.5,  typA: 1,     typB: 2,     typC: null,  typD: 5,     typE: 5 },
+  cu:       { unbelastet: 40,   typA: 250,   typB: 500,   typC: null,  typD: null,  typE: 5000 },
+  ni:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: null,  typE: 1000 },
+  hg:       { unbelastet: 0.5,  typA: 1,     typB: 2,     typC: null,  typD: null,  typE: 5 },
   tl:       { unbelastet: null, typA: null,  typB: 3,     typC: null,  typD: null,  typE: null },
-  zn:       { unbelastet: 150,  typA: 500,   typB: 1000,  typC: null,  typD: 5000,  typE: 5000 },
+  zn:       { unbelastet: 150,  typA: 500,   typB: 1000,  typC: null,  typD: null,  typE: 5000 },
   sn:       { unbelastet: null, typA: null,  typB: 100,   typC: null,  typD: null,  typE: null },
   cn:       { unbelastet: 0.5,  typA: null,  typB: null,  typC: null,  typD: null,  typE: null },
   salze:    { unbelastet: null, typA: null,  typB: 0.5,   typC: 3,     typD: null, typE: 5 },
@@ -443,6 +449,17 @@ export function acknowledgeDisclaimer() {
 // Gesamteinstufung ein (wird aber weiterhin zeilenweise angezeigt).
 const TOC_KEYS = ['toc', 'toc400'];
 
+// Schwermetalle: Feststoffgehalt (Gesamtgehalt) treibt die Einstufung
+// grundsätzlich auf Typ E (kein eigener Typ-D-Grenzwert, siehe
+// DEMO_THRESHOLDS oben). Übersteigt der Feststoffgehalt auch den
+// Typ-E-Grenzwert, landet die Probe zunächst im Sonderfall — kann aber auf
+// Typ C heruntergestuft werden, wenn eine Eluatprüfung (i.d.R. nach einer
+// Behandlung/Stabilisierung) für die Schwermetalle vorliegt und ALLE
+// erfassten Eluat-Metallwerte den Typ-C-Grenzwert einhalten. Liegt keine
+// (vollständig unauffällige) Eluatprüfung vor, bleibt es beim Sonderfall.
+const METAL_GESAMT_KEYS = ['sb', 'as', 'pb', 'cd', 'cr', 'cr6', 'co', 'cu', 'ni', 'hg', 'tl', 'zn', 'sn'];
+const METAL_ELUAT_KEYS = ['as_el', 'pb_el', 'cd_el', 'cr6_el', 'cr3_el', 'cu_el', 'ni_el', 'hg_el', 'zn_el', 'co_el', 'sn_el'];
+
 export function classify(werte, thresholds, classes = CLASSES, params = PARAMETERS) {
   const perParameter = [];
   const unbewertet = [];
@@ -494,6 +511,21 @@ export function classify(werte, thresholds, classes = CLASSES, params = PARAMETE
   if (tocEntries.length && worstIndex > typBIndex) {
     for (const entry of tocEntries) {
       if (entry.classIndex > worstIndex) worstIndex = entry.classIndex;
+    }
+  }
+
+  // Sonderfall wegen zu hoher Feststoff-Metallwerte -> Rückstufung auf Typ C
+  // prüfen (siehe Kommentar bei METAL_GESAMT_KEYS/METAL_ELUAT_KEYS oben).
+  const typCIndex = classes.findIndex(c => c.id === 'typC');
+  const sonderfallIndex = classes.findIndex(c => c.id === 'sonderfall');
+  if (worstIndex === sonderfallIndex && typCIndex >= 0) {
+    const causedByMetalGesamt = perParameter.some(p =>
+      p.classIndex === sonderfallIndex && METAL_GESAMT_KEYS.includes(p.parameterKey));
+    if (causedByMetalGesamt) {
+      const metalEluatEntries = perParameter.filter(p => METAL_ELUAT_KEYS.includes(p.parameterKey));
+      if (metalEluatEntries.length && metalEluatEntries.every(p => p.classIndex <= typCIndex)) {
+        worstIndex = typCIndex;
+      }
     }
   }
 
