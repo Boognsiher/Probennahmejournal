@@ -53,10 +53,20 @@ Start an.
 
 Der VeVA-Code wird automatisch aus Material (Ober-/Unterboden/Aushub — andere Materialien wie Mischabbruch
 erhalten bewusst keinen Code, da die Liste nur Aushub-/Bodenaushubcodes enthält), gewähltem Standard und
-Einstufungsergebnis vorgeschlagen. Bei einer **VBBo**-eingestuften Probe wird die VBBo-Klasse dafür
-näherungsweise auf die "vergleichbare" VVEA-Klasse abgebildet (unauffällig→unbelastet,
-über Richtwert→Typ A, über Prüfwert→Typ B, über Sanierungswert→Typ C) — eine vereinfachende fachliche
-Einschätzung, keine normative Gleichsetzung. Der Vorschlag ist im Formular jederzeit manuell überschreibbar.
+Einstufungsergebnis vorgeschlagen. Bei einer **VBBo**-eingestuften Probe wird die VBBo-Klasse dafür auf die
+entsprechende Kategorie abgebildet: unauffällig → Kat. I (unbelastet), über Richtwert → Kat. II (schwach
+belastet, Typ A), über Prüfwert → Kat. IIIa (stark belastet, Typ B*), über Sanierungswert → Kat. IIIb (stark
+belastet, VVEA „über Typ B", Typ C*). *Kat. IIIa und IIIb sind beide „stark belastet", aber unterschiedliche
+Kategorien; die VeVA-Codeliste kennt jedoch nur die vier VVEA-Buckets unbelastet/Typ A/Typ B/Typ C, daher
+werden beide auf den nächstliegenden Bucket abgebildet. „Sonderabfall" (VVEA „über Typ E") wird nur bei einer
+VVEA-Einstufung automatisch erkannt, da die VBBo-Skala keine eigene Entsprechung dafür hat. Das ist eine
+vereinfachende fachliche Einschätzung, keine normative Gleichsetzung. Der Vorschlag ist im Formular jederzeit
+manuell überschreibbar.
+
+**TOC (organischer Kohlenstoff)** fliesst bei der VVEA-Einstufung erst ab einer Einstufung schlechter als
+Typ B in die Gesamtbewertung ein — bei Typ B oder besser wird ein hinterlegter TOC-Grenzwert nicht
+berücksichtigt (der Wert wird in der Analysetabelle trotzdem angezeigt, nur eben nicht in die Gesamteinstufung
+eingerechnet).
 
 Wurde die App vor diesem Update bereits in Betrieb genommen (bestehende Server-Datenbank, bereits geöffnete
 `shell/`- oder `lokal/`-Instanz), werden die neuen VBBo-Grenzwerte/-Parameter und VeVA-Codes automatisch als

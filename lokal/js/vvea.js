@@ -167,12 +167,21 @@ export function materialToVevaBucket(material) {
   return null;
 }
 
-// VBBo kennt keine eigene Deponietyp-Systematik — die hinterlegten
-// VeVA-Aushubcodes sind aber an den VVEA-Klassen (Typ A/B/C) orientiert.
-// Für die automatische Zuteilung bei einer VBBo-eingestuften Probe wird die
-// VBBo-Klasse daher näherungsweise auf die "vergleichbare" VVEA-Klasse
-// abgebildet. Das ist eine vereinfachende fachliche Einschätzung (keine
-// normative Gleichsetzung) — bei Sanierungsfällen zusätzlich prüfen lassen.
+// VBBo kennt keine eigene Deponietyp-Systematik. Für die VeVA-Aushubcode-
+// Zuteilung wird die VBBo-Klasse daher auf die entsprechende Kategorie
+// abgebildet:
+//   unauffällig          -> Kat. I    (unbelastet)                    -> "unbelastet"
+//   über Richtwert       -> Kat. II   (schwach belastet)               -> Typ A
+//   über Prüfwert        -> Kat. IIIa (stark belastet)                 -> Typ B*
+//   über Sanierungswert  -> Kat. IIIb (stark belastet, VVEA "über Typ B") -> Typ C*
+// * Kat. IIIa und Kat. IIIb sind beide "stark belastet", aber zwei
+//   unterschiedliche Kategorien; die hinterlegte VeVA-Codeliste kennt aber
+//   nur die vier VVEA-Buckets unbelastet/Typ A/Typ B/Typ C, daher werden
+//   beide auf den jeweils nächstliegenden Bucket abgebildet. "Sonderabfall"
+//   (VVEA "über Typ E") hat in der VBBo-Skala keine eigene Entsprechung und
+//   wird nur bei einer VVEA-Einstufung automatisch erkannt.
+// Das ist eine vereinfachende fachliche Einschätzung (keine normative
+// Gleichsetzung) — bei Sanierungsfällen zusätzlich prüfen lassen.
 const VBBO_TO_VEVA_KLASSE = {
   unauffaellig: 'unbelastet',
   ueberRichtwert: 'typA',
@@ -380,10 +389,18 @@ export function acknowledgeDisclaimer() {
  * Klassifiziert eine Probe anhand ihrer Analysewerte. Generisch für VVEA und
  * VBBo nutzbar — `classes`/`params` bestimmen das Klassifizierungssystem.
  */
+// TOC (organischer Kohlenstoff) ist als Kriterium erst relevant, sobald die
+// Probe aufgrund der übrigen Parameter bereits schlechter als Typ B
+// eingestuft ist — bei Typ B oder besser fliesst der TOC-Wert nicht in die
+// Gesamteinstufung ein (wird aber weiterhin zeilenweise angezeigt).
+const TOC_KEYS = ['toc', 'toc400'];
+
 export function classify(werte, thresholds, classes = CLASSES, params = PARAMETERS) {
   const perParameter = [];
   const unbewertet = [];
+  const tocEntries = [];
   let worstIndex = 0;
+  const typBIndex = classes.findIndex(c => c.id === 'typB');
 
   for (const w of werte) {
     const paramThresholds = thresholds[w.parameterKey];
@@ -409,15 +426,27 @@ export function classify(werte, thresholds, classes = CLASSES, params = PARAMETE
         break;
       }
     }
-    perParameter.push({
+    const entry = {
       ...w,
       label: paramDef ? paramDef.label : w.parameterKey,
       unit: paramDef ? paramDef.unit : '',
       classIndex: matchedIndex,
       classId: classes[matchedIndex].id,
       color: classes[matchedIndex].color,
-    });
+    };
+    perParameter.push(entry);
+
+    if (typBIndex >= 0 && TOC_KEYS.includes(w.parameterKey)) {
+      tocEntries.push(entry);
+      continue;
+    }
     if (matchedIndex > worstIndex) worstIndex = matchedIndex;
+  }
+
+  if (tocEntries.length && worstIndex > typBIndex) {
+    for (const entry of tocEntries) {
+      if (entry.classIndex > worstIndex) worstIndex = entry.classIndex;
+    }
   }
 
   return {
