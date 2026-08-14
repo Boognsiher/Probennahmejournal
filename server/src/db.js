@@ -61,6 +61,8 @@ CREATE TABLE IF NOT EXISTS entries (
   nutzungsart TEXT,             -- nur bei standard='vbbo': 'spielplatz' | 'garten' | 'landwirtschaft'
   entsorgungsweg TEXT DEFAULT '',
   vevaCode TEXT DEFAULT '',
+  menge REAL,
+  mengeEinheit TEXT DEFAULT 't', -- 't' | 'm3'
   createdBy TEXT REFERENCES users(id)
 );
 CREATE INDEX IF NOT EXISTS idx_entries_projekt ON entries(projektId);
@@ -92,6 +94,8 @@ addColumnIfMissing('entries', entryCols, 'standard', "standard TEXT DEFAULT 'vve
 addColumnIfMissing('entries', entryCols, 'nutzungsart', "nutzungsart TEXT");
 addColumnIfMissing('entries', entryCols, 'entsorgungsweg', "entsorgungsweg TEXT DEFAULT ''");
 addColumnIfMissing('entries', entryCols, 'vevaCode', "vevaCode TEXT DEFAULT ''");
+addColumnIfMissing('entries', entryCols, 'menge', "menge REAL");
+addColumnIfMissing('entries', entryCols, 'mengeEinheit', "mengeEinheit TEXT DEFAULT 't'");
 db.exec('CREATE INDEX IF NOT EXISTS idx_entries_projekt ON entries(projektId)');
 
 const projectCols = db.prepare("PRAGMA table_info(projects)").all().map(c => c.name);

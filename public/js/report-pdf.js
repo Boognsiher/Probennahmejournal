@@ -72,6 +72,9 @@ export async function generateReportPDF(entry, classification, classes = CLASSES
     ['Probenehmer/in', entry.probenehmer || '–'],
     ['Datum', new Date(entry.createdAt).toLocaleString('de-CH')],
   ];
+  if (entry.menge !== null && entry.menge !== undefined && entry.menge !== '') {
+    meta.push(['Menge', `${entry.menge} ${entry.mengeEinheit === 'm3' ? 'm³' : 't'}`]);
+  }
   for (const [label, value] of meta) {
     doc.setFont(undefined, 'bold'); doc.text(`${label}:`, margin, y);
     doc.setFont(undefined, 'normal'); doc.text(String(value), margin + 38, y);

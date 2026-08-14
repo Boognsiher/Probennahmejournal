@@ -49,6 +49,11 @@ function fmtDate(iso) {
   try { return new Date(iso).toLocaleString('de-CH'); } catch { return iso; }
 }
 
+function fmtMenge(entry) {
+  if (entry.menge === null || entry.menge === undefined || entry.menge === '') return '';
+  return `${entry.menge} ${entry.mengeEinheit === 'm3' ? 'm³' : 't'}`;
+}
+
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -179,9 +184,10 @@ function paintJournalList() {
     else thumbEl.textContent = '📷';
     const cls = entry.klassifizierung ? classesForEntry(entry)[entry.klassifizierung.classIndex] : null;
     const stdLabel = entry.standard === 'vbbo' ? 'VBBo' : 'VVEA';
+    const mengeLabel = fmtMenge(entry);
     card.innerHTML = `<div class="entry-info">
         <h3 class="entry-title">${escapeHtml(entry.probeBezeichnung || '(ohne Bezeichnung)')}</h3>
-        <p class="entry-sub">${escapeHtml(entry.baustelle || '–')} · ${escapeHtml(entry.material || '')} · ${stdLabel} · ${fmtDate(entry.createdAt)}</p>
+        <p class="entry-sub">${escapeHtml(entry.baustelle || '–')} · ${escapeHtml(entry.material || '')}${mengeLabel ? ' · ' + escapeHtml(mengeLabel) : ''} · ${stdLabel} · ${fmtDate(entry.createdAt)}</p>
         ${cls ? `<span class="badge" style="background:${cls.color}">${escapeHtml(cls.short)}</span>` : '<span class="hint">keine Analyse</span>'}
       </div>`;
     card.prepend(thumbEl);
@@ -425,6 +431,16 @@ function paintEntryForm() {
           ${projectEntnahmeorte.length === 0 ? '<p class="hint">Noch keine Beprobungsorte im Projekt hinterlegt – unter „Projekte“ ergänzbar.</p>' : ''}
         </div>
         <div class="field"><label>Datum</label><input id="f-datum" type="datetime-local" value="${toLocalInputValue(e.createdAt)}"></div>
+        <div class="field">
+          <label>Menge <span class="hint">(geschätzt, optional)</span></label>
+          <div style="display:flex;gap:.5rem;">
+            <input id="f-menge" type="number" step="any" min="0" inputmode="decimal" placeholder="z.B. 12.5" value="${e.menge ?? ''}" style="flex:2;min-width:0;">
+            <select id="f-menge-einheit" style="flex:1;min-width:0;">
+              <option value="t" ${e.mengeEinheit !== 'm3' ? 'selected' : ''}>t</option>
+              <option value="m3" ${e.mengeEinheit === 'm3' ? 'selected' : ''}>m³</option>
+            </select>
+          </div>
+        </div>
       </div>
       <div class="field"><label>Bemerkungen</label><textarea id="f-bemerkungen" rows="2">${escapeHtml(e.bemerkungen)}</textarea></div>
       <button class="btn secondary" id="btn-gps" type="button">📍 GPS-Standort erfassen</button>
@@ -557,6 +573,8 @@ function paintEntryForm() {
 
   $('#f-bemerkungen').addEventListener('input', ev => e.bemerkungen = ev.target.value);
   $('#f-datum').addEventListener('input', ev => { if (ev.target.value) e.createdAt = new Date(ev.target.value).toISOString(); });
+  $('#f-menge').addEventListener('input', ev => { const v = ev.target.value; e.menge = v === '' ? null : parseFloat(v); });
+  $('#f-menge-einheit').addEventListener('change', ev => { e.mengeEinheit = ev.target.value; });
 
   const nutzungsartSel = $('#f-nutzungsart');
   if (nutzungsartSel) nutzungsartSel.addEventListener('change', ev => {

@@ -171,6 +171,8 @@ async function generateDemoBaustelle(onProgress) {
       standard: 'vvea',
       entsorgungsweg: Math.random() < 0.7 ? pick(DEMO_ENTSORGUNGSWEGE) : '',
       vevaCode: vevaSuggestion ? vevaSuggestion.code : '',
+      menge: Math.random() < 0.85 ? Math.round(rand(2, 180) * 10) / 10 : null,
+      mengeEinheit: Math.random() < 0.7 ? 't' : 'm3',
     });
   });
 

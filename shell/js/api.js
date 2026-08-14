@@ -169,6 +169,8 @@ export async function createEntryApi(entry) {
     nutzungsart: entry.standard === 'vbbo' ? (entry.nutzungsart || null) : null,
     entsorgungsweg: entry.entsorgungsweg || '',
     vevaCode: entry.vevaCode || '',
+    menge: (entry.menge === '' || entry.menge === undefined || entry.menge === null) ? null : Number(entry.menge),
+    mengeEinheit: entry.mengeEinheit === 'm3' ? 'm3' : 't',
     createdBy: user.id,
     photos: [],
   };
@@ -191,6 +193,8 @@ export async function updateEntryApi(id, entry) {
     nutzungsart: entry.standard === 'vbbo' ? (entry.nutzungsart || null) : null,
     entsorgungsweg: entry.entsorgungsweg ?? '',
     vevaCode: entry.vevaCode ?? '',
+    menge: (entry.menge === '' || entry.menge === undefined || entry.menge === null) ? null : Number(entry.menge),
+    mengeEinheit: entry.mengeEinheit === 'm3' ? 'm3' : 't',
     updatedAt: new Date().toISOString(),
   });
   persist();

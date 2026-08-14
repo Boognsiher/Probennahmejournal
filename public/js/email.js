@@ -13,6 +13,9 @@ export function buildMailSummary(entry, classification, classes = CLASSES) {
   lines.push(`Material: ${entry.material || '–'}`);
   lines.push(`Probenehmer/in: ${entry.probenehmer || '–'}`);
   lines.push(`Datum: ${new Date(entry.createdAt).toLocaleString('de-CH')}`);
+  if (entry.menge !== null && entry.menge !== undefined && entry.menge !== '') {
+    lines.push(`Menge: ${entry.menge} ${entry.mengeEinheit === 'm3' ? 'm³' : 't'}`);
+  }
   lines.push(`Standard: ${entry.standard === 'vbbo' ? 'VBBo (Bodenqualität)' : 'VVEA (Deponieklassen)'}`);
   if (entry.vevaCode) lines.push(`VeVA-Code: ${entry.vevaCode}`);
   if (entry.entsorgungsweg) lines.push(`Entsorgungsweg: ${entry.entsorgungsweg}`);

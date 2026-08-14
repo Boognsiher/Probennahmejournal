@@ -9,6 +9,8 @@ App zur Führung eines Probennahmejournals auf der Baustelle:
 - **Möglichst wenig Tippen**: Material, Probenehmer/in, Beprobungsort und Entsorgungsweg als Auswahllisten,
   grosse Bedienelemente — gedacht für die Bedienung mit Handschuhen/Schutzausrüstung
 - Fotodokumentation des Materials
+- **Menge je Probe erfassbar** (geschätzt, in t oder m³) — optional, wird im Journal, im PDF-Bericht und in der
+  E-Mail-Zusammenfassung mit ausgewiesen
 - **Einstufungsstandard wird automatisch aus dem Material bestimmt** — Humus/Ober-/Unterboden ergeben
   **VBBo** (Bodenqualität, Richtwert/Prüfwert/Sanierungswert – abhängig von der gewählten **Nutzungsart**
   Kinderspielplatz / Haus-Familiengarten / Landwirtschaft-Gartenbau), alle anderen Materialien (Aushub,

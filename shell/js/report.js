@@ -71,6 +71,7 @@ export async function generateReportHTML(entry, classification, classes = CLASSE
     <div><span>Material</span>${escapeHtml(entry.material)}</div>
     <div><span>Probenehmer/in</span>${escapeHtml(entry.probenehmer)}</div>
     <div><span>Datum</span>${escapeHtml(new Date(entry.createdAt).toLocaleString('de-CH'))}</div>
+    ${entry.menge !== null && entry.menge !== undefined && entry.menge !== '' ? `<div><span>Menge</span>${escapeHtml(entry.menge)} ${entry.mengeEinheit === 'm3' ? 'm³' : 't'}</div>` : ''}
   </div>
   ${entry.bemerkungen ? `<h2>Bemerkungen</h2><p>${escapeHtml(entry.bemerkungen)}</p>` : ''}
 

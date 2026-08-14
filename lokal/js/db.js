@@ -55,6 +55,8 @@ export function newEntry(partial = {}) {
     nutzungsart: null, // nur bei standard='vbbo': 'spielplatz' | 'garten' | 'landwirtschaft'
     entsorgungsweg: '',
     vevaCode: '',
+    menge: null,
+    mengeEinheit: 't', // 't' | 'm3'
     photos: [], // {id, blob, filename, takenAt}
     analyse: [], // {parameterKey, wert, art, quelle}
     klassifizierung: null,
