@@ -10,7 +10,7 @@ import {
   loadParameters, saveParameters, resetParametersStorage,
   hasAcknowledgedDisclaimer, acknowledgeDisclaimer,
   VBBO_CLASSES, NUTZUNGSARTEN, VBBO_PARAMETERS, DEFAULT_VBBO_PARAMETERS,
-  setVbboParameters, classifyVBBO, suggestVevaCode,
+  setVbboParameters, classifyVBBO, suggestVevaCode, materialToStandard,
   loadVbboParameters, saveVbboParameters, resetVbboParametersStorage,
   loadVbboThresholds, saveVbboThresholds, resetVbboThresholdsStorage,
   loadVevaCodes, saveVevaCodes, resetVevaCodesStorage,
@@ -26,8 +26,11 @@ const $$ = sel => Array.from(document.querySelectorAll(sel));
 const appEl = $('#app');
 const ANDERE = '__andere__';
 
+// Der Standard (VVEA/VBBo) wird automatisch aus dem gewählten Material
+// abgeleitet (siehe materialToStandard() in vvea.js) — Humus/Ober-/
+// Unterboden -> VBBo, alle anderen Materialien -> VVEA.
 const MATERIAL_OPTIONS = [
-  'Unverschmutzter Aushub', 'Aushub (allgemein)', 'Humus/Oberboden', 'Kies/Sand',
+  'Unverschmutzter Aushub', 'Aushub (allgemein)', 'Humus/Oberboden', 'Unterboden', 'Kies/Sand',
   'Mischabbruch', 'Betonabbruch', 'Asphalt', 'Ziegel/Mauerwerk', 'Bauschutt gemischt',
 ];
 
@@ -335,8 +338,9 @@ async function renderEntryForm(idOrNeu) {
     if (!loaded) { location.hash = '#/journal'; return; }
     currentEntry = loaded;
     isNew = false;
-    if (!currentEntry.standard) currentEntry.standard = 'vvea';
-    if (currentEntry.standard === 'vbbo' && !currentEntry.nutzungsart) currentEntry.nutzungsart = NUTZUNGSARTEN[0].id;
+    // Standard wird unten in paintEntryForm() aus dem Material abgeleitet
+    // (materialToStandard) — überschreibt bewusst einen ggf. abweichend
+    // gespeicherten Altwert, damit Material und Standard nie auseinanderlaufen.
   }
   recomputeClassification();
   paintEntryForm();
@@ -370,6 +374,9 @@ function paintEntryForm() {
   const probenehmerIsCustom = e.probenehmer && !recentNames.includes(e.probenehmer);
   const entnahmeortIsCustom = e.entnahmeort && !projectEntnahmeorte.includes(e.entnahmeort);
   const entsorgungswegIsCustom = e.entsorgungsweg && !projectEntsorgungswege.includes(e.entsorgungsweg);
+  e.standard = materialToStandard(e.material);
+  if (e.standard === 'vbbo' && !e.nutzungsart) e.nutzungsart = NUTZUNGSARTEN[0].id;
+  recomputeClassification(); // Standard kann sich gerade erst geändert haben (z.B. beim Laden)
   vevaCodeTouched = false;
 
   appEl.innerHTML = `
@@ -426,11 +433,8 @@ function paintEntryForm() {
       <h2>Einstufung & Entsorgung</h2>
       <div class="grid-2">
         <div class="field">
-          <label>Standard</label>
-          <select id="f-standard">
-            <option value="vvea" ${e.standard !== 'vbbo' ? 'selected' : ''}>VVEA (Deponieklassen)</option>
-            <option value="vbbo" ${e.standard === 'vbbo' ? 'selected' : ''}>VBBo (Bodenqualität)</option>
-          </select>
+          <label>Standard <span class="hint">(automatisch aus Material)</span></label>
+          <p id="f-standard-display">${e.standard === 'vbbo' ? 'VBBo (Bodenqualität)' : 'VVEA (Deponieklassen)'}</p>
         </div>
         <div class="field" id="f-nutzungsart-field" style="display:${e.standard === 'vbbo' ? 'block' : 'none'};">
           <label>Nutzungsart <span class="hint">(nur VBBo)</span></label>
@@ -500,13 +504,26 @@ function paintEntryForm() {
     });
   }
 
+  // Standard (VVEA/VBBo) hängt direkt am Material — bei jeder Materialänderung
+  // neu ableiten (Humus/Ober-/Unterboden -> VBBo, sonst VVEA), Nutzungsart-Feld
+  // ein-/ausblenden und Analysetabelle (andere Parameterliste!) + VeVA-Code neu
+  // aufbauen.
+  function applyMaterialStandard() {
+    e.standard = materialToStandard(e.material);
+    if (e.standard === 'vbbo' && !e.nutzungsart) e.nutzungsart = NUTZUNGSARTEN[0].id;
+    $('#f-standard-display').textContent = e.standard === 'vbbo' ? 'VBBo (Bodenqualität)' : 'VVEA (Deponieklassen)';
+    $('#f-nutzungsart-field').style.display = e.standard === 'vbbo' ? 'block' : 'none';
+    recomputeClassification();
+    paintAnalyseTable();
+  }
+
   const materialSel = $('#f-material'), materialAndere = $('#f-material-andere');
   materialSel.addEventListener('change', () => {
     if (materialSel.value === ANDERE) { materialAndere.style.display = 'block'; e.material = materialAndere.value; }
     else { materialAndere.style.display = 'none'; e.material = materialSel.value; }
-    updateVevaCodeUI();
+    applyMaterialStandard();
   });
-  materialAndere.addEventListener('input', () => { e.material = materialAndere.value; updateVevaCodeUI(); });
+  materialAndere.addEventListener('input', () => { e.material = materialAndere.value; applyMaterialStandard(); });
 
   const personSel = $('#f-person'), personAndere = $('#f-person-andere');
   personSel.addEventListener('change', () => {
@@ -539,13 +556,6 @@ function paintEntryForm() {
   $('#f-bemerkungen').addEventListener('input', ev => e.bemerkungen = ev.target.value);
   $('#f-datum').addEventListener('input', ev => { if (ev.target.value) e.createdAt = new Date(ev.target.value).toISOString(); });
 
-  $('#f-standard').addEventListener('change', ev => {
-    e.standard = ev.target.value;
-    if (e.standard === 'vbbo' && !e.nutzungsart) e.nutzungsart = NUTZUNGSARTEN[0].id;
-    $('#f-nutzungsart-field').style.display = e.standard === 'vbbo' ? 'block' : 'none';
-    recomputeClassification();
-    paintAnalyseTable();
-  });
   const nutzungsartSel = $('#f-nutzungsart');
   if (nutzungsartSel) nutzungsartSel.addEventListener('change', ev => {
     e.nutzungsart = ev.target.value;

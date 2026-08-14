@@ -42,4 +42,5 @@ Dann `http://localhost:8080` öffnen.
   `localStorage` hat pro Browser ein begrenztes Kontingent (üblicherweise 5–10 MB); für grössere Mengen an
   Testfotos ggf. zwischendurch „Testdaten zurücksetzen“ verwenden.
 - Grenzwerte, VBBo-Werte und VeVA-Codes sind dieselben Startwerte wie in den anderen Varianten (siehe Hinweis
-  in [`../README.md`](../README.md)) — inkl. VVEA-/VBBo-Standardwahl je Probe, VeVA-Code und Entsorgungsweg.
+  in [`../README.md`](../README.md)) — inkl. automatisch aus dem Material ermitteltem VVEA-/VBBo-Standard,
+  automatisch zugeteiltem VeVA-Code und projektbasiertem Entsorgungsweg-Dropdown je Probe.

@@ -109,10 +109,20 @@ export function classifyVBBO(werte, vbboThresholds, nutzungsart) {
 // bewusst `null` — dafür gibt es keine VeVA-Aushubcodes in der Liste.
 export function materialToVevaBucket(material) {
   const text = String(material || '');
-  if (/ober/i.test(text)) return 'Oberboden';
+  if (/ober|humus/i.test(text)) return 'Oberboden';
   if (/unter/i.test(text)) return 'Unterboden';
   if (/aushub/i.test(text)) return 'Aushub';
   return null;
+}
+
+// Der Standard (VVEA/VBBo) wird nicht mehr manuell gewählt, sondern direkt
+// aus dem Material abgeleitet: Ober-/Unterboden (inkl. Humus) -> VBBo
+// (Bodenqualität), alles andere (Aushub, Kies/Sand, Mischabbruch, …) ->
+// VVEA (Deponieklassen). Nutzt denselben Material-Eimer wie die
+// VeVA-Code-Zuteilung.
+export function materialToStandard(material) {
+  const bucket = materialToVevaBucket(material);
+  return (bucket === 'Oberboden' || bucket === 'Unterboden') ? 'vbbo' : 'vvea';
 }
 
 // VBBo kennt keine eigene Deponietyp-Systematik. Für die VeVA-Aushubcode-

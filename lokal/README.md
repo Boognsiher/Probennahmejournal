@@ -10,16 +10,20 @@ Für die Team-Variante mit gemeinsamem Server, Login pro Person und zentraler Fo
 ## Funktionsumfang
 
 - 🗂️ **Projekte anlegen** — Chargenname wird danach automatisch und fortlaufend pro Projekt vergeben
-  (z.B. `A123-001`, `A123-002`, …), kein manuelles Eintippen mehr nötig
-- ⌨️ Material und Probenehmer/in als Auswahllisten (letzterer merkt sich zuletzt verwendete Namen),
-  Entnahmeort mit Vorschlägen — wenig Tippen, grosse Bedienelemente für Handschuhe/Schutzausrüstung
+  (z.B. `A123-001`, `A123-002`, …), kein manuelles Eintippen mehr nötig. Im Projekt lassen sich ausserdem
+  **Beprobungsorte und Entsorgungswege vordefinieren**, die dann bei jeder Probe als Dropdown zur Verfügung
+  stehen (Beprobungsort alternativ auch per GPS erfassbar).
+- ⌨️ Material, Probenehmer/in, Beprobungsort und Entsorgungsweg als Auswahllisten (Probenehmer/in merkt sich
+  zuletzt verwendete Namen) — wenig Tippen, grosse Bedienelemente für Handschuhe/Schutzausrüstung
 - 📷 Fotodokumentation des Materials über die Gerätekamera (im Browser gespeichert)
 - 📥 Analyse-Import aus CSV/Excel-CSV oder PDF-Laborberichten
-- 🎯 **Standard je Probe wählbar**: **VVEA** (Deponietyp A–E) oder **VBBo** (Bodenqualität, abhängig von der
-  gewählten Nutzungsart Kinderspielplatz / Haus-Familiengarten / Landwirtschaft-Gartenbau)
-- 🎨 Automatische Farbcodierung der Werte nach dem gewählten Standard (Grenzwerte inkl. Einheiten, per
+- 🎯 **Einstufungsstandard wird automatisch aus dem Material bestimmt**: Humus/Ober-/Unterboden -> **VBBo**
+  (Bodenqualität, abhängig von der gewählten Nutzungsart Kinderspielplatz / Haus-Familiengarten /
+  Landwirtschaft-Gartenbau), alle anderen Materialien -> **VVEA** (Deponietyp A–E). Keine manuelle Auswahl nötig.
+- 🎨 Automatische Farbcodierung der Werte nach dem ermittelten Standard (Grenzwerte inkl. Einheiten, per
   CSV/Excel importierbar, eigene Parameter ergänzbar) — siehe „Einstellungen“
-- 🚚 **VeVA-Code** (Aushub-/Bodenaushubcodes) und freies **Entsorgungsweg**-Feld je Probe
+- 🚚 **VeVA-Code wird automatisch zugeteilt** (Aushub-/Bodenaushubcodes, aus Material/Standard/Einstufung —
+  manuell überschreibbar) sowie ein projektbasiertes **Entsorgungsweg**-Dropdown je Probe
 - 📄 **Echter PDF-Export** je Probe (Fotos, Werte, Einstufung)
 - ✉️ **„E-Mail mit PDF senden“** versucht zuerst die native Teilen-Funktion des Geräts (PDF direkt als
   Anhang), sonst PDF-Download + `mailto:` mit vorausgefülltem Text zum manuellen Anhängen

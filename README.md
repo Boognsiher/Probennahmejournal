@@ -9,14 +9,15 @@ App zur Führung eines Probennahmejournals auf der Baustelle:
 - **Möglichst wenig Tippen**: Material, Probenehmer/in, Beprobungsort und Entsorgungsweg als Auswahllisten,
   grosse Bedienelemente — gedacht für die Bedienung mit Handschuhen/Schutzausrüstung
 - Fotodokumentation des Materials
-- **Zwei wählbare Einstufungsstandards pro Probe**: **VVEA** (Deponietyp A–E, Aushub-/Bauabfälle) oder
+- **Einstufungsstandard wird automatisch aus dem Material bestimmt** — Humus/Ober-/Unterboden ergeben
   **VBBo** (Bodenqualität, Richtwert/Prüfwert/Sanierungswert – abhängig von der gewählten **Nutzungsart**
-  Kinderspielplatz / Haus-Familiengarten / Landwirtschaft-Gartenbau)
+  Kinderspielplatz / Haus-Familiengarten / Landwirtschaft-Gartenbau), alle anderen Materialien (Aushub,
+  Kies/Sand, Bauschutt, …) ergeben **VVEA** (Deponietyp A–E). Keine manuelle Auswahl nötig.
 - Analyse-Import aus CSV/Excel-CSV oder PDF-Laborberichten, mit automatischer Farbcodierung nach dem
-  gewählten Standard (Grenzwerte inkl. Einheiten, per CSV/Excel importierbar, eigene Parameter ergänzbar)
-- **VeVA-Code wird automatisch zugeteilt** — aus Material (z.B. Aushub/Ober-/Unterboden), gewähltem Standard
-  (VVEA/VBBo) und dem Einstufungsergebnis; bleibt manuell überschreibbar, falls kein passender Code gefunden
-  wird oder eine andere Zuordnung gewünscht ist
+  ermittelten Standard (Grenzwerte inkl. Einheiten, per CSV/Excel importierbar, eigene Parameter ergänzbar)
+- **VeVA-Code wird automatisch zugeteilt** — aus Material (z.B. Aushub/Ober-/Unterboden), dem daraus
+  abgeleiteten Standard (VVEA/VBBo) und dem Einstufungsergebnis; bleibt manuell überschreibbar, falls kein
+  passender Code gefunden wird oder eine andere Zuordnung gewünscht ist
 - **Echter PDF-Export** je Probe, E-Mail-Versand mit PDF nach Möglichkeit direkt angehängt (native
   Teilen-Funktion des Geräts)
 - **Journal mit Filtern** (Projekt, Material, Standard, Klasse) und Sortierung zum Aufräumen/Wiederfinden
