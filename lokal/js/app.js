@@ -482,7 +482,7 @@ function paintEntryForm() {
         <button class="btn secondary" id="btn-import-pdf" type="button">⬆ PDF-Laborbericht importieren</button>
       </div>
       <div id="import-preview"></div>
-      <table class="analyse-table" id="analyse-table"></table>
+      <div style="overflow-x:auto"><table class="analyse-table" id="analyse-table"></table></div>
 
       <div id="classification-banner"></div>
     </div>

@@ -20,9 +20,14 @@
   }
 }
 
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif; }
+* { box-sizing: border-box; min-width: 0; }
+html, body {
+  margin: 0; padding: 0; background: var(--bg); color: var(--text);
+  font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+  max-width: 100%; overflow-x: hidden; /* nichts darf die Seite seitlich aufreissen (Handy) */
+}
 a { color: inherit; }
+img, svg { max-width: 100%; }
 
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
@@ -30,11 +35,12 @@ a { color: inherit; }
   position: sticky; top: 0; z-index: 10; flex-wrap: wrap; gap: .5rem;
 }
 .brand { display: flex; align-items: center; gap: .5rem; font-weight: 700; }
-.tabs { display: flex; gap: .25rem; }
+.tabs { display: flex; gap: .25rem; flex-wrap: wrap; min-width: 0; }
 .tabs a {
   text-decoration: none; padding: .65rem .9rem; border-radius: 8px; font-size: .9rem; color: var(--muted);
-  min-height: 44px; display: flex; align-items: center;
+  min-height: 44px; display: flex; align-items: center; white-space: nowrap;
 }
+@media (max-width: 420px) { .tabs a { padding: .55rem .55rem; font-size: .82rem; } }
 .tabs a.active { background: var(--accent); color: var(--accent-contrast); }
 
 .user-box { display: flex; align-items: center; gap: .6rem; margin-left: auto; }
@@ -62,7 +68,8 @@ body.logged-out .user-box { display: none; }
   .shell-banner { background: #0d2a3f; color: #90caf9; border-color: #14486e; }
   .shell-banner code { background: rgba(255,255,255,.12); }
 }
-.shell-banner button { margin-left: auto; white-space: nowrap; }
+.shell-banner p { flex: 1 1 240px; margin: 0; min-width: 0; }
+.shell-banner button { flex: none; }
 
 #app { max-width: 900px; margin: 0 auto; padding: 1rem; padding-bottom: 4rem; }
 
@@ -79,10 +86,10 @@ h1, h2, h3 { line-height: 1.25; }
 
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem; }
 
-.field { display: flex; flex-direction: column; gap: .3rem; margin-bottom: .9rem; }
+.field { display: flex; flex-direction: column; gap: .3rem; margin-bottom: .9rem; min-width: 0; }
 .field label { font-size: .85rem; color: var(--muted); }
 .field input, .field select, .field textarea {
-  padding: .65rem .7rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  width: 100%; max-width: 100%; padding: .65rem .7rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text);
   font-size: 1rem; font-family: inherit; min-height: 46px;
 }
 .field textarea { min-height: 70px; }
