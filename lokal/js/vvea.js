@@ -453,12 +453,23 @@ const TOC_KEYS = ['toc', 'toc400'];
 // grundsätzlich auf Typ E (kein eigener Typ-D-Grenzwert, siehe
 // DEMO_THRESHOLDS oben). Übersteigt der Feststoffgehalt auch den
 // Typ-E-Grenzwert, landet die Probe zunächst im Sonderfall — kann aber auf
-// Typ C heruntergestuft werden, wenn eine Eluatprüfung (i.d.R. nach einer
-// Behandlung/Stabilisierung) für die Schwermetalle vorliegt und ALLE
-// erfassten Eluat-Metallwerte den Typ-C-Grenzwert einhalten. Liegt keine
-// (vollständig unauffällige) Eluatprüfung vor, bleibt es beim Sonderfall.
+// Typ C heruntergestuft werden (typischer Praxisfall: Aushub mit hohem
+// Schwermetall-Feststoffgehalt, aber tiefen organischen Schadstoffen, wird
+// durch Immobilisierung so behandelt, dass die Eluatwerte Typ-C-tauglich
+// sind — spart die teure Sonderabfall-/Auslandentsorgung), wenn ALLE
+// folgenden Bedingungen erfüllt sind:
+// - keiner der erfassten organischen Feststoffwerte (inkl. TOC/TOC400)
+//   liegt selbst im Sonderfall-Bereich (Typ C ist gemäss VVEA Anhang 5
+//   Ziff. 3 nur für Abfälle mit vorgängig zurückgewonnenen/immobilisierten
+//   Metallen bei gleichzeitig tiefem Organikagehalt zugelassen);
+// - eine Eluatprüfung (i.d.R. nach einer Behandlung/Stabilisierung) für
+//   die Schwermetalle liegt vor und ALLE erfassten Eluat-Metallwerte
+//   halten den Typ-C-Grenzwert ein.
+// Liegt keine (vollständig unauffällige) Eluatprüfung vor oder sind auch
+// die organischen Schadstoffe zu hoch, bleibt es beim Sonderfall.
 const METAL_GESAMT_KEYS = ['sb', 'as', 'pb', 'cd', 'cr', 'cr6', 'co', 'cu', 'ni', 'hg', 'tl', 'zn', 'sn'];
 const METAL_ELUAT_KEYS = ['as_el', 'pb_el', 'cd_el', 'cr6_el', 'cr3_el', 'cu_el', 'ni_el', 'hg_el', 'zn_el', 'co_el', 'sn_el'];
+const ORGANIC_GESAMT_KEYS = ['toc', 'toc400', 'kw', 'kw_c5', 'pak', 'bap', 'pcb', 'btex', 'benzol'];
 
 export function classify(werte, thresholds, classes = CLASSES, params = PARAMETERS) {
   const perParameter = [];
@@ -519,9 +530,10 @@ export function classify(werte, thresholds, classes = CLASSES, params = PARAMETE
   const typCIndex = classes.findIndex(c => c.id === 'typC');
   const sonderfallIndex = classes.findIndex(c => c.id === 'sonderfall');
   if (worstIndex === sonderfallIndex && typCIndex >= 0) {
-    const causedByMetalGesamt = perParameter.some(p =>
-      p.classIndex === sonderfallIndex && METAL_GESAMT_KEYS.includes(p.parameterKey));
-    if (causedByMetalGesamt) {
+    const sonderfallEntries = perParameter.filter(p => p.classIndex === sonderfallIndex);
+    const causedByMetalGesamt = sonderfallEntries.some(p => METAL_GESAMT_KEYS.includes(p.parameterKey));
+    const causedByOrganicGesamt = sonderfallEntries.some(p => ORGANIC_GESAMT_KEYS.includes(p.parameterKey));
+    if (causedByMetalGesamt && !causedByOrganicGesamt) {
       const metalEluatEntries = perParameter.filter(p => METAL_ELUAT_KEYS.includes(p.parameterKey));
       if (metalEluatEntries.length && metalEluatEntries.every(p => p.classIndex <= typCIndex)) {
         worstIndex = typCIndex;

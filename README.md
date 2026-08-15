@@ -78,10 +78,15 @@ eingerechnet).
 **Deponietyp C/D/E bei Schwermetallen:** Für den Feststoffgehalt (Gesamtgehalt) von Schwermetallen ist bewusst
 kein eigener Typ-D-Grenzwert hinterlegt — bei erhöhten Feststoffgehalten wird grundsätzlich auf Typ E
 eingestuft. Übersteigt der Feststoffgehalt auch den Typ-E-Grenzwert, gilt die Probe zunächst als Sonderfall
-(„nicht deponierbar / Sonderabfall"), kann aber auf Typ C heruntergestuft werden, wenn zusätzlich Eluatwerte
-(i.d.R. aus einer Prüfung nach einer Behandlung/Stabilisierung) für die Schwermetalle erfasst sind und **alle**
-erfassten Eluat-Schwermetallwerte den Typ-C-Grenzwert einhalten — fehlt eine solche Eluatprüfung oder
-überschreitet auch nur ein erfasster Eluatwert den Typ-C-Grenzwert, bleibt es beim Sonderfall. Bei organischen
+(„nicht deponierbar / Sonderabfall"), kann aber auf Typ C heruntergestuft werden — der typische Praxisfall:
+Aushub mit hohem Schwermetall-Feststoffgehalt, aber tiefen organischen Schadstoffen, wird durch eine
+Immobilisierung/Behandlung so aufbereitet, dass die Eluatwerte Typ-C-tauglich sind, statt teuer als
+Sonderabfall (z.B. im Ausland) entsorgt zu werden müssen. Die Rückstufung greift nur, wenn **alle** folgenden
+Bedingungen erfüllt sind: keiner der erfassten organischen Feststoffwerte (inkl. TOC/TOC400) liegt selbst im
+Sonderfall-Bereich, UND zusätzlich Eluatwerte (i.d.R. aus einer Prüfung nach der Behandlung) für die
+Schwermetalle sind erfasst und **alle** erfassten Eluat-Schwermetallwerte halten den Typ-C-Grenzwert ein —
+fehlt eine solche Eluatprüfung, überschreitet auch nur ein erfasster Eluatwert den Typ-C-Grenzwert, oder sind
+zusätzlich die organischen Schadstoffe zu hoch, bleibt es beim Sonderfall. Bei organischen
 Schadstoffen (TOC400, Kohlenwasserstoffe, PAK, PCB, BTEX, Benzol) gilt weiterhin ein eigener Typ-D-Grenzwert
 (= Wert von Typ B, siehe oben) — in den hier hinterlegten Quelldaten sind die Typ-B/C/D-Grenzwerte für die
 meisten organischen Parameter jedoch identisch, wodurch Typ D über diese Parameter in der Praxis kaum je
