@@ -57,6 +57,7 @@ export function newEntry(partial = {}) {
     vevaCode: '',
     menge: null,
     mengeEinheit: 't', // 't' | 'm3'
+    analytikProgramme: [], // Array gewählter Analytik-Programm-IDs
     photos: [], // {id, blob, filename, takenAt}
     analyse: [], // {parameterKey, wert, art, quelle}
     klassifizierung: null,

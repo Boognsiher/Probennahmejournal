@@ -6,6 +6,7 @@ import {
   getVbboThresholdsApi, saveVbboThresholdsApi, resetVbboThresholdsApi,
   getVbboParametersApi, saveVbboParametersApi, resetVbboParametersApi,
   getVevaCodesApi, saveVevaCodesApi, resetVevaCodesApi,
+  getAnalytikProgrammeApi, saveAnalytikProgrammeApi, resetAnalytikProgrammeApi,
   listUsersApi, createUserApi, deleteUserApi, getUserRosterApi,
   listProjectsApi, createProjectApi, updateProjectApi, deleteProjectApi,
   login, logout, isLoggedIn, getCurrentUser, ApiError,
@@ -480,6 +481,7 @@ let currentClassification = null;
 let thresholds = {};
 let vbboThresholds = {};
 let vevaCodes = [];
+let analytikProgramme = [];
 let formProjects = [];
 let formRoster = [];
 let vevaCodeTouched = false; // true, sobald der VeVA-Code im Formular manuell überschrieben wurde
@@ -492,21 +494,23 @@ function newDraftEntry() {
     projektId: null, baustelle: '', probeBezeichnung: '', entnahmeort: '', gps: null,
     material: '', probenehmer: '', bemerkungen: '', menge: null, mengeEinheit: 't',
     standard: 'vvea', nutzungsart: NUTZUNGSARTEN[0].id, entsorgungsweg: '', vevaCode: '',
-    photos: [], analyse: [], klassifizierung: null,
+    analytikProgramme: [], photos: [], analyse: [], klassifizierung: null,
   };
 }
 
 async function loadVveaConfig() {
   try {
-    const [t, p, vt, vp, vc] = await Promise.all([
+    const [t, p, vt, vp, vc, ap] = await Promise.all([
       getThresholdsApi(), getParametersApi(),
       getVbboThresholdsApi(), getVbboParametersApi(), getVevaCodesApi(),
+      getAnalytikProgrammeApi(),
     ]);
     thresholds = t;
     setParameters(p);
     vbboThresholds = vt;
     setVbboParameters(vp);
     vevaCodes = vc;
+    analytikProgramme = ap;
   } catch (e) { /* Fallback-Werte aus vvea.js bleiben aktiv */ }
 }
 
@@ -568,6 +572,7 @@ function paintEntryForm() {
   const entnahmeortIsCustom = e.entnahmeort && !projectEntnahmeorte.includes(e.entnahmeort);
   const entsorgungswegIsCustom = e.entsorgungsweg && !projectEntsorgungswege.includes(e.entsorgungsweg);
   if (isNew && !e.probenehmer && me) e.probenehmer = me.name;
+  if (!Array.isArray(e.analytikProgramme)) e.analytikProgramme = [];
   e.standard = materialToStandard(e.material);
   if (e.standard === 'vbbo' && !e.nutzungsart) e.nutzungsart = NUTZUNGSARTEN[0].id;
   recomputeClassification(); // Standard kann sich gerade erst geändert haben (z.B. beim Laden)
@@ -677,6 +682,20 @@ function paintEntryForm() {
     </div>
 
     <div class="card">
+      <h2>Analytik</h2>
+      <p class="hint">Analytik-Programm(e) auswählen und auslösen — die enthaltenen Parameter werden als leere
+      Zeilen in die Analysewerte-Tabelle unten übernommen (bereits vorhandene Parameter werden nicht doppelt
+      hinzugefügt). Weitere Programme unter Einstellungen &gt; Analytik-Programme verwaltbar.</p>
+      <div id="analytik-programme-list" style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:.75rem;">
+        ${relevantAnalytikProgramme().map(p => `<label style="display:flex;gap:.5rem;align-items:center;">
+          <input type="checkbox" data-ap="${p.id}" ${e.analytikProgramme.includes(p.id) ? 'checked' : ''}>
+          <span>${escapeHtml(p.name)} <span class="hint">(${p.parameterKeys.length} Parameter)</span></span>
+        </label>`).join('') || '<p class="hint">Keine Analytik-Programme für diesen Standard hinterlegt.</p>'}
+      </div>
+      <button class="btn secondary" id="btn-trigger-analytik" type="button">🧪 Analysen auslösen</button>
+    </div>
+
+    <div class="card">
       <h2>Analysewerte</h2>
       <div class="btn-row">
         <button class="btn secondary" id="btn-add-row" type="button">+ Wert manuell hinzufügen</button>
@@ -763,6 +782,32 @@ function paintEntryForm() {
   $('#f-datum').addEventListener('input', ev => { if (ev.target.value) e.createdAt = new Date(ev.target.value).toISOString(); });
   $('#f-menge').addEventListener('input', ev => { const v = ev.target.value; e.menge = v === '' ? null : parseFloat(v); });
   $('#f-menge-einheit').addEventListener('change', ev => { e.mengeEinheit = ev.target.value; });
+
+  $$('#analytik-programme-list [data-ap]').forEach(cb => {
+    cb.addEventListener('change', ev => {
+      const id = ev.target.dataset.ap;
+      if (ev.target.checked) { if (!e.analytikProgramme.includes(id)) e.analytikProgramme.push(id); }
+      else e.analytikProgramme = e.analytikProgramme.filter(x => x !== id);
+    });
+  });
+  $('#btn-trigger-analytik').addEventListener('click', () => {
+    const chosen = analytikProgramme.filter(p => e.analytikProgramme.includes(p.id));
+    if (!chosen.length) { toast('Bitte mindestens ein Analytik-Programm auswählen.'); return; }
+    const existingKeys = new Set(e.analyse.map(a => a.parameterKey).filter(Boolean));
+    const wantedKeys = new Set();
+    for (const p of chosen) for (const k of p.parameterKeys) wantedKeys.add(k);
+    let added = 0;
+    for (const key of wantedKeys) {
+      if (existingKeys.has(key)) continue;
+      const def = activeParamList().find(p => p.key === key);
+      if (!def) continue; // Parameter gehört nicht zum aktuellen Standard (VVEA/VBBo) der Probe
+      e.analyse.push({ parameterKey: def.key, wert: null, einheit: def.unit, art: def.art || 'gesamt', quelle: 'analytik' });
+      existingKeys.add(key);
+      added++;
+    }
+    paintAnalyseTable();
+    toast(added ? `${added} Parameter zur Analysewerte-Tabelle hinzugefügt.` : 'Alle Parameter der gewählten Programme waren bereits erfasst.');
+  });
 
   const nutzungsartSel = $('#f-nutzungsart');
   if (nutzungsartSel) nutzungsartSel.addEventListener('change', ev => {
@@ -962,6 +1007,25 @@ function paintPhotoGrid() {
 
 function activeParamList() {
   return currentEntry.standard === 'vbbo' ? VBBO_PARAMETERS : PARAMETERS;
+}
+
+// Zeigt nur Analytik-Programme an, die mindestens einen Parameter aus der
+// zum aktuellen Standard (VVEA/VBBo) der Probe passenden Parameterliste
+// enthalten — so tauchen z.B. reine VBBo-Programme bei einer VVEA-Probe
+// nicht in der Auswahl auf.
+function relevantAnalytikProgramme() {
+  const activeKeys = new Set(activeParamList().map(p => p.key));
+  return analytikProgramme.filter(p => (p.parameterKeys || []).some(k => activeKeys.has(k)));
+}
+
+// Gruppiert die verfügbaren Parameter (VVEA Feststoff/Eluat + VBBo) für die
+// Checkbox-Auswahl in den Einstellungen (Analytik-Programme bearbeiten).
+function analytikParamGroups() {
+  return [
+    { label: 'VVEA – Feststoff', list: PARAMETERS.filter(p => p.art !== 'eluat') },
+    { label: 'VVEA – Eluat', list: PARAMETERS.filter(p => p.art === 'eluat') },
+    { label: 'VBBo', list: VBBO_PARAMETERS },
+  ];
 }
 
 function paramOptionsHtml(selected) {
@@ -1275,6 +1339,39 @@ async function paintSettings() {
       ` : ''}
     </div>
 
+    <div class="card">
+      <h2>Analytik-Programme</h2>
+      <p class="hint">Benannte Zusammenstellungen von Analyseparametern, die bei einer Probe ausgewählt und
+      ausgelöst werden können (Analysewerte-Tabelle wird damit vorbefüllt).
+      ${isAdmin ? '' : ' Nur Administrator/innen können sie ändern.'}</p>
+      <div style="overflow-x:auto">
+      <table class="threshold-table" id="analytik-programme-table">
+        <tr><th>Name</th><th>Parameter <span class="hint">(mehrfach wählbar)</span></th>${isAdmin ? '<th></th>' : ''}</tr>
+        ${analytikProgramme.map((prog, i) => `
+          <tr>
+            <td><input data-anp="${i}" data-anpf="name" ${isAdmin ? '' : 'disabled'} value="${escapeHtml(prog.name)}" style="width:14rem;"></td>
+            <td style="min-width:18rem;max-height:14rem;overflow-y:auto;">
+              ${analytikParamGroups().map(g => `
+                <div class="hint" style="margin-top:.3rem;font-weight:600;">${escapeHtml(g.label)}</div>
+                <div style="display:flex;flex-wrap:wrap;gap:.1rem .6rem;">
+                  ${g.list.map(p => `<label style="display:flex;align-items:center;gap:.25rem;font-size:.8rem;white-space:nowrap;">
+                    <input type="checkbox" data-anp="${i}" data-anpf-arr="parameterKeys" value="${p.key}" ${isAdmin ? '' : 'disabled'} ${(prog.parameterKeys || []).includes(p.key) ? 'checked' : ''}> ${escapeHtml(p.label)}
+                  </label>`).join('')}
+                </div>`).join('')}
+            </td>
+            ${isAdmin ? `<td><button type="button" class="btn danger" style="padding:.2rem .5rem;" data-del-analytik="${i}">×</button></td>` : ''}
+          </tr>`).join('')}
+      </table>
+      </div>
+      ${isAdmin ? `
+      <div class="btn-row">
+        <button class="btn secondary" id="btn-add-analytik" type="button">+ Neues Programm</button>
+        <button class="btn" id="btn-save-analytik" type="button">💾 Analytik-Programme speichern</button>
+        <button class="btn secondary" id="btn-reset-analytik" type="button">Zurücksetzen auf Beispielwerte</button>
+      </div>
+      ` : ''}
+    </div>
+
     ${usersHtml}
 
     <div class="card">
@@ -1466,6 +1563,47 @@ async function paintSettings() {
       if (!confirm('VeVA-Codes wirklich auf die Beispielwerte zurücksetzen?')) return;
       try {
         vevaCodes = await resetVevaCodesApi();
+        toast('Zurückgesetzt');
+        await renderSettings();
+      } catch (err) { toast('Fehler: ' + errMsg(err)); }
+    });
+
+    // ---------- Analytik-Programme ----------
+    function collectAnalytikProgrammeFromTable() {
+      const programme = analytikProgramme.map(p => ({ id: p.id, name: p.name, parameterKeys: [] }));
+      $$('#analytik-programme-table [data-anp]').forEach(el => {
+        const i = Number(el.dataset.anp);
+        if (!programme[i]) return;
+        if (el.dataset.anpf) programme[i][el.dataset.anpf] = el.value;
+        else if (el.dataset.anpfArr && el.checked) programme[i][el.dataset.anpfArr].push(el.value);
+      });
+      return programme;
+    }
+    $$('[data-del-analytik]').forEach(btn => btn.addEventListener('click', async () => {
+      if (!confirm('Dieses Analytik-Programm wirklich entfernen?')) return;
+      const newProgramme = collectAnalytikProgrammeFromTable();
+      newProgramme.splice(Number(btn.dataset.delAnalytik), 1);
+      try {
+        await saveAnalytikProgrammeApi(newProgramme);
+        analytikProgramme = newProgramme;
+        toast('Programm entfernt');
+        await renderSettings();
+      } catch (err) { toast('Fehler: ' + errMsg(err)); }
+    }));
+    $('#btn-add-analytik').addEventListener('click', async () => {
+      analytikProgramme = collectAnalytikProgrammeFromTable();
+      analytikProgramme.push({ id: slugifyParamKey(`programm_${analytikProgramme.length + 1}`, new Set(analytikProgramme.map(p => p.id))), name: '', parameterKeys: [] });
+      await paintSettings();
+    });
+    $('#btn-save-analytik').addEventListener('click', async () => {
+      const newProgramme = collectAnalytikProgrammeFromTable();
+      try { await saveAnalytikProgrammeApi(newProgramme); analytikProgramme = newProgramme; toast('Analytik-Programme gespeichert'); }
+      catch (err) { toast('Fehler: ' + errMsg(err)); }
+    });
+    $('#btn-reset-analytik').addEventListener('click', async () => {
+      if (!confirm('Analytik-Programme wirklich auf die Beispielwerte zurücksetzen?')) return;
+      try {
+        analytikProgramme = await resetAnalytikProgrammeApi();
         toast('Zurückgesetzt');
         await renderSettings();
       } catch (err) { toast('Fehler: ' + errMsg(err)); }

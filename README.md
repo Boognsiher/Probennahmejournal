@@ -21,6 +21,12 @@ App zur Führung eines Probennahmejournals auf der Baustelle:
   Kies/Sand, Bauschutt, …) ergeben **VVEA** (Deponietyp A–E). Keine manuelle Auswahl nötig.
 - Analyse-Import aus CSV/Excel-CSV oder PDF-Laborberichten, mit automatischer Farbcodierung nach dem
   ermittelten Standard (Grenzwerte inkl. Einheiten, per CSV/Excel importierbar, eigene Parameter ergänzbar)
+- **Analytik-Programme**: benannte Zusammenstellungen von Analyseparametern (z.B. „VVEA Basis (Feststoff)“,
+  „VVEA Eluat (Nachweis Typ C nach Behandlung)“) unter Einstellungen verwaltbar — mehrere Standardprogramme
+  sind bereits hinterlegt, eigene lassen sich jederzeit ergänzen. Bei einer Probe mehrere Programme gleichzeitig
+  auswählbar; „Analysen auslösen“ übernimmt die enthaltenen Parameter als leere Zeilen in die
+  Analysewerte-Tabelle (bereits vorhandene Parameter werden nicht doppelt hinzugefügt) — bereit zum Eintragen
+  der Laborwerte, sobald diese vorliegen.
 - **VeVA-Code wird automatisch zugeteilt** — aus Material (z.B. Aushub/Ober-/Unterboden), dem daraus
   abgeleiteten Standard (VVEA/VBBo) und dem Einstufungsergebnis; bleibt manuell überschreibbar, falls kein
   passender Code gefunden wird oder eine andere Zuordnung gewünscht ist

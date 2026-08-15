@@ -195,3 +195,31 @@ export const DEFAULT_VEVA_CODES = [
   { code: '17 05 97 [ak]', bezeichnung: 'Aushub – Inertstoff (Typ B)', materialien: ['Aushub'], klassen: ['typB'] },
   { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ C/D/E)', materialien: ['Aushub'], klassen: ['typC', 'typD', 'typE'] },
 ];
+
+// Analytik-Programme: benannte Zusammenstellungen von Analyseparametern, die
+// bei einer Probe ausgewählt werden können ("welche Analysen sollen
+// ausgelöst werden") — parameterKeys referenzieren die Parameter-Keys aus
+// DEFAULT_PARAMETERS (VVEA) bzw. DEFAULT_VBBO_PARAMETERS (VBBo). Eine Probe
+// kann mehrere Programme gleichzeitig auswählen (siehe app.js); die
+// Parameter aller gewählten Programme werden dann als leere Zeilen in die
+// Analysewerte-Tabelle übernommen. Dies ist nur eine Startauswahl —
+// weitere Programme können unter Einstellungen > Analytik-Programme
+// ergänzt/angepasst werden.
+export const DEFAULT_ANALYTIK_PROGRAMME = [
+  {
+    id: 'vvea-basis-feststoff', name: 'VVEA Basis (Feststoff)',
+    parameterKeys: ['sb', 'as', 'pb', 'cd', 'cr', 'cr6', 'cu', 'ni', 'hg', 'zn', 'toc400', 'kw', 'pak', 'bap'],
+  },
+  {
+    id: 'vvea-eluat-typc', name: 'VVEA Eluat (Nachweis Typ C nach Behandlung)',
+    parameterKeys: ['as_el', 'pb_el', 'cd_el', 'cr6_el', 'cr3_el', 'cu_el', 'ni_el', 'hg_el', 'zn_el', 'co_el', 'sn_el', 'doc', 'nh4_el', 'cnfrei_el', 'fluorid'],
+  },
+  {
+    id: 'vvea-organik-zusatz', name: 'VVEA Organik-Zusatz (BTEX/PCB/Benzol)',
+    parameterKeys: ['kw_c5', 'btex', 'benzol', 'pcb'],
+  },
+  {
+    id: 'vbbo-basis', name: 'VBBo Basis (Ober-/Unterboden)',
+    parameterKeys: ['pb', 'cd', 'cr', 'cu', 'hg', 'ni', 'zn', 'pak', 'bap', 'pcb'],
+  },
+];

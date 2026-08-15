@@ -4,6 +4,7 @@ import { requireAuth, requireAdmin } from '../auth.js';
 import {
   DEMO_THRESHOLDS, DEFAULT_PARAMETERS,
   DEFAULT_VBBO_THRESHOLDS, DEFAULT_VBBO_PARAMETERS, DEFAULT_VEVA_CODES,
+  DEFAULT_ANALYTIK_PROGRAMME,
 } from '../vvea-defaults.js';
 
 export const settingsRouter = Router();
@@ -39,3 +40,4 @@ crud('parameters', 'vvea_parameters', DEFAULT_PARAMETERS, 'parameters');
 crud('vbbo-thresholds', 'vbbo_thresholds', DEFAULT_VBBO_THRESHOLDS, 'thresholds');
 crud('vbbo-parameters', 'vbbo_parameters', DEFAULT_VBBO_PARAMETERS, 'parameters');
 crud('veva-codes', 'veva_codes', DEFAULT_VEVA_CODES, 'codes');
+crud('analytik-programme', 'analytik_programme', DEFAULT_ANALYTIK_PROGRAMME, 'programme');

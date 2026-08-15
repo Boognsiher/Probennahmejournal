@@ -28,11 +28,31 @@ const DEFAULT_VEVA_CODES = [
   { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ C/D/E)', materialien: ['Aushub'], klassen: ['typC', 'typD', 'typE'] },
 ];
 
-// v5: VeVA-Codes können jetzt für mehrere Materialien/Klassen gleichzeitig
-// gelten (materialien/klassen-Arrays statt material/klasse-Einzelwerten) —
-// Version angehoben, damit bereits laufende Test-Sessions die neue
-// Struktur erhalten.
-const DB_KEY = 'pnj_mock_db_v5';
+// Analytik-Programme: siehe server/src/vvea-defaults.js für die vollständige
+// Erklärung — hier dieselbe Startauswahl für die Test-Schale.
+const DEFAULT_ANALYTIK_PROGRAMME = [
+  {
+    id: 'vvea-basis-feststoff', name: 'VVEA Basis (Feststoff)',
+    parameterKeys: ['sb', 'as', 'pb', 'cd', 'cr', 'cr6', 'cu', 'ni', 'hg', 'zn', 'toc400', 'kw', 'pak', 'bap'],
+  },
+  {
+    id: 'vvea-eluat-typc', name: 'VVEA Eluat (Nachweis Typ C nach Behandlung)',
+    parameterKeys: ['as_el', 'pb_el', 'cd_el', 'cr6_el', 'cr3_el', 'cu_el', 'ni_el', 'hg_el', 'zn_el', 'co_el', 'sn_el', 'doc', 'nh4_el', 'cnfrei_el', 'fluorid'],
+  },
+  {
+    id: 'vvea-organik-zusatz', name: 'VVEA Organik-Zusatz (BTEX/PCB/Benzol)',
+    parameterKeys: ['kw_c5', 'btex', 'benzol', 'pcb'],
+  },
+  {
+    id: 'vbbo-basis', name: 'VBBo Basis (Ober-/Unterboden)',
+    parameterKeys: ['pb', 'cd', 'cr', 'cu', 'hg', 'ni', 'zn', 'pak', 'bap', 'pcb'],
+  },
+];
+
+// v6: Analytik-Programme (Menge, Analytik-Programm-Auswahl je Probe) ergänzt
+// — Version angehoben, damit bereits laufende Test-Sessions die neuen Felder
+// erhalten.
+const DB_KEY = 'pnj_mock_db_v6';
 const TOKEN_KEY = 'pnj_token';
 const USER_KEY = 'pnj_user';
 
@@ -65,6 +85,7 @@ function seedDb() {
     vbboThresholds: JSON.parse(JSON.stringify(DEFAULT_VBBO_THRESHOLDS)),
     vbboParameters: JSON.parse(JSON.stringify(DEFAULT_VBBO_PARAMETERS)),
     vevaCodes: JSON.parse(JSON.stringify(DEFAULT_VEVA_CODES)),
+    analytikProgramme: JSON.parse(JSON.stringify(DEFAULT_ANALYTIK_PROGRAMME)),
   };
 }
 
@@ -171,6 +192,7 @@ export async function createEntryApi(entry) {
     vevaCode: entry.vevaCode || '',
     menge: (entry.menge === '' || entry.menge === undefined || entry.menge === null) ? null : Number(entry.menge),
     mengeEinheit: entry.mengeEinheit === 'm3' ? 'm3' : 't',
+    analytikProgramme: Array.isArray(entry.analytikProgramme) ? entry.analytikProgramme : [],
     createdBy: user.id,
     photos: [],
   };
@@ -195,6 +217,7 @@ export async function updateEntryApi(id, entry) {
     vevaCode: entry.vevaCode ?? '',
     menge: (entry.menge === '' || entry.menge === undefined || entry.menge === null) ? null : Number(entry.menge),
     mengeEinheit: entry.mengeEinheit === 'm3' ? 'm3' : 't',
+    analytikProgramme: Array.isArray(entry.analytikProgramme) ? entry.analytikProgramme : [],
     updatedAt: new Date().toISOString(),
   });
   persist();
@@ -349,6 +372,26 @@ export async function resetVevaCodesApi() {
   db.vevaCodes = JSON.parse(JSON.stringify(DEFAULT_VEVA_CODES));
   persist();
   return db.vevaCodes;
+}
+
+// ---------- Analytik-Programme ----------
+export async function getAnalytikProgrammeApi() {
+  await delay();
+  requireAuth();
+  return JSON.parse(JSON.stringify(db.analytikProgramme));
+}
+export async function saveAnalytikProgrammeApi(programme) {
+  await delay();
+  requireAdmin();
+  db.analytikProgramme = programme;
+  persist();
+}
+export async function resetAnalytikProgrammeApi() {
+  await delay();
+  requireAdmin();
+  db.analytikProgramme = JSON.parse(JSON.stringify(DEFAULT_ANALYTIK_PROGRAMME));
+  persist();
+  return db.analytikProgramme;
 }
 
 // ---------- Benutzer (Admin) ----------

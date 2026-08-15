@@ -160,6 +160,19 @@ export async function resetVevaCodesApi() {
   return data.codes;
 }
 
+// ---------- Analytik-Programme ----------
+export async function getAnalytikProgrammeApi() {
+  const data = await request('/settings/analytik-programme');
+  return data.programme;
+}
+export async function saveAnalytikProgrammeApi(programme) {
+  await request('/settings/analytik-programme', { method: 'PUT', body: { programme } });
+}
+export async function resetAnalytikProgrammeApi() {
+  const data = await request('/settings/analytik-programme/reset', { method: 'POST' });
+  return data.programme;
+}
+
 // ---------- Benutzer (Admin) ----------
 export async function listUsersApi() {
   const data = await request('/users');

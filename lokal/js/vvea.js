@@ -19,6 +19,7 @@ export const STORAGE_KEY_VBBO_PARAMETERS = 'pnj_vbbo_parameters_v1';
 // (materialien/klassen-Arrays statt material/klasse-Einzelwerten) — Version
 // angehoben, damit bestehende Installationen die neue Struktur erhalten.
 export const STORAGE_KEY_VEVA_CODES = 'pnj_veva_codes_v2';
+export const STORAGE_KEY_ANALYTIK_PROGRAMME = 'pnj_analytik_programme_v1';
 export const STORAGE_KEY_ACK = 'pnj_vvea_disclaimer_ack_v1';
 
 // ---------- VVEA (Deponieklassen) ----------
@@ -160,6 +161,48 @@ export function saveVevaCodes(list) {
 export function resetVevaCodesStorage() {
   localStorage.removeItem(STORAGE_KEY_VEVA_CODES);
   return DEFAULT_VEVA_CODES.map(c => ({ ...c }));
+}
+
+// ---------- Analytik-Programme ----------
+
+// Benannte Zusammenstellungen von Analyseparametern, die bei einer Probe
+// ausgewählt werden können ("welche Analysen sollen ausgelöst werden") —
+// parameterKeys referenzieren die Parameter-Keys aus PARAMETERS (VVEA) bzw.
+// VBBO_PARAMETERS (VBBo). Eine Probe kann mehrere Programme gleichzeitig
+// auswählen; die Parameter aller gewählten Programme werden dann als leere
+// Zeilen in die Analysewerte-Tabelle übernommen. Dies ist nur eine
+// Startauswahl — weitere Programme können unter Einstellungen ergänzt werden.
+export const DEFAULT_ANALYTIK_PROGRAMME = [
+  {
+    id: 'vvea-basis-feststoff', name: 'VVEA Basis (Feststoff)',
+    parameterKeys: ['sb', 'as', 'pb', 'cd', 'cr', 'cr6', 'cu', 'ni', 'hg', 'zn', 'toc400', 'kw', 'pak', 'bap'],
+  },
+  {
+    id: 'vvea-eluat-typc', name: 'VVEA Eluat (Nachweis Typ C nach Behandlung)',
+    parameterKeys: ['as_el', 'pb_el', 'cd_el', 'cr6_el', 'cr3_el', 'cu_el', 'ni_el', 'hg_el', 'zn_el', 'co_el', 'sn_el', 'doc', 'nh4_el', 'cnfrei_el', 'fluorid'],
+  },
+  {
+    id: 'vvea-organik-zusatz', name: 'VVEA Organik-Zusatz (BTEX/PCB/Benzol)',
+    parameterKeys: ['kw_c5', 'btex', 'benzol', 'pcb'],
+  },
+  {
+    id: 'vbbo-basis', name: 'VBBo Basis (Ober-/Unterboden)',
+    parameterKeys: ['pb', 'cd', 'cr', 'cu', 'hg', 'ni', 'zn', 'pak', 'bap', 'pcb'],
+  },
+];
+export function loadAnalytikProgramme() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_ANALYTIK_PROGRAMME);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { /* fall through */ }
+  return DEFAULT_ANALYTIK_PROGRAMME.map(p => ({ ...p, parameterKeys: [...p.parameterKeys] }));
+}
+export function saveAnalytikProgramme(list) {
+  localStorage.setItem(STORAGE_KEY_ANALYTIK_PROGRAMME, JSON.stringify(list));
+}
+export function resetAnalytikProgrammeStorage() {
+  localStorage.removeItem(STORAGE_KEY_ANALYTIK_PROGRAMME);
+  return DEFAULT_ANALYTIK_PROGRAMME.map(p => ({ ...p, parameterKeys: [...p.parameterKeys] }));
 }
 
 // ---------- VeVA-Code-Zuteilung (automatisch) ----------
