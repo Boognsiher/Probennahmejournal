@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import {
   DEMO_THRESHOLDS, DEFAULT_PARAMETERS,
   DEFAULT_VBBO_THRESHOLDS, DEFAULT_VBBO_PARAMETERS, DEFAULT_VEVA_CODES,
-  DEFAULT_ANALYTIK_PROGRAMME,
+  DEFAULT_ANALYTIK_PROGRAMME, DEFAULT_MATERIALIEN,
 } from './vvea-defaults.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -134,6 +134,7 @@ seedSetting('vbbo_thresholds', DEFAULT_VBBO_THRESHOLDS, isEmptyObject);
 seedSetting('vbbo_parameters', DEFAULT_VBBO_PARAMETERS, isEmptyArray);
 seedSetting('veva_codes', DEFAULT_VEVA_CODES, isOldVevaCodeShape);
 seedSetting('analytik_programme', DEFAULT_ANALYTIK_PROGRAMME, isEmptyArray);
+seedSetting('materialien', DEFAULT_MATERIALIEN, isEmptyArray);
 
 // Ersten Admin-Benutzer aus den Umgebungsvariablen anlegen, falls noch keine
 // Benutzer existieren.

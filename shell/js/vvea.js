@@ -103,29 +103,37 @@ export function classifyVBBO(werte, vbboThresholds, nutzungsart) {
   return classify(werte, projected, VBBO_CLASSES, VBBO_PARAMETERS);
 }
 
-// ---------- VeVA-Code-Zuteilung (automatisch) ----------
+// ---------- Materialien (zentral gepflegte Material-Datenbank) ----------
 
-// Ordnet die freie Material-Bezeichnung der Probe (z.B. "Unverschmutzter
-// Aushub", "Humus/Oberboden") einem der drei Material-Eimer zu, die die
-// hinterlegten VeVA-Aushubcodes unterscheiden. Materialien, die nicht
-// Boden/Aushub sind (Mischabbruch, Betonabbruch, Asphalt, …), liefern
-// bewusst `null` — dafür gibt es keine VeVA-Aushubcodes in der Liste.
-export function materialToVevaBucket(material) {
-  const text = String(material || '');
-  if (/ober|humus/i.test(text)) return 'Oberboden';
-  if (/unter/i.test(text)) return 'Unterboden';
-  if (/aushub/i.test(text)) return 'Aushub';
-  return null;
+// Material wird nicht mehr frei eingetippt, sondern aus der unter
+// Einstellungen > Materialien gepflegten Liste gewählt (siehe
+// getMaterialienApi() in api.js bzw. DEFAULT_MATERIALIEN in
+// server/src/vvea-defaults.js). Jeder Eintrag legt fest, welcher
+// Einstufungsstandard (VVEA/VBBo) gilt und welchem VeVA-Aushubcode-„Eimer"
+// (materialToVevaBucket) das Material zugeordnet ist — damit stehen Standard
+// und VeVA-Code für jede Probe eindeutig fest, sobald das Material gewählt
+// ist, und müssen im Formular nicht mehr manuell überschrieben werden.
+export function findMaterial(materialName, materialien) {
+  if (!materialName || !Array.isArray(materialien)) return null;
+  return materialien.find(m => m.name === materialName) || null;
 }
 
-// Der Standard (VVEA/VBBo) wird nicht mehr manuell gewählt, sondern direkt
-// aus dem Material abgeleitet: Ober-/Unterboden (inkl. Humus) -> VBBo
-// (Bodenqualität), alles andere (Aushub, Kies/Sand, Mischabbruch, …) ->
-// VVEA (Deponieklassen). Nutzt denselben Material-Eimer wie die
-// VeVA-Code-Zuteilung.
-export function materialToStandard(material) {
-  const bucket = materialToVevaBucket(material);
-  return (bucket === 'Oberboden' || bucket === 'Unterboden') ? 'vbbo' : 'vvea';
+// Liefert den VeVA-Aushubcode-„Eimer" (z.B. "Oberboden"/"Unterboden"/
+// "Aushub") des gewählten Materials, oder `null`, wenn das Material nicht
+// (mehr) in der Liste steht oder bewusst keinem Eimer zugeordnet ist (z.B.
+// Mischabbruch, Betonabbruch — dafür gibt es keine VeVA-Aushubcodes).
+export function materialToVevaBucket(material, materialien) {
+  const m = findMaterial(material, materialien);
+  return (m && m.vevaBucket) ? m.vevaBucket : null;
+}
+
+// Der Standard (VVEA/VBBo) wird nicht manuell gewählt, sondern direkt aus
+// dem in der Materialien-Liste hinterlegten Standard des gewählten Materials
+// abgeleitet. Unbekanntes/nicht (mehr) in der Liste stehendes Material fällt
+// auf VVEA zurück (der weitaus häufigere Fall).
+export function materialToStandard(material, materialien) {
+  const m = findMaterial(material, materialien);
+  return (m && m.standard === 'vbbo') ? 'vbbo' : 'vvea';
 }
 
 // VBBo kennt keine eigene Deponietyp-Systematik. Für die VeVA-Aushubcode-
@@ -158,12 +166,13 @@ const VBBO_TO_VEVA_KLASSE = {
  * Code für Typ C/D/E, oder derselbe Code für Ober- und Unterboden), daher
  * werden `materialien`/`klassen`-Arrays je Code geprüft. Gibt den
  * passenden Eintrag aus `vevaCodes` zurück (mit `code`/`bezeichnung`) oder
- * `null`, wenn nichts passt (z.B. Material ist kein Boden/Aushub, oder noch
- * keine Einstufung vorhanden).
+ * `null`, wenn nichts passt (z.B. Material ist keinem VeVA-Eimer zugeordnet,
+ * oder noch keine Einstufung vorhanden). `materialien` ist die zentral
+ * gepflegte Materialien-Liste (siehe materialToVevaBucket() oben).
  */
-export function suggestVevaCode(material, standard, classId, vevaCodes) {
+export function suggestVevaCode(material, standard, classId, vevaCodes, materialien) {
   if (!classId || !Array.isArray(vevaCodes)) return null;
-  const bucket = materialToVevaBucket(material);
+  const bucket = materialToVevaBucket(material, materialien);
   if (!bucket) return null;
   const candidates = vevaCodes.filter(c => Array.isArray(c.materialien) && c.materialien.includes(bucket));
   if (!candidates.length) return null;

@@ -28,6 +28,21 @@ const DEFAULT_VEVA_CODES = [
   { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ C/D/E)', materialien: ['Aushub'], klassen: ['typC', 'typD', 'typE'] },
 ];
 
+// Materialien: siehe server/src/vvea-defaults.js für die vollständige
+// Erklärung — hier dieselbe Startauswahl für die Test-Schale.
+const DEFAULT_MATERIALIEN = [
+  { id: 'oberboden', name: 'Humus/Oberboden', standard: 'vbbo', vevaBucket: 'Oberboden' },
+  { id: 'unterboden', name: 'Unterboden', standard: 'vbbo', vevaBucket: 'Unterboden' },
+  { id: 'aushub_unverschmutzt', name: 'Unverschmutzter Aushub', standard: 'vvea', vevaBucket: 'Aushub' },
+  { id: 'aushub_allgemein', name: 'Aushub (allgemein)', standard: 'vvea', vevaBucket: 'Aushub' },
+  { id: 'kies_sand', name: 'Kies/Sand', standard: 'vvea', vevaBucket: '' },
+  { id: 'mischabbruch', name: 'Mischabbruch', standard: 'vvea', vevaBucket: '' },
+  { id: 'betonabbruch', name: 'Betonabbruch', standard: 'vvea', vevaBucket: '' },
+  { id: 'asphalt', name: 'Asphalt', standard: 'vvea', vevaBucket: '' },
+  { id: 'ziegel_mauerwerk', name: 'Ziegel/Mauerwerk', standard: 'vvea', vevaBucket: '' },
+  { id: 'bauschutt_gemischt', name: 'Bauschutt gemischt', standard: 'vvea', vevaBucket: '' },
+];
+
 // Analytik-Programme: siehe server/src/vvea-defaults.js für die vollständige
 // Erklärung — hier dieselbe Startauswahl für die Test-Schale.
 const DEFAULT_ANALYTIK_PROGRAMME = [
@@ -49,10 +64,10 @@ const DEFAULT_ANALYTIK_PROGRAMME = [
   },
 ];
 
-// v6: Analytik-Programme (Menge, Analytik-Programm-Auswahl je Probe) ergänzt
-// — Version angehoben, damit bereits laufende Test-Sessions die neuen Felder
-// erhalten.
-const DB_KEY = 'pnj_mock_db_v6';
+// v7: Materialien-Datenbank ergänzt (ersetzt die frei getippte
+// Material-Liste) — Version angehoben, damit bereits laufende Test-Sessions
+// die neuen Startwerte erhalten.
+const DB_KEY = 'pnj_mock_db_v7';
 const TOKEN_KEY = 'pnj_token';
 const USER_KEY = 'pnj_user';
 
@@ -86,6 +101,7 @@ function seedDb() {
     vbboParameters: JSON.parse(JSON.stringify(DEFAULT_VBBO_PARAMETERS)),
     vevaCodes: JSON.parse(JSON.stringify(DEFAULT_VEVA_CODES)),
     analytikProgramme: JSON.parse(JSON.stringify(DEFAULT_ANALYTIK_PROGRAMME)),
+    materialien: JSON.parse(JSON.stringify(DEFAULT_MATERIALIEN)),
   };
 }
 
@@ -392,6 +408,26 @@ export async function resetAnalytikProgrammeApi() {
   db.analytikProgramme = JSON.parse(JSON.stringify(DEFAULT_ANALYTIK_PROGRAMME));
   persist();
   return db.analytikProgramme;
+}
+
+// ---------- Materialien ----------
+export async function getMaterialienApi() {
+  await delay();
+  requireAuth();
+  return JSON.parse(JSON.stringify(db.materialien));
+}
+export async function saveMaterialienApi(materialien) {
+  await delay();
+  requireAdmin();
+  db.materialien = materialien;
+  persist();
+}
+export async function resetMaterialienApi() {
+  await delay();
+  requireAdmin();
+  db.materialien = JSON.parse(JSON.stringify(DEFAULT_MATERIALIEN));
+  persist();
+  return db.materialien;
 }
 
 // ---------- Benutzer (Admin) ----------

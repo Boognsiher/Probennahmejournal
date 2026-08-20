@@ -137,6 +137,12 @@ Alle `/api/*`-Endpunkte ausser `/api/auth/login` erfordern den Header `Authoriza
 | GET | `/api/settings/veva-codes` | Aktuelle VeVA-Codes (Aushub-/Bodenaushubcodes) |
 | PUT | `/api/settings/veva-codes` | VeVA-Codes speichern (nur Admin) |
 | POST | `/api/settings/veva-codes/reset` | Auf Beispielwerte zurücksetzen (nur Admin) |
+| GET | `/api/settings/analytik-programme` | Aktuelle Analytik-Programme |
+| PUT | `/api/settings/analytik-programme` | Analytik-Programme speichern (nur Admin) |
+| POST | `/api/settings/analytik-programme/reset` | Auf Beispielwerte zurücksetzen (nur Admin) |
+| GET | `/api/settings/materialien` | Aktuelle Materialien-Liste (Name, Standard, VeVA-Eimer je Material) |
+| PUT | `/api/settings/materialien` | Materialien-Liste speichern (nur Admin) |
+| POST | `/api/settings/materialien/reset` | Auf Beispielwerte zurücksetzen (nur Admin) |
 | GET | `/api/entries` | Alle Proben |
 | GET | `/api/entries/:id` | Einzelne Probe inkl. Foto-Metadaten |
 | POST | `/api/entries` | Neue Probe anlegen — `projektId` erforderlich; Chargenname (`probeBezeichnung`) wird serverseitig aus Projekt-Kürzel + fortlaufender Nummer vergeben. Weitere Felder: `standard` (`vvea`/`vbbo`), `nutzungsart` (nur bei `vbbo`), `entsorgungsweg`, `vevaCode` |

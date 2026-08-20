@@ -178,6 +178,30 @@ export const DEFAULT_VBBO_THRESHOLDS = {
   ni:  { richtwert: null, pwDirekt: null, pwNahrung: null, pwFutter: null, sanSpielplatz: null, sanGarten: null, sanLandwirtschaft: null },
 };
 
+// Materialien-Datenbank: legt für jede auf der Baustelle vorkommende
+// Material-Kategorie fest, welcher Einstufungsstandard (VVEA/VBBo) gilt und
+// welchem VeVA-Aushubcode-„Eimer" (siehe `materialien`-Feld bei
+// DEFAULT_VEVA_CODES unten) sie zugeordnet ist. Ersetzt die frühere freie
+// Texteingabe bei der Probe: Das Material wird jetzt aus dieser (unter
+// Einstellungen von einer Administrationsperson gepflegten) Liste gewählt,
+// wodurch Standard und VeVA-Code für jede Probe eindeutig feststehen und im
+// Formular nicht mehr manuell überschrieben werden können/müssen.
+// `vevaBucket`: '' bzw. kein Eintrag = Material erhält bewusst keinen
+// VeVA-Aushubcode (z.B. Mischabbruch, Betonabbruch — dafür gibt es in der
+// hinterlegten Codeliste keine Einträge).
+export const DEFAULT_MATERIALIEN = [
+  { id: 'oberboden', name: 'Humus/Oberboden', standard: 'vbbo', vevaBucket: 'Oberboden' },
+  { id: 'unterboden', name: 'Unterboden', standard: 'vbbo', vevaBucket: 'Unterboden' },
+  { id: 'aushub_unverschmutzt', name: 'Unverschmutzter Aushub', standard: 'vvea', vevaBucket: 'Aushub' },
+  { id: 'aushub_allgemein', name: 'Aushub (allgemein)', standard: 'vvea', vevaBucket: 'Aushub' },
+  { id: 'kies_sand', name: 'Kies/Sand', standard: 'vvea', vevaBucket: '' },
+  { id: 'mischabbruch', name: 'Mischabbruch', standard: 'vvea', vevaBucket: '' },
+  { id: 'betonabbruch', name: 'Betonabbruch', standard: 'vvea', vevaBucket: '' },
+  { id: 'asphalt', name: 'Asphalt', standard: 'vvea', vevaBucket: '' },
+  { id: 'ziegel_mauerwerk', name: 'Ziegel/Mauerwerk', standard: 'vvea', vevaBucket: '' },
+  { id: 'bauschutt_gemischt', name: 'Bauschutt gemischt', standard: 'vvea', vevaBucket: '' },
+];
+
 // VeVA/LVA-Codes für Aushub- und Bodenaushubmaterial, aus Tabelle_Grenzwerte.pdf
 // (Seite 2) — nur die reinen Erdstoff-Kategorien (Oberboden/Unterboden/Aushub),
 // keine Bauabfälle/Beton/Asphalt/Asbest usw. "klassen" bezieht sich auf die

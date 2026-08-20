@@ -7,6 +7,7 @@ import {
   getVbboParametersApi, saveVbboParametersApi, resetVbboParametersApi,
   getVevaCodesApi, saveVevaCodesApi, resetVevaCodesApi,
   getAnalytikProgrammeApi, saveAnalytikProgrammeApi, resetAnalytikProgrammeApi,
+  getMaterialienApi, saveMaterialienApi, resetMaterialienApi,
   listUsersApi, createUserApi, deleteUserApi, getUserRosterApi,
   listProjectsApi, createProjectApi, updateProjectApi, deleteProjectApi,
   login, logout, isLoggedIn, getCurrentUser, ApiError,
@@ -45,16 +46,6 @@ function setActiveProject(id, name) {
     localStorage.removeItem(STORAGE_KEY_ACTIVE_PROJECT_NAME);
   }
 }
-
-// Häufige Materialkategorien für die Baustelle — als Auswahl statt Freitext,
-// damit möglichst wenig getippt werden muss (Handschuhe/Schutzausrüstung).
-// Der Standard (VVEA/VBBo) wird automatisch aus dem gewählten Material
-// abgeleitet (siehe materialToStandard() in vvea.js) — Humus/Ober-/
-// Unterboden -> VBBo, alle anderen Materialien -> VVEA.
-const MATERIAL_OPTIONS = [
-  'Unverschmutzter Aushub', 'Aushub (allgemein)', 'Humus/Oberboden', 'Unterboden', 'Kies/Sand',
-  'Mischabbruch', 'Betonabbruch', 'Asphalt', 'Ziegel/Mauerwerk', 'Bauschutt gemischt',
-];
 
 function pad3(n) { return String(n).padStart(3, '0'); }
 
@@ -482,10 +473,9 @@ let thresholds = {};
 let vbboThresholds = {};
 let vevaCodes = [];
 let analytikProgramme = [];
+let materialien = [];
 let formProjects = [];
 let formRoster = [];
-let vevaCodeTouched = false; // true, sobald der VeVA-Code im Formular manuell überschrieben wurde
-let vevaCodeInitialized = false; // wird beim allerersten updateVevaCodeUI()-Aufruf pro Formular-Render true
 
 function newDraftEntry() {
   return {
@@ -500,10 +490,10 @@ function newDraftEntry() {
 
 async function loadVveaConfig() {
   try {
-    const [t, p, vt, vp, vc, ap] = await Promise.all([
+    const [t, p, vt, vp, vc, ap, mat] = await Promise.all([
       getThresholdsApi(), getParametersApi(),
       getVbboThresholdsApi(), getVbboParametersApi(), getVevaCodesApi(),
-      getAnalytikProgrammeApi(),
+      getAnalytikProgrammeApi(), getMaterialienApi(),
     ]);
     thresholds = t;
     setParameters(p);
@@ -511,6 +501,7 @@ async function loadVveaConfig() {
     setVbboParameters(vp);
     vevaCodes = vc;
     analytikProgramme = ap;
+    materialien = mat;
   } catch (e) { /* Fallback-Werte aus vvea.js bleiben aktiv */ }
 }
 
@@ -567,17 +558,15 @@ function paintEntryForm() {
   const project = formProjects.find(p => p.id === e.projektId) || null;
   const projectEntnahmeorte = project?.entnahmeorte || [];
   const projectEntsorgungswege = project?.entsorgungswege || [];
-  const materialIsCustom = e.material && !MATERIAL_OPTIONS.includes(e.material);
+  const materialIsUnknown = e.material && !materialien.some(m => m.name === e.material);
   const probenehmerIsCustom = e.probenehmer && !formRoster.some(u => u.name === e.probenehmer);
   const entnahmeortIsCustom = e.entnahmeort && !projectEntnahmeorte.includes(e.entnahmeort);
   const entsorgungswegIsCustom = e.entsorgungsweg && !projectEntsorgungswege.includes(e.entsorgungsweg);
   if (isNew && !e.probenehmer && me) e.probenehmer = me.name;
   if (!Array.isArray(e.analytikProgramme)) e.analytikProgramme = [];
-  e.standard = materialToStandard(e.material);
+  e.standard = materialToStandard(e.material, materialien);
   if (e.standard === 'vbbo' && !e.nutzungsart) e.nutzungsart = NUTZUNGSARTEN[0].id;
   recomputeClassification(); // Standard kann sich gerade erst geändert haben (z.B. beim Laden)
-  vevaCodeTouched = false;
-  vevaCodeInitialized = false;
 
   appEl.innerHTML = `
     <div class="card">
@@ -598,10 +587,11 @@ function paintEntryForm() {
           <label>Material</label>
           <select id="f-material">
             <option value="">– wählen –</option>
-            ${MATERIAL_OPTIONS.map(m => `<option value="${escapeHtml(m)}" ${e.material === m ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('')}
-            <option value="${ANDERE}" ${materialIsCustom ? 'selected' : ''}>Andere (Freitext)…</option>
+            ${materialien.map(m => `<option value="${escapeHtml(m.name)}" ${e.material === m.name ? 'selected' : ''}>${escapeHtml(m.name)}</option>`).join('')}
+            ${materialIsUnknown ? `<option value="${escapeHtml(e.material)}" selected>${escapeHtml(e.material)} (nicht in Materialien-Liste)</option>` : ''}
           </select>
-          <input id="f-material-andere" placeholder="Material angeben" style="margin-top:.4rem;display:${materialIsCustom ? 'block' : 'none'};" value="${escapeHtml(materialIsCustom ? e.material : '')}">
+          ${materialIsUnknown ? '<p class="hint">Dieses Material ist nicht (mehr) in der Materialien-Liste hinterlegt — Standard und VeVA-Code können nicht automatisch bestimmt werden. Bitte ein passendes Material wählen oder unter Einstellungen &gt; Materialien ergänzen.</p>' : ''}
+          ${materialien.length === 0 ? '<p class="hint">Noch keine Materialien hinterlegt — unter Einstellungen &gt; Materialien anlegen.</p>' : ''}
         </div>
         <div class="field">
           <label>Probenehmer/in</label>
@@ -653,11 +643,8 @@ function paintEntryForm() {
           </select>
         </div>
         <div class="field">
-          <label>VeVA-Code <span class="hint">(automatisch aus Material + Standard + Einstufung)</span></label>
-          <select id="f-veva-code">
-            <option value="">– keiner –</option>
-            ${vevaCodes.map(c => `<option value="${escapeHtml(c.code)}" ${e.vevaCode === c.code ? 'selected' : ''}>${escapeHtml(c.code)} – ${escapeHtml(c.bezeichnung)}</option>`).join('')}
-          </select>
+          <label>VeVA-Code <span class="hint">(automatisch aus Material + Standard + Einstufung, nicht änderbar)</span></label>
+          <p id="f-veva-code-display">–</p>
           <p class="hint" id="veva-code-hint"></p>
         </div>
         <div class="field">
@@ -734,7 +721,7 @@ function paintEntryForm() {
   // ein-/ausblenden und Analysetabelle (andere Parameterliste!) + VeVA-Code neu
   // aufbauen.
   function applyMaterialStandard() {
-    e.standard = materialToStandard(e.material);
+    e.standard = materialToStandard(e.material, materialien);
     if (e.standard === 'vbbo' && !e.nutzungsart) e.nutzungsart = NUTZUNGSARTEN[0].id;
     $('#f-standard-display').textContent = e.standard === 'vbbo' ? 'VBBo (Bodenqualität)' : 'VVEA (Deponieklassen)';
     $('#f-nutzungsart-field').style.display = e.standard === 'vbbo' ? 'block' : 'none';
@@ -742,13 +729,11 @@ function paintEntryForm() {
     paintAnalyseTable();
   }
 
-  const materialSel = $('#f-material'), materialAndere = $('#f-material-andere');
+  const materialSel = $('#f-material');
   materialSel.addEventListener('change', () => {
-    if (materialSel.value === ANDERE) { materialAndere.style.display = 'block'; e.material = materialAndere.value; }
-    else { materialAndere.style.display = 'none'; e.material = materialSel.value; }
+    e.material = materialSel.value;
     applyMaterialStandard();
   });
-  materialAndere.addEventListener('input', () => { e.material = materialAndere.value; applyMaterialStandard(); });
 
   const personSel = $('#f-person'), personAndere = $('#f-person-andere');
   personSel.addEventListener('change', () => {
@@ -770,13 +755,6 @@ function paintEntryForm() {
     else { entsorgungswegAndere.style.display = 'none'; e.entsorgungsweg = entsorgungswegSel.value; }
   });
   entsorgungswegAndere.addEventListener('input', () => { e.entsorgungsweg = entsorgungswegAndere.value; });
-
-  $('#f-veva-code').addEventListener('change', ev => {
-    vevaCodeTouched = true;
-    e.vevaCode = ev.target.value;
-    const hint = $('#veva-code-hint');
-    if (hint) hint.textContent = 'Manuell gewählt.';
-  });
 
   $('#f-bemerkungen').addEventListener('input', ev => e.bemerkungen = ev.target.value);
   $('#f-datum').addEventListener('input', ev => { if (ev.target.value) e.createdAt = new Date(ev.target.value).toISOString(); });
@@ -1101,43 +1079,28 @@ function paintClassificationBanner() {
   updateVevaCodeUI();
 }
 
-// Schlägt automatisch einen VeVA-Aushubcode vor (Material + Standard +
-// aktuelle Einstufung) und trägt ihn ins Formular ein — solange die
-// Auswahl nicht manuell überschrieben wurde (vevaCodeTouched). Der ALLERERSTE
-// Aufruf nach dem (Neu-)Rendern des Formulars zeigt den bereits gespeicherten
-// Code nur an, ohne ihn neu zu berechnen — sonst würde beim blossen Öffnen
-// einer bestehenden Probe (ohne dass sich etwas geändert hat) ein manuell
-// gewählter oder früher gespeicherter Code sofort durch eine frische
-// Automatik-Berechnung überschrieben (z.B. auf leer, wenn beim Laden noch
-// keine Analysewerte ausgewertet sind).
+// Bestimmt den VeVA-Aushubcode ausschliesslich automatisch aus Material +
+// Standard + aktueller Einstufung und zeigt ihn nur an — anders als früher
+// gibt es dafür keine manuelle Auswahl mehr im Formular: Der Code ist mit
+// dem Material fix verknüpft (siehe Einstellungen > Materialien) und wird
+// bei jeder Änderung an Material oder Analysewerten neu berechnet.
 function updateVevaCodeUI() {
-  const sel = $('#f-veva-code');
+  const display = $('#f-veva-code-display');
   const hint = $('#veva-code-hint');
-  if (!sel || !hint) return; // Formular (noch) nicht im DOM, z.B. beim ersten recomputeClassification()
+  if (!display || !hint) return; // Formular (noch) nicht im DOM, z.B. beim ersten recomputeClassification()
 
-  if (!vevaCodeInitialized) {
-    vevaCodeInitialized = true;
-    sel.value = currentEntry.vevaCode || '';
-    hint.textContent = currentEntry.vevaCode
-      ? 'Gespeicherter Code — wird bei Änderungen an Material/Analysewerten automatisch aktualisiert, ausser er wird manuell gewählt.'
-      : 'Noch kein Code zugeordnet — wird automatisch vorgeschlagen, sobald Material und Analysewerte vorliegen.';
-    return;
-  }
-
-  if (vevaCodeTouched) {
-    hint.textContent = 'Manuell gewählt.';
-    return;
-  }
   const classId = currentClassification?.classId || null;
-  const suggestion = suggestVevaCode(currentEntry.material, currentEntry.standard, classId, vevaCodes);
+  const suggestion = suggestVevaCode(currentEntry.material, currentEntry.standard, classId, vevaCodes, materialien);
   currentEntry.vevaCode = suggestion ? suggestion.code : '';
-  sel.value = currentEntry.vevaCode;
-  if (!classId) {
+  display.textContent = suggestion ? `${suggestion.code} – ${suggestion.bezeichnung}` : '–';
+  if (!currentEntry.material) {
+    hint.textContent = 'Noch kein Material gewählt.';
+  } else if (!classId) {
     hint.textContent = 'Noch keine bewertbaren Analysewerte – automatische Zuordnung folgt nach der ersten Einstufung.';
   } else if (suggestion) {
-    hint.textContent = `🤖 automatisch zugeordnet: ${suggestion.bezeichnung}`;
+    hint.textContent = '🤖 automatisch zugeordnet.';
   } else {
-    hint.textContent = 'Kein passender VeVA-Aushubcode für Material/Einstufung gefunden – bei Bedarf manuell wählen.';
+    hint.textContent = 'Kein passender VeVA-Aushubcode für Material/Einstufung hinterlegt.';
   }
 }
 
@@ -1300,6 +1263,43 @@ async function paintSettings() {
         <div class="field"><label>Einheit</label><input id="nvp-unit" placeholder="z.B. mg/kg"></div>
       </div>
       <button class="btn secondary" id="btn-add-vbbo-param" type="button">+ Parameter hinzufügen</button>
+      ` : ''}
+    </div>
+
+    <div class="card">
+      <h2>Materialien</h2>
+      <p class="hint">Legt fest, welche Materialien bei einer Probe wählbar sind und welcher Einstufungsstandard
+      (VVEA/VBBo) sowie welcher VeVA-Aushubcode-„Eimer" (siehe VeVA-Codes unten) dafür jeweils gilt. Standard und
+      VeVA-Code werden bei der Probe daraus automatisch bestimmt und sind dort nicht mehr änderbar.
+      ${isAdmin ? '' : ' Nur Administrator/innen können sie ändern.'}</p>
+      <div style="overflow-x:auto">
+      <table class="threshold-table" id="materialien-table">
+        <tr><th>Name</th><th>Standard</th><th>VeVA-Eimer</th>${isAdmin ? '<th></th>' : ''}</tr>
+        ${materialien.map((m, i) => `
+          <tr>
+            <td><input data-mat="${i}" data-matf="name" ${isAdmin ? '' : 'disabled'} value="${escapeHtml(m.name)}" style="width:14rem;"></td>
+            <td>
+              <select data-mat="${i}" data-matf="standard" ${isAdmin ? '' : 'disabled'}>
+                <option value="vvea" ${m.standard !== 'vbbo' ? 'selected' : ''}>VVEA (Deponieklassen)</option>
+                <option value="vbbo" ${m.standard === 'vbbo' ? 'selected' : ''}>VBBo (Bodenqualität)</option>
+              </select>
+            </td>
+            <td>
+              <select data-mat="${i}" data-matf="vevaBucket" ${isAdmin ? '' : 'disabled'}>
+                <option value="" ${!m.vevaBucket ? 'selected' : ''}>– keiner –</option>
+                ${VEVA_MATERIALIEN.map(v => `<option value="${v}" ${m.vevaBucket === v ? 'selected' : ''}>${v}</option>`).join('')}
+              </select>
+            </td>
+            ${isAdmin ? `<td><button type="button" class="btn danger" style="padding:.2rem .5rem;" data-del-mat="${i}">×</button></td>` : ''}
+          </tr>`).join('')}
+      </table>
+      </div>
+      ${isAdmin ? `
+      <div class="btn-row">
+        <button class="btn secondary" id="btn-add-mat" type="button">+ Neues Material</button>
+        <button class="btn" id="btn-save-mat" type="button">💾 Materialien speichern</button>
+        <button class="btn secondary" id="btn-reset-mat" type="button">Zurücksetzen auf Beispielwerte</button>
+      </div>
       ` : ''}
     </div>
 
@@ -1517,6 +1517,47 @@ async function paintSettings() {
         await saveVbboParametersApi(newParams);
         setVbboParameters(newParams);
         toast('Parameter hinzugefügt');
+        await renderSettings();
+      } catch (err) { toast('Fehler: ' + errMsg(err)); }
+    });
+
+    // ---------- Materialien ----------
+    function collectMaterialienFromTable() {
+      const list = materialien.map(m => ({ id: m.id, name: m.name, standard: m.standard, vevaBucket: m.vevaBucket }));
+      $$('#materialien-table [data-mat]').forEach(el => {
+        const i = Number(el.dataset.mat);
+        if (!list[i]) return;
+        list[i][el.dataset.matf] = el.value;
+      });
+      return list;
+    }
+    $$('[data-del-mat]').forEach(btn => btn.addEventListener('click', async () => {
+      if (!confirm('Dieses Material wirklich entfernen? Bereits erfasste Proben mit diesem Material bleiben gespeichert, zeigen aber keinen automatisch bestimmten Standard/VeVA-Code mehr.')) return;
+      const newList = collectMaterialienFromTable();
+      newList.splice(Number(btn.dataset.delMat), 1);
+      try {
+        await saveMaterialienApi(newList);
+        materialien = newList;
+        toast('Material entfernt');
+        await renderSettings();
+      } catch (err) { toast('Fehler: ' + errMsg(err)); }
+    }));
+    $('#btn-add-mat').addEventListener('click', async () => {
+      materialien = collectMaterialienFromTable();
+      const id = slugifyParamKey(`material_${materialien.length + 1}`, new Set(materialien.map(m => m.id)));
+      materialien.push({ id, name: '', standard: 'vvea', vevaBucket: '' });
+      await paintSettings();
+    });
+    $('#btn-save-mat').addEventListener('click', async () => {
+      const newList = collectMaterialienFromTable();
+      try { await saveMaterialienApi(newList); materialien = newList; toast('Materialien gespeichert'); }
+      catch (err) { toast('Fehler: ' + errMsg(err)); }
+    });
+    $('#btn-reset-mat').addEventListener('click', async () => {
+      if (!confirm('Materialien wirklich auf die Beispielwerte zurücksetzen?')) return;
+      try {
+        materialien = await resetMaterialienApi();
+        toast('Zurückgesetzt');
         await renderSettings();
       } catch (err) { toast('Fehler: ' + errMsg(err)); }
     });

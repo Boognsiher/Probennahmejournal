@@ -15,10 +15,13 @@ App zur Führung eines Probennahmejournals auf der Baustelle:
 - Fotodokumentation des Materials
 - **Menge je Probe erfassbar** (geschätzt, in t oder m³) — optional, wird im Journal, im PDF-Bericht und in der
   E-Mail-Zusammenfassung mit ausgewiesen
-- **Einstufungsstandard wird automatisch aus dem Material bestimmt** — Humus/Ober-/Unterboden ergeben
-  **VBBo** (Bodenqualität, Richtwert/Prüfwert/Sanierungswert – abhängig von der gewählten **Nutzungsart**
-  Kinderspielplatz / Haus-Familiengarten / Landwirtschaft-Gartenbau), alle anderen Materialien (Aushub,
-  Kies/Sand, Bauschutt, …) ergeben **VVEA** (Deponietyp A–E). Keine manuelle Auswahl nötig.
+- **Materialien-Datenbank**: Material wird bei der Probe aus einer unter Einstellungen zentral gepflegten Liste
+  gewählt (nicht mehr frei getippt) — dort legt eine Administrationsperson je Material fest, welcher
+  Einstufungsstandard (VVEA oder VBBo) und welcher VeVA-Aushubcode-„Eimer" dafür gilt. Der
+  **Einstufungsstandard steht damit für jede Probe automatisch fest**, sobald das Material gewählt ist (z.B.
+  Humus/Ober-/Unterboden → **VBBo**, Bodenqualität mit Richtwert/Prüfwert/Sanierungswert – abhängig von der
+  gewählten **Nutzungsart** Kinderspielplatz / Haus-Familiengarten / Landwirtschaft-Gartenbau; alle anderen
+  Materialien wie Aushub, Kies/Sand, Bauschutt, … → **VVEA**, Deponietyp A–E). Keine manuelle Auswahl nötig.
 - Analyse-Import aus CSV/Excel-CSV oder PDF-Laborberichten, mit automatischer Farbcodierung nach dem
   ermittelten Standard (Grenzwerte inkl. Einheiten, per CSV/Excel importierbar, eigene Parameter ergänzbar)
 - **Analytik-Programme**: benannte Zusammenstellungen von Analyseparametern (z.B. „VVEA Basis (Feststoff)“,
@@ -27,9 +30,11 @@ App zur Führung eines Probennahmejournals auf der Baustelle:
   auswählbar; „Analysen auslösen“ übernimmt die enthaltenen Parameter als leere Zeilen in die
   Analysewerte-Tabelle (bereits vorhandene Parameter werden nicht doppelt hinzugefügt) — bereit zum Eintragen
   der Laborwerte, sobald diese vorliegen.
-- **VeVA-Code wird automatisch zugeteilt** — aus Material (z.B. Aushub/Ober-/Unterboden), dem daraus
-  abgeleiteten Standard (VVEA/VBBo) und dem Einstufungsergebnis; bleibt manuell überschreibbar, falls kein
-  passender Code gefunden wird oder eine andere Zuordnung gewünscht ist
+- **VeVA-Code wird automatisch und fix zugeteilt** — aus Material (z.B. Aushub/Ober-/Unterboden), dem daraus
+  abgeleiteten Standard (VVEA/VBBo) und dem Einstufungsergebnis. Anders als Standard/Material ist der Code bei
+  der Probe **nicht manuell überschreibbar** — passt der automatisch ermittelte Code nicht, muss die
+  Materialien- bzw. VeVA-Codes-Zuordnung unter Einstellungen angepasst werden, statt ihn pro Probe von Hand zu
+  ändern (Nachvollziehbarkeit: derselbe Materialzustand ergibt immer denselben Code)
 - **Echter PDF-Export** je Probe, E-Mail-Versand mit PDF nach Möglichkeit direkt angehängt (native
   Teilen-Funktion des Geräts)
 - **Journal mit Filtern** (Projekt, Material, Standard, Klasse) und Sortierung zum Aufräumen/Wiederfinden
@@ -64,17 +69,19 @@ der offiziellen VeVA-Codeliste geprüft und bei Bedarf angepasst werden** — in
 einem offiziellen Begleitschein verwendet wird. Die App zeigt einen entsprechenden Hinweis auch beim ersten
 Start an.
 
-Der VeVA-Code wird automatisch aus Material (Ober-/Unterboden/Aushub — andere Materialien wie Mischabbruch
-erhalten bewusst keinen Code, da die Liste nur Aushub-/Bodenaushubcodes enthält), gewähltem Standard und
-Einstufungsergebnis vorgeschlagen. Bei einer **VBBo**-eingestuften Probe wird die VBBo-Klasse dafür auf die
+Der VeVA-Code wird automatisch aus Material (über den in der Materialien-Liste hinterlegten VeVA-Aushubcode-
+„Eimer" Ober-/Unterboden/Aushub — andere Materialien wie Mischabbruch erhalten bewusst keinen Code, da die
+Liste nur Aushub-/Bodenaushubcodes enthält), gewähltem Standard und Einstufungsergebnis bestimmt. Bei einer
+**VBBo**-eingestuften Probe wird die VBBo-Klasse dafür auf die
 entsprechende Kategorie abgebildet: unauffällig → Kat. I (unbelastet), über Richtwert → Kat. II (schwach
 belastet, Typ A), über Prüfwert → Kat. IIIa (stark belastet, Typ B*), über Sanierungswert → Kat. IIIb (stark
 belastet, VVEA „über Typ B", Typ C*). *Kat. IIIa und IIIb sind beide „stark belastet", aber unterschiedliche
 Kategorien; die VeVA-Codeliste kennt jedoch nur die vier VVEA-Buckets unbelastet/Typ A/Typ B/Typ C, daher
 werden beide auf den nächstliegenden Bucket abgebildet. „Sonderabfall" (VVEA „über Typ E") wird nur bei einer
 VVEA-Einstufung automatisch erkannt, da die VBBo-Skala keine eigene Entsprechung dafür hat. Das ist eine
-vereinfachende fachliche Einschätzung, keine normative Gleichsetzung. Der Vorschlag ist im Formular jederzeit
-manuell überschreibbar.
+vereinfachende fachliche Einschätzung, keine normative Gleichsetzung. Der ermittelte Code ist im
+Proben-Formular bewusst **nicht manuell überschreibbar** — passt er nicht, ist die Materialien- bzw.
+VeVA-Codes-Zuordnung unter Einstellungen anzupassen (siehe oben).
 
 **TOC (organischer Kohlenstoff)** fliesst bei der VVEA-Einstufung erst ab einer Einstufung schlechter als
 Typ B in die Gesamtbewertung ein — bei Typ B oder besser wird ein hinterlegter TOC-Grenzwert nicht
@@ -100,9 +107,12 @@ erreicht wird. Auch das ist eine Näherung, keine normative Aussage — bitte du
 aktuellen VVEA-Vollzugshilfen (insb. Anhang 5) prüfen.
 
 Wurde die App vor diesem Update bereits in Betrieb genommen (bestehende Server-Datenbank, bereits geöffnete
-`shell/`- oder `lokal/`-Instanz), werden die neuen VBBo-Grenzwerte/-Parameter und VeVA-Codes automatisch als
-Startwerte ergänzt, sobald noch keine eigenen gespeichert sind — die bestehende VVEA-Grenzwerttabelle bleibt
-dabei unverändert erhalten.
+`shell/`- oder `lokal/`-Instanz), werden die neuen VBBo-Grenzwerte/-Parameter, VeVA-Codes und die
+Materialien-Liste automatisch als Startwerte ergänzt, sobald noch keine eigenen gespeichert sind — die
+bestehende VVEA-Grenzwerttabelle bleibt dabei unverändert erhalten. Bereits erfasste Proben mit einem frei
+eingetippten Material, das nicht in der neuen Startliste vorkommt, bleiben unverändert gespeichert und werden
+im Formular weiterhin angezeigt — Standard/VeVA-Code werden für sie aber nicht mehr automatisch bestimmt, bis
+entweder ein passendes Material aus der Liste gewählt oder das Material unter Einstellungen ergänzt wird.
 
 ## Schnellstart
 

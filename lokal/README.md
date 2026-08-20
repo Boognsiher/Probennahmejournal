@@ -17,13 +17,17 @@ Für die Team-Variante mit gemeinsamem Server, Login pro Person und zentraler Fo
   zuletzt verwendete Namen) — wenig Tippen, grosse Bedienelemente für Handschuhe/Schutzausrüstung
 - 📷 Fotodokumentation des Materials über die Gerätekamera (im Browser gespeichert)
 - 📥 Analyse-Import aus CSV/Excel-CSV oder PDF-Laborberichten
+- 🧱 **Materialien-Datenbank**: Material wird bei der Probe aus einer unter „Einstellungen“ gepflegten Liste
+  gewählt (nicht mehr frei getippt); dort legt sie fest, welcher Einstufungsstandard (VVEA/VBBo) und welcher
+  VeVA-Aushubcode-„Eimer" gilt
 - 🎯 **Einstufungsstandard wird automatisch aus dem Material bestimmt**: Humus/Ober-/Unterboden -> **VBBo**
   (Bodenqualität, abhängig von der gewählten Nutzungsart Kinderspielplatz / Haus-Familiengarten /
   Landwirtschaft-Gartenbau), alle anderen Materialien -> **VVEA** (Deponietyp A–E). Keine manuelle Auswahl nötig.
 - 🎨 Automatische Farbcodierung der Werte nach dem ermittelten Standard (Grenzwerte inkl. Einheiten, per
   CSV/Excel importierbar, eigene Parameter ergänzbar) — siehe „Einstellungen“
-- 🚚 **VeVA-Code wird automatisch zugeteilt** (Aushub-/Bodenaushubcodes, aus Material/Standard/Einstufung —
-  manuell überschreibbar) sowie ein projektbasiertes **Entsorgungsweg**-Dropdown je Probe
+- 🚚 **VeVA-Code wird automatisch und fix zugeteilt** (Aushub-/Bodenaushubcodes, aus Material/Standard/
+  Einstufung — bei der Probe nicht mehr manuell überschreibbar) sowie ein projektbasiertes
+  **Entsorgungsweg**-Dropdown je Probe
 - 📄 **Echter PDF-Export** je Probe (Fotos, Werte, Einstufung)
 - ✉️ **„E-Mail mit PDF senden“** versucht zuerst die native Teilen-Funktion des Geräts (PDF direkt als
   Anhang), sonst PDF-Download + `mailto:` mit vorausgefülltem Text zum manuellen Anhängen

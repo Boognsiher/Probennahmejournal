@@ -173,6 +173,19 @@ export async function resetAnalytikProgrammeApi() {
   return data.programme;
 }
 
+// ---------- Materialien ----------
+export async function getMaterialienApi() {
+  const data = await request('/settings/materialien');
+  return data.materialien;
+}
+export async function saveMaterialienApi(materialien) {
+  await request('/settings/materialien', { method: 'PUT', body: { materialien } });
+}
+export async function resetMaterialienApi() {
+  const data = await request('/settings/materialien/reset', { method: 'POST' });
+  return data.materialien;
+}
+
 // ---------- Benutzer (Admin) ----------
 export async function listUsersApi() {
   const data = await request('/users');
