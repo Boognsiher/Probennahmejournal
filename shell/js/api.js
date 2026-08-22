@@ -18,15 +18,16 @@ import {
 // derselbe Code für Ober- UND Unterboden) — daher `materialien`/`klassen`
 // als Arrays statt Einzelwerten.
 const DEFAULT_VEVA_CODES = [
-  { code: '17 05 04', bezeichnung: 'Ober-/Unterboden – unverschmutzt', materialien: ['Oberboden', 'Unterboden'], klassen: ['unbelastet'] },
-  { code: '17 05 93', bezeichnung: 'Ober-/Unterboden – schwach verschmutzt (Typ A)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typA'] },
-  { code: '17 05 96 [ak]', bezeichnung: 'Ober-/Unterboden – Inertstoff (Typ B)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typB'] },
-  { code: '17 05 90 [akb]', bezeichnung: 'Ober-/Unterboden – stark verschmutzt (Typ E)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typE'] },
+  { code: '17 05 04', bezeichnung: 'Ober-/Unterboden – unbelastet', materialien: ['Oberboden', 'Unterboden'], klassen: ['unbelastet'] },
+  { code: '17 05 93', bezeichnung: 'Ober-/Unterboden – schwach belastet (Typ A)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typA'] },
+  { code: '17 05 96 [ak]', bezeichnung: 'Ober-/Unterboden – wenig belastet, Inertstoff (Typ B)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typB'] },
+  { code: '17 05 90 [akb]', bezeichnung: 'Ober-/Unterboden – stark belastet (Typ C/D/E)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typC', 'typD', 'typE'] },
+  { code: '17 05 03 [S]', bezeichnung: 'Abgetragener Ober-/Unterboden, durch gefährliche Stoffe verunreinigt (Sonderabfall)', materialien: ['Oberboden', 'Unterboden'], klassen: ['sonderfall'] },
   { code: '17 05 06', bezeichnung: 'Aushub – unverschmutzt', materialien: ['Aushub'], klassen: ['unbelastet'] },
   { code: '17 05 94', bezeichnung: 'Aushub – schwach verschmutzt (Typ A)', materialien: ['Aushub'], klassen: ['typA'] },
-  { code: '17 05 97 [ak]', bezeichnung: 'Aushub – Inertstoff (Typ B)', materialien: ['Aushub'], klassen: ['typB'] },
-  { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ E)', materialien: ['Aushub'], klassen: ['typE'] },
-  { code: '17 05 03*', bezeichnung: 'Boden und Steine, die gefährliche Stoffe enthalten (Sonderabfall, Typ C/D bzw. nicht deponierbar)', materialien: ['Oberboden', 'Unterboden', 'Aushub'], klassen: ['typC', 'typD', 'sonderfall'] },
+  { code: '17 05 97 [ak]', bezeichnung: 'Aushub – wenig verschmutzt, Inertstoff (Typ B)', materialien: ['Aushub'], klassen: ['typB'] },
+  { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ C/D/E)', materialien: ['Aushub'], klassen: ['typC', 'typD', 'typE'] },
+  { code: '17 05 05 [S]', bezeichnung: 'Aushub- und Ausbruchmaterial, durch gefährliche Stoffe verunreinigt (Sonderabfall)', materialien: ['Aushub'], klassen: ['sonderfall'] },
 ];
 
 // Materialien: siehe server/src/vvea-defaults.js für die vollständige
@@ -65,10 +66,13 @@ const DEFAULT_ANALYTIK_PROGRAMME = [
   },
 ];
 
-// v8: Sonderabfallcode (17 05 03*) für Typ C/D und die Klasse "Sonderfall"
-// ergänzt (Typ E behält den bisherigen Code) — Version angehoben, damit
-// bereits laufende Test-Sessions die neuen Startwerte erhalten.
-const DB_KEY = 'pnj_mock_db_v8';
+// v9: Sonderabfallcode korrigiert — 17 05 03/05 [S] (offizielle Codes gemäss
+// veva-online.admin.ch) gilt nur für die Klasse "Sonderfall" (nicht
+// deponierbar); Typ C/D/E teilen sich weiterhin den bisherigen Code
+// 17 05 90/91 [akb] (v8 hatte Typ C/D fälschlich als Sonderabfall
+// eingestuft). Version angehoben, damit bereits laufende Test-Sessions die
+// neuen Startwerte erhalten.
+const DB_KEY = 'pnj_mock_db_v9';
 const TOKEN_KEY = 'pnj_token';
 const USER_KEY = 'pnj_user';
 

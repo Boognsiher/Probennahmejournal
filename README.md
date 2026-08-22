@@ -83,11 +83,14 @@ vereinfachende fachliche Einschätzung, keine normative Gleichsetzung. Der ermit
 Proben-Formular bewusst **nicht manuell überschreibbar** — passt er nicht, ist die Materialien- bzw.
 VeVA-Codes-Zuordnung unter Einstellungen anzupassen (siehe oben).
 
-**Sonderabfall-Code:** Gemäss Entscheid des Auftraggebers gelten Deponietyp C und D bereits als Sonderabfall
-(gefährlicher Abfall gemäss VeVA Anhang 1 Abfallverzeichnis/LVA) und erhalten deshalb den Sonderabfall-Code
-„17 05 03\*" („Boden und Steine, die gefährliche Stoffe enthalten") statt eines gewöhnlichen Reststoff-Codes —
-ebenso die Klasse „Sonderfall" (nicht deponierbar, jenseits Typ E). Typ E bleibt beim bisherigen Code
-17 05 90/91 [akb]. Auch diese Zuordnung ist vor produktivem Einsatz durch eine Fachperson zu verifizieren.
+**Sonderabfall-Code:** Anhand der offiziellen Abfallliste (Kapitel 17 05, veva-online.admin.ch) gilt: Typ C, D
+und E teilen sich weiterhin den Code 17 05 90/91 „[akb]" („andere kontrollpflichtige Abfälle mit
+Begleitscheinpflicht", stark belastet/verschmutzt) — die Liste schliesst darin ausdrücklich „denjenigen [Boden],
+der/das unter 17 05 03/05 fällt" aus, [akb] und Sonderabfall sind also zwei unterschiedliche, sich gegenseitig
+ausschliessende Kategorien. Der echte Sonderabfall-Code („[S]", durch gefährliche Stoffe verunreinigt) ist
+17 05 03 für Ober-/Unterboden bzw. 17 05 05 für Aushub- und Ausbruchmaterial und wird der Klasse „Sonderfall"
+(nicht deponierbar, jenseits Typ E) zugeordnet. Auch diese Zuordnung ist vor produktivem Einsatz durch eine
+Fachperson zu verifizieren.
 
 **TOC (organischer Kohlenstoff)** fliesst bei der VVEA-Einstufung erst ab einer Einstufung schlechter als
 Typ B in die Gesamtbewertung ein — bei Typ B oder besser wird ein hinterlegter TOC-Grenzwert nicht
