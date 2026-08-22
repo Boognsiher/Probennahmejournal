@@ -146,10 +146,14 @@ table.analyse-table input, table.analyse-table select { width: 100%; border: non
 .toast.show { opacity: 1; }
 
 /* Etikette (Labeldrucker) — siehe js/label.js. Ausserhalb des Drucks
-   ausserhalb des sichtbaren Bereichs positioniert; im Druckdialog wird per
-   "visibility" nur dieser Bereich sichtbar geschaltet ("nur dieses Element
-   drucken"-Trick) und über eine dynamisch gesetzte @page-Regel exakt auf die
-   gewählte Etikettengrösse skaliert. */
+   ausserhalb des sichtbaren Bereichs positioniert. Im Druckdialog werden
+   ALLE anderen Kinder von <body> per "display:none" komplett aus dem Layout
+   entfernt (nicht nur "visibility:hidden" — das würde die volle, oft
+   mehrseitige Höhe der restlichen App beibehalten und die Etikette dank
+   "position:fixed" auf jeder dieser Seiten wiederholen, siehe erledigter
+   Bug "43 gleiche Seiten"), sodass die gedruckte Seite exakt auf die Höhe
+   der Etikette schrumpft — zusammen mit der dynamisch gesetzten @page-Regel
+   ergibt das genau eine Seite in der gewählten Etikettengrösse. */
 #label-print-area {
   position: fixed;
   left: -9999px;
@@ -161,7 +165,6 @@ table.analyse-table input, table.analyse-table select { width: 100%; border: non
 .label-charge { font-size: 14pt; font-weight: 700; line-height: 1.15; word-break: break-word; }
 .label-sub { font-size: 7pt; color: #333; margin-top: 1mm; }
 @media print {
-  body * { visibility: hidden; }
-  #label-print-area, #label-print-area * { visibility: visible; }
-  #label-print-area { position: fixed; left: 0; top: 0; margin: 0; padding: 2mm; box-sizing: border-box; }
+  body > *:not(#label-print-area) { display: none !important; }
+  #label-print-area { position: static; margin: 0; padding: 2mm; box-sizing: border-box; }
 }
