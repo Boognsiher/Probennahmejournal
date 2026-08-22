@@ -144,3 +144,24 @@ table.analyse-table input, table.analyse-table select { width: 100%; border: non
   padding: .6rem 1rem; border-radius: 8px; font-size: .85rem; z-index: 50; opacity: 0; transition: opacity .2s;
 }
 .toast.show { opacity: 1; }
+
+/* Etikette (Labeldrucker) — siehe js/label.js. Ausserhalb des Drucks
+   ausserhalb des sichtbaren Bereichs positioniert; im Druckdialog wird per
+   "visibility" nur dieser Bereich sichtbar geschaltet ("nur dieses Element
+   drucken"-Trick) und über eine dynamisch gesetzte @page-Regel exakt auf die
+   gewählte Etikettengrösse skaliert. */
+#label-print-area {
+  position: fixed;
+  left: -9999px;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 2mm;
+}
+.label-charge { font-size: 14pt; font-weight: 700; line-height: 1.15; word-break: break-word; }
+.label-sub { font-size: 7pt; color: #333; margin-top: 1mm; }
+@media print {
+  body * { visibility: hidden; }
+  #label-print-area, #label-print-area * { visibility: visible; }
+  #label-print-area { position: fixed; left: 0; top: 0; margin: 0; padding: 2mm; box-sizing: border-box; }
+}

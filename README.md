@@ -39,6 +39,11 @@ App zur Führung eines Probennahmejournals auf der Baustelle:
   Formular des Labors**. Die Analysewerte selbst werden erst separat erfasst (manuell oder per CSV/PDF-Import),
   sobald die Laborresultate vorliegen — „Analysen auslösen“ trägt selbst keine leeren Zeilen mehr in die
   Analysewerte-Tabelle ein.
+- **Etikette drucken**: Chargenname + QR-Code (mit Projekt/Material/Entnahmeort/Datum/Menge/Labor/Analysen als
+  Klartext fürs Labor) direkt aus der Website über den normalen Systemdruckdialog druckbar — geeignet für
+  Etikettendrucker wie die Brother-QL-/PT-Serie, die über ihren Treiber als normaler Drucker erscheinen.
+  Etikettengrösse (Breite/Höhe in mm) einstellbar, wird geräte-/browserlokal gemerkt. Der QR-Code wird lokal im
+  Browser gerendert, keine Probendaten verlassen dabei das Gerät.
 - **VeVA-Code wird automatisch und fix zugeteilt** — aus Material (z.B. Aushub/Ober-/Unterboden), dem daraus
   abgeleiteten Standard (VVEA/VBBo) und dem Einstufungsergebnis. Anders als Standard/Material ist der Code bei
   der Probe **nicht manuell überschreibbar** — passt der automatisch ermittelte Code nicht, muss die

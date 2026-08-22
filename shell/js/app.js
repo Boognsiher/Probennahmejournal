@@ -24,8 +24,9 @@ import {
 import { parseCSV } from './parse-csv.js';
 import { parsePDF } from './parse-pdf.js';
 import { generateReportHTML, downloadHTML } from './report.js';
-import { buildMailto, buildMailSummary, buildLabOrderMailto, buildLabOrderMailSummary } from './email.js';
+import { buildMailto, buildMailSummary, buildLabOrderMailto, buildLabOrderMailSummary, buildLabelQrText } from './email.js';
 import { generateReportPDF, generateLabOrderPDF, downloadBlob, sharePDFOrDownload } from './report-pdf.js';
+import { printLabel, loadLabelSize, saveLabelSize } from './label.js';
 
 const $ = sel => document.querySelector(sel);
 const $$ = sel => Array.from(document.querySelectorAll(sel));
@@ -577,6 +578,7 @@ function paintEntryForm() {
   const entnahmeortIsCustom = e.entnahmeort && !projectEntnahmeorte.includes(e.entnahmeort);
   const entsorgungswegIsCustom = e.entsorgungsweg && !projectEntsorgungswege.includes(e.entsorgungsweg);
   const laborIsCustom = e.labor && !labore.some(l => l.name === e.labor);
+  const labelSize = loadLabelSize();
   if (isNew && !e.probenehmer && me) e.probenehmer = me.name;
   if (!Array.isArray(e.analytikProgramme)) e.analytikProgramme = [];
   e.standard = materialToStandard(e.material, materialien);
@@ -720,6 +722,22 @@ function paintEntryForm() {
       <div style="overflow-x:auto"><table class="analyse-table" id="analyse-table"></table></div>
 
       <div id="classification-banner"></div>
+    </div>
+
+    <div class="card">
+      <h2>Etikette</h2>
+      ${isNew ? `
+        <p class="hint">Nach dem Speichern verfügbar (braucht den vergebenen Chargennamen).</p>
+      ` : `
+        <p class="hint">Druckt Chargenname + QR-Code (mit den wichtigsten Probe-Infos fürs Labor) direkt über
+        den Systemdruckdialog — geeignet für Etikettendrucker (z.B. Brother QL/PT-Serie). Etikettengrösse bei
+        Bedarf anpassen (wird im Browser gemerkt).</p>
+        <div class="grid-2">
+          <div class="field"><label>Breite (mm)</label><input id="f-label-w" type="number" step="1" min="10" value="${labelSize.w}"></div>
+          <div class="field"><label>Höhe (mm)</label><input id="f-label-h" type="number" step="1" min="10" value="${labelSize.h}"></div>
+        </div>
+        <button class="btn secondary" id="btn-print-label" type="button">🏷️ Etikette drucken</button>
+      `}
     </div>
 
     <div class="btn-row">
@@ -984,6 +1002,21 @@ function paintEntryForm() {
         location.hash = '#/journal';
       } catch (err) {
         toast('Fehler beim Löschen: ' + errMsg(err));
+      }
+    });
+
+    $('#btn-print-label').addEventListener('click', async () => {
+      const size = { w: parseFloat($('#f-label-w').value) || 62, h: parseFloat($('#f-label-h').value) || 29 };
+      saveLabelSize(size);
+      const chosen = analytikProgramme.filter(p => e.analytikProgramme.includes(p.id));
+      const labor = labore.find(l => l.name === e.labor) || (e.labor ? { name: e.labor } : null);
+      const subLine = [e.material, e.baustelle].filter(Boolean).join(' · ');
+      const qrText = buildLabelQrText(e, labor, chosen);
+      try {
+        await printLabel(e.probeBezeichnung, subLine, qrText, size);
+      } catch (err) {
+        console.error(err);
+        toast('Etikette konnte nicht erstellt werden: ' + errMsg(err));
       }
     });
   }

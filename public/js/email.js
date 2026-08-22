@@ -94,6 +94,27 @@ export function buildLabOrderMailSummary(entry, labor, chosenProgramme, params) 
   return lines.join('\n');
 }
 
+// Kompakte Klartext-Zusammenfassung für den QR-Code auf der Etikette (siehe
+// label.js) — bewusst kürzer als buildLabOrderMailSummary() (kein
+// Parameter-Detail, nur Programmnamen), damit der QR-Code auf einer kleinen
+// Etikette noch zuverlässig scannbar bleibt.
+export function buildLabelQrText(entry, labor, chosenProgramme = []) {
+  const lines = [];
+  lines.push(`Charge: ${entry.probeBezeichnung || '–'}`);
+  lines.push(`Projekt: ${entry.baustelle || '–'}`);
+  lines.push(`Material: ${entry.material || '–'}`);
+  lines.push(`Entnahmeort: ${entry.entnahmeort || '–'}`);
+  lines.push(`Datum: ${new Date(entry.createdAt).toLocaleDateString('de-CH')}`);
+  if (entry.menge !== null && entry.menge !== undefined && entry.menge !== '') {
+    lines.push(`Menge: ${entry.menge} ${entry.mengeEinheit === 'm3' ? 'm³' : 't'}`);
+  }
+  lines.push(`Standard: ${entry.standard === 'vbbo' ? 'VBBo' : 'VVEA'}`);
+  if (labor?.name) lines.push(`Labor: ${labor.name}`);
+  if (chosenProgramme.length) lines.push(`Analysen: ${chosenProgramme.map(p => p.name).join(', ')}`);
+  if (entry.probenehmer) lines.push(`Probenehmer/in: ${entry.probenehmer}`);
+  return lines.join('\n');
+}
+
 export function buildLabOrderMailto(entry, labor, chosenProgramme, params) {
   const subject = `Analysenauftrag – ${entry.baustelle || ''} – ${entry.probeBezeichnung || entry.id}`.trim();
   const body = buildLabOrderMailSummary(entry, labor, chosenProgramme, params);
