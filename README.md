@@ -23,7 +23,10 @@ App zur Führung eines Probennahmejournals auf der Baustelle:
   gewählten **Nutzungsart** Kinderspielplatz / Haus-Familiengarten / Landwirtschaft-Gartenbau; alle anderen
   Materialien wie Aushub, Kies/Sand, Bauschutt, … → **VVEA**, Deponietyp A–E). Keine manuelle Auswahl nötig.
 - Analyse-Import aus CSV/Excel-CSV oder PDF-Laborberichten, mit automatischer Farbcodierung nach dem
-  ermittelten Standard (Grenzwerte inkl. Einheiten, per CSV/Excel importierbar, eigene Parameter ergänzbar)
+  ermittelten Standard (Grenzwerte inkl. Einheiten, per CSV/Excel importierbar, eigene Parameter ergänzbar) —
+  **jeder einzelne Wert in der Analysewerte-Tabelle zeigt seine eigene Einstufung als farbiges Badge** (nicht
+  nur die Gesamteinstufung der Probe), damit auf einen Blick erkennbar ist, welche Werte zu hoch sind und
+  welche unauffällig
 - **Analytik-Programme**: benannte Zusammenstellungen von Analyseparametern (z.B. „VVEA Basis (Feststoff)“,
   „VVEA Eluat (Nachweis Typ C nach Behandlung)“) unter Einstellungen verwaltbar — mehrere Standardprogramme
   sind bereits hinterlegt, eigene lassen sich jederzeit ergänzen. Bei einer Probe mehrere Programme gleichzeitig

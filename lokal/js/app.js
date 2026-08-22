@@ -851,14 +851,32 @@ function paramOptionsHtml(selected) {
     `<option value="${p.key}" ${p.key === selected ? 'selected' : ''}>${escapeHtml(p.label)}</option>`).join('');
 }
 
+// Badge mit der Einstufung, die dieser einzelne Wert für sich genommen
+// ergibt (aus currentClassification.perParameter, siehe classify() in
+// vvea.js) — so ist auf einen Blick erkennbar, welche Werte zu hoch sind und
+// welche unauffällig, unabhängig von der Gesamteinstufung der Probe (die vom
+// jeweils schlechtesten Wert bestimmt wird). "–" = Zeile noch unvollständig
+// oder für diesen Parameter ist kein Grenzwert hinterlegt (unbewertet).
+function rowClassBadge(row) {
+  if (!currentClassification || !row.parameterKey || row.wert === null || row.wert === undefined || Number.isNaN(row.wert)) {
+    return '<span class="hint">–</span>';
+  }
+  const info = currentClassification.perParameter.find(p => p.parameterKey === row.parameterKey);
+  if (!info) return '<span class="hint" title="Kein Grenzwert für diesen Parameter hinterlegt">–</span>';
+  const classes = classesForEntry(currentEntry);
+  const classInfo = classes[info.classIndex];
+  if (!classInfo) return '<span class="hint">–</span>';
+  return `<span class="badge" style="background:${classInfo.color}" title="${escapeHtml(classInfo.label)}">${escapeHtml(classInfo.short)}</span>`;
+}
+
 function paintAnalyseTable() {
   const table = $('#analyse-table');
   const rows = currentEntry.analyse;
   const isVbbo = currentEntry.standard === 'vbbo';
   if (rows.length === 0) {
-    table.innerHTML = '<tr><td class="hint" colspan="5">Noch keine Werte – manuell hinzufügen oder CSV/PDF importieren.</td></tr>';
+    table.innerHTML = '<tr><td class="hint" colspan="6">Noch keine Werte – manuell hinzufügen oder CSV/PDF importieren.</td></tr>';
   } else {
-    table.innerHTML = `<tr><th>Parameter</th><th>Wert</th><th>Einheit</th><th>Art</th><th></th></tr>` +
+    table.innerHTML = `<tr><th>Parameter</th><th>Wert</th><th>Einheit</th><th>Art</th><th>Einstufung</th><th></th></tr>` +
       rows.map((r, i) => `
         <tr>
           <td><select data-i="${i}" data-f="parameterKey">${paramOptionsHtml(r.parameterKey)}</select></td>
@@ -868,8 +886,18 @@ function paintAnalyseTable() {
                 <option value="gesamt" ${r.art === 'gesamt' ? 'selected' : ''}>Gesamtgehalt</option>
                 <option value="eluat" ${r.art === 'eluat' ? 'selected' : ''}>Eluat</option>
               </select>`}</td>
+          <td data-badge="${i}">${rowClassBadge(r)}</td>
           <td><button type="button" data-del="${i}" class="btn danger" style="padding:.2rem .5rem;">×</button></td>
         </tr>`).join('');
+  }
+  // Aktualisiert nur die Einstufungs-Badges (statt die ganze Tabelle neu zu
+  // zeichnen) — sonst würde der Fokus/die Cursorposition im gerade
+  // bearbeiteten Eingabefeld bei jedem Tastendruck verloren gehen.
+  function refreshRowBadges() {
+    $$('#analyse-table [data-badge]').forEach(td => {
+      const r = currentEntry.analyse[Number(td.dataset.badge)];
+      if (r) td.innerHTML = rowClassBadge(r);
+    });
   }
   $$('#analyse-table select, #analyse-table input').forEach(el => {
     el.addEventListener('input', ev => {
@@ -888,6 +916,7 @@ function paintAnalyseTable() {
         }
       }
       recomputeClassification();
+      refreshRowBadges();
       paintClassificationBanner();
     });
   });
