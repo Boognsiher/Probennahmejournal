@@ -55,6 +55,7 @@ export function newEntry(partial = {}) {
     nutzungsart: null, // nur bei standard='vbbo': 'spielplatz' | 'garten' | 'landwirtschaft'
     entsorgungsweg: '',
     vevaCode: '',
+    labor: '', // Name des Labors, an das der Analysenauftrag ging (siehe Einstellungen > Labore)
     menge: null,
     mengeEinheit: 't', // 't' | 'm3'
     analytikProgramme: [], // Array gewählter Analytik-Programm-IDs

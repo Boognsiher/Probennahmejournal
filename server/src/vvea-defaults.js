@@ -246,10 +246,12 @@ export const DEFAULT_VEVA_CODES = [
 // bei einer Probe ausgewählt werden können ("welche Analysen sollen
 // ausgelöst werden") — parameterKeys referenzieren die Parameter-Keys aus
 // DEFAULT_PARAMETERS (VVEA) bzw. DEFAULT_VBBO_PARAMETERS (VBBo). Eine Probe
-// kann mehrere Programme gleichzeitig auswählen (siehe app.js); die
-// Parameter aller gewählten Programme werden dann als leere Zeilen in die
-// Analysewerte-Tabelle übernommen. Dies ist nur eine Startauswahl —
-// weitere Programme können unter Einstellungen > Analytik-Programme
+// kann mehrere Programme gleichzeitig auswählen (siehe app.js); "Analysen
+// auslösen" löst daraus einen Analysenauftrag (PDF) sowie eine E-Mail ans
+// gewählte Labor mit den gewünschten Parametern aus — die Analysewerte
+// selbst werden separat erfasst (manuell oder per CSV/PDF-Import), sobald
+// die Laborresultate vorliegen. Dies ist nur eine Startauswahl — weitere
+// Programme können unter Einstellungen > Analytik-Programme
 // ergänzt/angepasst werden.
 export const DEFAULT_ANALYTIK_PROGRAMME = [
   {
@@ -268,4 +270,15 @@ export const DEFAULT_ANALYTIK_PROGRAMME = [
     id: 'vbbo-basis', name: 'VBBo Basis (Ober-/Unterboden)',
     parameterKeys: ['pb', 'cd', 'cr', 'cu', 'hg', 'ni', 'zn', 'pak', 'bap', 'pcb'],
   },
+];
+
+// Labore, an die Analysenaufträge per E-Mail gehen können (Einstellungen >
+// Labore) — nur Name/Ort als Startwerte, `email`/`adresse`/`telefon` bewusst
+// leer: die App erfindet keine Kontaktdaten für echte Firmen, diese müssen
+// vor der ersten Nutzung von einer Fachperson/Administrationsperson ergänzt
+// werden. Auch Namen/Schreibweise vor produktivem Einsatz verifizieren.
+export const DEFAULT_LABORE = [
+  { id: 'bachema', name: 'Bachema AG', ort: 'Schlieren', email: '', adresse: '', telefon: '' },
+  { id: 'nuitec', name: 'Nuitec', ort: 'Winterthur', email: '', adresse: '', telefon: '' },
+  { id: 'eurofins', name: 'Eurofins', ort: 'Deutschland', email: '', adresse: '', telefon: '' },
 ];

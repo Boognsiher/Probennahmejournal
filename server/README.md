@@ -143,9 +143,12 @@ Alle `/api/*`-Endpunkte ausser `/api/auth/login` erfordern den Header `Authoriza
 | GET | `/api/settings/materialien` | Aktuelle Materialien-Liste (Name, Standard, VeVA-Eimer je Material) |
 | PUT | `/api/settings/materialien` | Materialien-Liste speichern (nur Admin) |
 | POST | `/api/settings/materialien/reset` | Auf Beispielwerte zurücksetzen (nur Admin) |
+| GET | `/api/settings/labore` | Aktuelle Labor-Liste (Name, Ort, E-Mail, Adresse, Telefon je Labor) |
+| PUT | `/api/settings/labore` | Labor-Liste speichern (nur Admin) |
+| POST | `/api/settings/labore/reset` | Auf Beispielwerte zurücksetzen (nur Admin) |
 | GET | `/api/entries` | Alle Proben |
 | GET | `/api/entries/:id` | Einzelne Probe inkl. Foto-Metadaten |
-| POST | `/api/entries` | Neue Probe anlegen — `projektId` erforderlich; Chargenname (`probeBezeichnung`) wird serverseitig aus Projekt-Kürzel + fortlaufender Nummer vergeben. Weitere Felder: `standard` (`vvea`/`vbbo`), `nutzungsart` (nur bei `vbbo`), `entsorgungsweg`, `vevaCode` |
+| POST | `/api/entries` | Neue Probe anlegen — `projektId` erforderlich; Chargenname (`probeBezeichnung`) wird serverseitig aus Projekt-Kürzel + fortlaufender Nummer vergeben. Weitere Felder: `standard` (`vvea`/`vbbo`), `nutzungsart` (nur bei `vbbo`), `entsorgungsweg`, `vevaCode`, `labor` |
 | PUT | `/api/entries/:id` | Probe aktualisieren (Projekt/Chargenname bleiben nach dem Anlegen fix) |
 | DELETE | `/api/entries/:id` | Probe löschen (inkl. zugehöriger Fotos) |
 | POST | `/api/entries/:id/photos` | Fotos hochladen (multipart, Feld `photos`) |

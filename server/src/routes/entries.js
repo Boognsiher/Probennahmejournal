@@ -56,6 +56,7 @@ function rowToEntry(row) {
     menge: row.menge ?? null,
     mengeEinheit: row.mengeEinheit || 't',
     analytikProgramme: JSON.parse(row.analytikProgrammeJson || '[]'),
+    labor: row.labor || '',
     createdBy: row.createdBy,
     photos,
   };
@@ -89,6 +90,7 @@ function upsertFields(body) {
     menge: (body.menge === '' || body.menge === undefined || body.menge === null || Number.isNaN(Number(body.menge))) ? null : Number(body.menge),
     mengeEinheit: body.mengeEinheit === 'm3' ? 'm3' : 't',
     analytikProgrammeJson: JSON.stringify(Array.isArray(body.analytikProgramme) ? body.analytikProgramme : []),
+    labor: body.labor ?? '',
   };
 }
 
@@ -108,8 +110,8 @@ entriesRouter.post('/', (req, res) => {
   const now = new Date().toISOString();
   const f = upsertFields(req.body || {});
   db.prepare(`INSERT INTO entries
-    (id, createdAt, updatedAt, projektId, baustelle, probeBezeichnung, entnahmeort, gpsLat, gpsLng, material, probenehmer, bemerkungen, analyseJson, klassifizierungJson, standard, nutzungsart, entsorgungsweg, vevaCode, menge, mengeEinheit, analytikProgrammeJson, createdBy)
-    VALUES (@id, @createdAt, @updatedAt, @projektId, @baustelle, @probeBezeichnung, @entnahmeort, @gpsLat, @gpsLng, @material, @probenehmer, @bemerkungen, @analyseJson, @klassifizierungJson, @standard, @nutzungsart, @entsorgungsweg, @vevaCode, @menge, @mengeEinheit, @analytikProgrammeJson, @createdBy)`)
+    (id, createdAt, updatedAt, projektId, baustelle, probeBezeichnung, entnahmeort, gpsLat, gpsLng, material, probenehmer, bemerkungen, analyseJson, klassifizierungJson, standard, nutzungsart, entsorgungsweg, vevaCode, menge, mengeEinheit, analytikProgrammeJson, labor, createdBy)
+    VALUES (@id, @createdAt, @updatedAt, @projektId, @baustelle, @probeBezeichnung, @entnahmeort, @gpsLat, @gpsLng, @material, @probenehmer, @bemerkungen, @analyseJson, @klassifizierungJson, @standard, @nutzungsart, @entsorgungsweg, @vevaCode, @menge, @mengeEinheit, @analytikProgrammeJson, @labor, @createdBy)`)
     .run({
       id, createdAt: req.body?.createdAt || now, updatedAt: now, createdBy: req.user.id,
       projektId: project.id, baustelle: project.name, probeBezeichnung, ...f,
@@ -130,6 +132,7 @@ entriesRouter.put('/:id', (req, res) => {
       bemerkungen=@bemerkungen, analyseJson=@analyseJson, klassifizierungJson=@klassifizierungJson,
       standard=@standard, nutzungsart=@nutzungsart, entsorgungsweg=@entsorgungsweg, vevaCode=@vevaCode,
       menge=@menge, mengeEinheit=@mengeEinheit, analytikProgrammeJson=@analytikProgrammeJson,
+      labor=@labor,
       updatedAt=@updatedAt
     WHERE id=@id`)
     .run({ id: req.params.id, updatedAt: new Date().toISOString(), ...f });

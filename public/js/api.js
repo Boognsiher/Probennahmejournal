@@ -186,6 +186,19 @@ export async function resetMaterialienApi() {
   return data.materialien;
 }
 
+// ---------- Labore ----------
+export async function getLaboreApi() {
+  const data = await request('/settings/labore');
+  return data.labore;
+}
+export async function saveLaboreApi(labore) {
+  await request('/settings/labore', { method: 'PUT', body: { labore } });
+}
+export async function resetLaboreApi() {
+  const data = await request('/settings/labore/reset', { method: 'POST' });
+  return data.labore;
+}
+
 // ---------- Benutzer (Admin) ----------
 export async function listUsersApi() {
   const data = await request('/users');

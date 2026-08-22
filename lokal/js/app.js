@@ -17,12 +17,13 @@ import {
   loadVevaCodes, saveVevaCodes, resetVevaCodesStorage,
   loadAnalytikProgramme, saveAnalytikProgramme, resetAnalytikProgrammeStorage,
   loadMaterialien, saveMaterialien, resetMaterialienStorage,
+  loadLabore, saveLabore, resetLaboreStorage,
 } from './vvea.js';
 import { parseCSV } from './parse-csv.js';
 import { parsePDF } from './parse-pdf.js';
 import { generateReportHTML, downloadHTML } from './report.js';
-import { buildMailto, buildMailSummary } from './email.js';
-import { generateReportPDF, downloadBlob, sharePDFOrDownload } from './report-pdf.js';
+import { buildMailto, buildMailSummary, buildLabOrderMailto, buildLabOrderMailSummary } from './email.js';
+import { generateReportPDF, generateLabOrderPDF, downloadBlob, sharePDFOrDownload } from './report-pdf.js';
 
 const $ = sel => document.querySelector(sel);
 const $$ = sel => Array.from(document.querySelectorAll(sel));
@@ -391,6 +392,7 @@ let vbboThresholds = loadVbboThresholds();
 let vevaCodes = loadVevaCodes();
 let analytikProgramme = loadAnalytikProgramme();
 let materialien = loadMaterialien();
+let labore = loadLabore();
 let formProjects = [];
 
 async function renderEntryForm(idOrNeu) {
@@ -401,6 +403,7 @@ async function renderEntryForm(idOrNeu) {
   vevaCodes = loadVevaCodes();
   analytikProgramme = loadAnalytikProgramme();
   materialien = loadMaterialien();
+  labore = loadLabore();
   formProjects = await getAllProjects();
   if (idOrNeu === 'neu') {
     currentEntry = newEntry();
@@ -458,6 +461,7 @@ function paintEntryForm() {
   const probenehmerIsCustom = e.probenehmer && !recentNames.includes(e.probenehmer);
   const entnahmeortIsCustom = e.entnahmeort && !projectEntnahmeorte.includes(e.entnahmeort);
   const entsorgungswegIsCustom = e.entsorgungsweg && !projectEntsorgungswege.includes(e.entsorgungsweg);
+  const laborIsCustom = e.labor && !labore.some(l => l.name === e.labor);
   if (!Array.isArray(e.analytikProgramme)) e.analytikProgramme = [];
   e.standard = materialToStandard(e.material, materialien);
   if (e.standard === 'vbbo' && !e.nutzungsart) e.nutzungsart = NUTZUNGSARTEN[0].id;
@@ -564,16 +568,26 @@ function paintEntryForm() {
 
     <div class="card">
       <h2>Analytik</h2>
-      <p class="hint">Analytik-Programm(e) auswählen und auslösen — die enthaltenen Parameter werden als leere
-      Zeilen in die Analysewerte-Tabelle unten übernommen (bereits vorhandene Parameter werden nicht doppelt
-      hinzugefügt). Weitere Programme unter Einstellungen &gt; Analytik-Programme verwaltbar.</p>
+      <p class="hint">Analytik-Programm(e) und Labor auswählen und „Analysen auslösen" — das schickt eine
+      E-Mail mit den gewünschten Parametern und einem Analysenauftrag als PDF ans Labor. Die Analysewerte
+      selbst werden separat erfasst (manuell oder per CSV/PDF-Import unten), sobald die Laborresultate
+      vorliegen. Weitere Programme/Labore unter Einstellungen verwaltbar.</p>
       <div id="analytik-programme-list" style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:.75rem;">
         ${relevantAnalytikProgramme().map(p => `<label style="display:flex;gap:.5rem;align-items:center;">
           <input type="checkbox" data-ap="${p.id}" ${e.analytikProgramme.includes(p.id) ? 'checked' : ''}>
           <span>${escapeHtml(p.name)} <span class="hint">(${p.parameterKeys.length} Parameter)</span></span>
         </label>`).join('') || '<p class="hint">Keine Analytik-Programme für diesen Standard hinterlegt.</p>'}
       </div>
-      <button class="btn secondary" id="btn-trigger-analytik" type="button">🧪 Analysen auslösen</button>
+      <div class="field">
+        <label>Labor</label>
+        <select id="f-labor">
+          <option value="">– wählen –</option>
+          ${labore.map(l => `<option value="${escapeHtml(l.name)}" ${e.labor === l.name ? 'selected' : ''}>${escapeHtml(l.name)}${l.ort ? ', ' + escapeHtml(l.ort) : ''}</option>`).join('')}
+          <option value="${ANDERE}" ${laborIsCustom ? 'selected' : ''}>Andere (Freitext)…</option>
+        </select>
+        <input id="f-labor-andere" placeholder="Labor angeben" style="margin-top:.4rem;display:${laborIsCustom ? 'block' : 'none'};" value="${escapeHtml(laborIsCustom ? e.labor : '')}">
+      </div>
+      <button class="btn secondary" id="btn-trigger-analytik" type="button">📧 Analysen auslösen</button>
     </div>
 
     <div class="card">
@@ -650,6 +664,13 @@ function paintEntryForm() {
   });
   entsorgungswegAndere.addEventListener('input', () => { e.entsorgungsweg = entsorgungswegAndere.value; });
 
+  const laborSel = $('#f-labor'), laborAndere = $('#f-labor-andere');
+  laborSel.addEventListener('change', () => {
+    if (laborSel.value === ANDERE) { laborAndere.style.display = 'block'; e.labor = laborAndere.value; }
+    else { laborAndere.style.display = 'none'; e.labor = laborSel.value; }
+  });
+  laborAndere.addEventListener('input', () => { e.labor = laborAndere.value; });
+
   $('#f-bemerkungen').addEventListener('input', ev => e.bemerkungen = ev.target.value);
   $('#f-datum').addEventListener('input', ev => { if (ev.target.value) e.createdAt = new Date(ev.target.value).toISOString(); });
   $('#f-menge').addEventListener('input', ev => { const v = ev.target.value; e.menge = v === '' ? null : parseFloat(v); });
@@ -662,23 +683,42 @@ function paintEntryForm() {
       else e.analytikProgramme = e.analytikProgramme.filter(x => x !== id);
     });
   });
-  $('#btn-trigger-analytik').addEventListener('click', () => {
+  // "Analysen auslösen" fügt keine Zeilen mehr in die Analysewerte-Tabelle
+  // ein, sondern schickt einen Analysenauftrag (PDF + E-Mail-Text mit den
+  // gewünschten Parametern) ans gewählte Labor — die Analysewerte selbst
+  // werden separat erfasst, sobald die Laborresultate vorliegen (manuell
+  // oder per CSV/PDF-Import unten).
+  $('#btn-trigger-analytik').addEventListener('click', async () => {
     const chosen = analytikProgramme.filter(p => e.analytikProgramme.includes(p.id));
     if (!chosen.length) { toast('Bitte mindestens ein Analytik-Programm auswählen.'); return; }
-    const existingKeys = new Set(e.analyse.map(a => a.parameterKey).filter(Boolean));
-    const wantedKeys = new Set();
-    for (const p of chosen) for (const k of p.parameterKeys) wantedKeys.add(k);
-    let added = 0;
-    for (const key of wantedKeys) {
-      if (existingKeys.has(key)) continue;
-      const def = activeParamList().find(p => p.key === key);
-      if (!def) continue; // Parameter gehört nicht zum aktuellen Standard (VVEA/VBBo) der Probe
-      e.analyse.push({ parameterKey: def.key, wert: null, einheit: def.unit, art: def.art || 'gesamt', quelle: 'analytik' });
-      existingKeys.add(key);
-      added++;
+    if (!e.labor) { toast('Bitte ein Labor auswählen.'); return; }
+    if (isNew) { toast('Bitte die Probe zuerst speichern, dann können die Analysen ausgelöst werden.'); return; }
+    const labor = labore.find(l => l.name === e.labor) || { name: e.labor };
+    if (!labor.email) {
+      toast(`Für „${labor.name}" ist keine E-Mail-Adresse hinterlegt — unter Einstellungen > Labore ergänzen.`);
+      return;
     }
-    paintAnalyseTable();
-    toast(added ? `${added} Parameter zur Analysewerte-Tabelle hinzugefügt.` : 'Alle Parameter der gewählten Programme waren bereits erfasst.');
+    const btn = $('#btn-trigger-analytik');
+    btn.disabled = true;
+    try {
+      const params = activeParamList();
+      const blob = await generateLabOrderPDF(e, labor, chosen, params);
+      const filename = `Analysenauftrag_${(e.probeBezeichnung || 'Probe')}`.replace(/[^\w\-]+/g, '_') + '.pdf';
+      const subject = `Analysenauftrag – ${e.baustelle || ''} – ${e.probeBezeichnung || ''}`.trim();
+      const body = buildLabOrderMailSummary(e, labor, chosen, params);
+      const result = await sharePDFOrDownload(blob, filename, subject, body);
+      if (result === 'shared') {
+        toast('Analysenauftrag geteilt.');
+      } else if (result === 'downloaded') {
+        toast('Analysenauftrag-PDF heruntergeladen — bitte manuell an die E-Mail anhängen.');
+        window.location.href = buildLabOrderMailto(e, labor, chosen, params);
+      }
+    } catch (err) {
+      console.error(err);
+      toast('Analysenauftrag konnte nicht erstellt werden: ' + err.message);
+    } finally {
+      btn.disabled = false;
+    }
   });
 
   const nutzungsartSel = $('#f-nutzungsart');
@@ -1047,6 +1087,7 @@ function renderSettings() {
   vevaCodes = loadVevaCodes();
   analytikProgramme = loadAnalytikProgramme();
   materialien = loadMaterialien();
+  labore = loadLabore();
   paintSettings();
 }
 
@@ -1218,6 +1259,32 @@ function paintSettings() {
         <button class="btn secondary" id="btn-add-analytik" type="button">+ Neues Programm</button>
         <button class="btn" id="btn-save-analytik" type="button">💾 Analytik-Programme speichern</button>
         <button class="btn secondary" id="btn-reset-analytik" type="button">Zurücksetzen auf Beispielwerte</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Labore</h2>
+      <p class="hint">Labore, an die „Analysen auslösen" bei der Probe einen Analysenauftrag per E-Mail
+      schickt. <strong>E-Mail-Adresse ist Pflicht</strong>, damit ein Auftrag zugestellt werden kann — Name/Ort
+      als Startwerte sind ggf. noch zu prüfen/anzupassen.</p>
+      <div style="overflow-x:auto">
+      <table class="threshold-table" id="labore-table">
+        <tr><th>Name</th><th>Ort</th><th>E-Mail</th><th>Adresse</th><th>Telefon</th><th></th></tr>
+        ${labore.map((l, i) => `
+          <tr>
+            <td><input data-lab="${i}" data-labf="name" value="${escapeHtml(l.name)}" style="width:10rem;"></td>
+            <td><input data-lab="${i}" data-labf="ort" value="${escapeHtml(l.ort || '')}" style="width:8rem;"></td>
+            <td><input data-lab="${i}" data-labf="email" type="email" value="${escapeHtml(l.email || '')}" style="width:12rem;"></td>
+            <td><input data-lab="${i}" data-labf="adresse" value="${escapeHtml(l.adresse || '')}" style="width:12rem;"></td>
+            <td><input data-lab="${i}" data-labf="telefon" value="${escapeHtml(l.telefon || '')}" style="width:8rem;"></td>
+            <td><button type="button" class="btn danger" style="padding:.2rem .5rem;" data-del-lab="${i}">×</button></td>
+          </tr>`).join('')}
+      </table>
+      </div>
+      <div class="btn-row">
+        <button class="btn secondary" id="btn-add-lab" type="button">+ Neues Labor</button>
+        <button class="btn" id="btn-save-lab" type="button">💾 Labore speichern</button>
+        <button class="btn secondary" id="btn-reset-lab" type="button">Zurücksetzen auf Beispielwerte</button>
       </div>
     </div>
 
@@ -1474,6 +1541,44 @@ function paintSettings() {
   $('#btn-reset-analytik').addEventListener('click', () => {
     if (!confirm('Analytik-Programme wirklich auf die Beispielwerte zurücksetzen?')) return;
     analytikProgramme = resetAnalytikProgrammeStorage();
+    toast('Zurückgesetzt');
+    renderSettings();
+  });
+
+  // ---------- Labore ----------
+  function collectLaboreFromTable() {
+    const list = labore.map(l => ({ id: l.id, name: l.name, ort: l.ort, email: l.email, adresse: l.adresse, telefon: l.telefon }));
+    $$('#labore-table [data-lab]').forEach(el => {
+      const i = Number(el.dataset.lab);
+      if (!list[i]) return;
+      list[i][el.dataset.labf] = el.value;
+    });
+    return list;
+  }
+  $$('[data-del-lab]').forEach(btn => btn.addEventListener('click', () => {
+    if (!confirm('Dieses Labor wirklich entfernen?')) return;
+    const newList = collectLaboreFromTable();
+    newList.splice(Number(btn.dataset.delLab), 1);
+    saveLabore(newList);
+    labore = newList;
+    toast('Labor entfernt');
+    renderSettings();
+  }));
+  $('#btn-add-lab').addEventListener('click', () => {
+    labore = collectLaboreFromTable();
+    const id = slugifyParamKey(`labor_${labore.length + 1}`, new Set(labore.map(l => l.id)));
+    labore.push({ id, name: '', ort: '', email: '', adresse: '', telefon: '' });
+    paintSettings();
+  });
+  $('#btn-save-lab').addEventListener('click', () => {
+    const newList = collectLaboreFromTable();
+    saveLabore(newList);
+    labore = newList;
+    toast('Labore gespeichert');
+  });
+  $('#btn-reset-lab').addEventListener('click', () => {
+    if (!confirm('Labore wirklich auf die Beispielwerte zurücksetzen?')) return;
+    labore = resetLaboreStorage();
     toast('Zurückgesetzt');
     renderSettings();
   });

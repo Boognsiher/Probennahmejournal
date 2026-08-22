@@ -185,6 +185,104 @@ export async function generateReportPDF(entry, classification, classes = CLASSES
   return doc.output('blob');
 }
 
+/**
+ * Erzeugt einen Analysenauftrag als PDF (Probe-Infos + gewünschte
+ * Analyseparameter, gruppiert nach Analytik-Programm) — KEIN offizielles
+ * Formular des Labors, sondern ein von der App generiertes
+ * Begleitdokument zum Auftrag (siehe Hinweis am Ende des Dokuments).
+ * @param {object} entry  Probe.
+ * @param {object} labor  {name, ort, email, adresse, telefon}.
+ * @param {Array} chosenProgramme  Array von {name, parameterKeys}.
+ * @param {Array} params  Parameterliste (PARAMETERS oder VBBO_PARAMETERS je
+ *   nach entry.standard) für Label/Einheit/Art je parameterKey.
+ * @returns {Promise<Blob>} PDF als Blob (application/pdf)
+ */
+export async function generateLabOrderPDF(entry, labor, chosenProgramme, params) {
+  const jsPDF = await loadJsPDF();
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 15;
+  const contentW = pageW - margin * 2;
+  let y = margin;
+
+  doc.setFontSize(16);
+  doc.text('Analysenauftrag', margin, y);
+  y += 9;
+
+  doc.setFontSize(10);
+  doc.setFont(undefined, 'bold'); doc.text('An:', margin, y);
+  doc.setFont(undefined, 'normal');
+  doc.text(`${labor?.name || '–'}${labor?.ort ? ', ' + labor.ort : ''}`, margin + 12, y);
+  y += 5.5;
+  if (labor?.adresse) {
+    const split = doc.splitTextToSize(labor.adresse, contentW - 12);
+    doc.text(split, margin + 12, y);
+    y += split.length * 5;
+  }
+  if (labor?.email) { doc.text(labor.email, margin + 12, y); y += 5.5; }
+  y += 4;
+
+  const meta = [
+    ['Projekt', entry.baustelle || '–'],
+    ['Chargenname', entry.probeBezeichnung || '–'],
+    ['Entnahmeort', entry.entnahmeort || '–'],
+    ['Material', entry.material || '–'],
+    ['Probenehmer/in', entry.probenehmer || '–'],
+    ['Datum', new Date(entry.createdAt).toLocaleString('de-CH')],
+  ];
+  if (entry.menge !== null && entry.menge !== undefined && entry.menge !== '') {
+    meta.push(['Menge', `${entry.menge} ${entry.mengeEinheit === 'm3' ? 'm³' : 't'}`]);
+  }
+  for (const [label, value] of meta) {
+    doc.setFont(undefined, 'bold'); doc.text(`${label}:`, margin, y);
+    doc.setFont(undefined, 'normal'); doc.text(String(value), margin + 38, y);
+    y += 5.5;
+  }
+  y += 3;
+
+  doc.setFont(undefined, 'bold'); doc.setFontSize(11);
+  doc.text('Gewünschte Analysen', margin, y);
+  doc.setFont(undefined, 'normal'); doc.setFontSize(10);
+  y += 7;
+
+  const seen = new Set();
+  for (const prog of chosenProgramme) {
+    if (y > pageH - 30) { doc.addPage(); y = margin; }
+    doc.setFont(undefined, 'bold');
+    doc.text(prog.name, margin, y);
+    doc.setFont(undefined, 'normal');
+    y += 5.5;
+    for (const key of prog.parameterKeys || []) {
+      if (seen.has(key)) continue;
+      const def = params.find(p => p.key === key);
+      if (!def) continue;
+      seen.add(key);
+      if (y > pageH - 25) { doc.addPage(); y = margin; }
+      doc.text(`•  ${def.label}${def.unit ? ' (' + def.unit + ')' : ''}${def.art === 'eluat' ? ' – Eluat' : ''}`, margin + 3, y);
+      y += 5;
+    }
+    y += 2;
+  }
+
+  if (entry.bemerkungen) {
+    y += 2;
+    doc.setFont(undefined, 'bold'); doc.text('Bemerkungen:', margin, y); y += 5;
+    doc.setFont(undefined, 'normal');
+    const split = doc.splitTextToSize(entry.bemerkungen, contentW);
+    doc.text(split, margin, y);
+    y += split.length * 5;
+  }
+
+  doc.setFontSize(8); doc.setTextColor(120, 120, 120);
+  const note = doc.splitTextToSize(
+    'Erstellt mit dem Baustellen-Probennahmejournal — kein offizielles Formular des Labors, sondern eine '
+    + 'Zusammenfassung des Auftrags zur Begleitung der Probe(n).', contentW);
+  doc.text(note, margin, pageH - margin + 5);
+
+  return doc.output('blob');
+}
+
 export function downloadBlob(filename, blob) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

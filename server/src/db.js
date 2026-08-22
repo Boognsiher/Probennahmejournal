@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import {
   DEMO_THRESHOLDS, DEFAULT_PARAMETERS,
   DEFAULT_VBBO_THRESHOLDS, DEFAULT_VBBO_PARAMETERS, DEFAULT_VEVA_CODES,
-  DEFAULT_ANALYTIK_PROGRAMME, DEFAULT_MATERIALIEN,
+  DEFAULT_ANALYTIK_PROGRAMME, DEFAULT_MATERIALIEN, DEFAULT_LABORE,
 } from './vvea-defaults.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS entries (
   menge REAL,
   mengeEinheit TEXT DEFAULT 't', -- 't' | 'm3'
   analytikProgrammeJson TEXT DEFAULT '[]', -- Array gewählter Analytik-Programm-IDs
+  labor TEXT DEFAULT '', -- Name des Labors, an das der Analysenauftrag ging (siehe Einstellungen > Labore)
   createdBy TEXT REFERENCES users(id)
 );
 CREATE INDEX IF NOT EXISTS idx_entries_projekt ON entries(projektId);
@@ -99,6 +100,7 @@ addColumnIfMissing('entries', entryCols, 'vevaCode', "vevaCode TEXT DEFAULT ''")
 addColumnIfMissing('entries', entryCols, 'menge', "menge REAL");
 addColumnIfMissing('entries', entryCols, 'mengeEinheit', "mengeEinheit TEXT DEFAULT 't'");
 addColumnIfMissing('entries', entryCols, 'analytikProgrammeJson', "analytikProgrammeJson TEXT DEFAULT '[]'");
+addColumnIfMissing('entries', entryCols, 'labor', "labor TEXT DEFAULT ''");
 db.exec('CREATE INDEX IF NOT EXISTS idx_entries_projekt ON entries(projektId)');
 
 const projectCols = db.prepare("PRAGMA table_info(projects)").all().map(c => c.name);
@@ -135,6 +137,7 @@ seedSetting('vbbo_parameters', DEFAULT_VBBO_PARAMETERS, isEmptyArray);
 seedSetting('veva_codes', DEFAULT_VEVA_CODES, isOldVevaCodeShape);
 seedSetting('analytik_programme', DEFAULT_ANALYTIK_PROGRAMME, isEmptyArray);
 seedSetting('materialien', DEFAULT_MATERIALIEN, isEmptyArray);
+seedSetting('labore', DEFAULT_LABORE, isEmptyArray);
 
 // Ersten Admin-Benutzer aus den Umgebungsvariablen anlegen, falls noch keine
 // Benutzer existieren.

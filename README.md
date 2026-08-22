@@ -30,9 +30,15 @@ App zur Führung eines Probennahmejournals auf der Baustelle:
 - **Analytik-Programme**: benannte Zusammenstellungen von Analyseparametern (z.B. „VVEA Basis (Feststoff)“,
   „VVEA Eluat (Nachweis Typ C nach Behandlung)“) unter Einstellungen verwaltbar — mehrere Standardprogramme
   sind bereits hinterlegt, eigene lassen sich jederzeit ergänzen. Bei einer Probe mehrere Programme gleichzeitig
-  auswählbar; „Analysen auslösen“ übernimmt die enthaltenen Parameter als leere Zeilen in die
-  Analysewerte-Tabelle (bereits vorhandene Parameter werden nicht doppelt hinzugefügt) — bereit zum Eintragen
-  der Laborwerte, sobald diese vorliegen.
+  auswählbar.
+- **Analysenauftrag per E-Mail ans Labor**: „Analysen auslösen“ bei der Probe schickt eine E-Mail mit den
+  gewünschten Parametern der gewählten Analytik-Programme sowie einem Analysenauftrag als PDF ans ausgewählte
+  **Labor** (unter Einstellungen verwaltbar — Startauswahl Bachema AG/Schlieren, Nuitec/Winterthur,
+  Eurofins/Deutschland; **E-Mail-Adressen müssen vor der ersten Nutzung ergänzt werden**, die App erfindet
+  keine Kontaktdaten). Der generierte PDF ist ein von der App erstelltes Begleitdokument, **kein offizielles
+  Formular des Labors**. Die Analysewerte selbst werden erst separat erfasst (manuell oder per CSV/PDF-Import),
+  sobald die Laborresultate vorliegen — „Analysen auslösen“ trägt selbst keine leeren Zeilen mehr in die
+  Analysewerte-Tabelle ein.
 - **VeVA-Code wird automatisch und fix zugeteilt** — aus Material (z.B. Aushub/Ober-/Unterboden), dem daraus
   abgeleiteten Standard (VVEA/VBBo) und dem Einstufungsergebnis. Anders als Standard/Material ist der Code bei
   der Probe **nicht manuell überschreibbar** — passt der automatisch ermittelte Code nicht, muss die

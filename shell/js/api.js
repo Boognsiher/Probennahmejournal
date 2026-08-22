@@ -66,13 +66,20 @@ const DEFAULT_ANALYTIK_PROGRAMME = [
   },
 ];
 
-// v9: Sonderabfallcode korrigiert — 17 05 03/05 [S] (offizielle Codes gemäss
-// veva-online.admin.ch) gilt nur für die Klasse "Sonderfall" (nicht
-// deponierbar); Typ C/D/E teilen sich weiterhin den bisherigen Code
-// 17 05 90/91 [akb] (v8 hatte Typ C/D fälschlich als Sonderabfall
-// eingestuft). Version angehoben, damit bereits laufende Test-Sessions die
-// neuen Startwerte erhalten.
-const DB_KEY = 'pnj_mock_db_v9';
+// Labore: siehe server/src/vvea-defaults.js für die vollständige Erklärung —
+// hier dieselbe Startauswahl für die Test-Schale. email/adresse/telefon
+// bewusst leer (echte Kontaktdaten müssen ergänzt werden).
+const DEFAULT_LABORE = [
+  { id: 'bachema', name: 'Bachema AG', ort: 'Schlieren', email: '', adresse: '', telefon: '' },
+  { id: 'nuitec', name: 'Nuitec', ort: 'Winterthur', email: '', adresse: '', telefon: '' },
+  { id: 'eurofins', name: 'Eurofins', ort: 'Deutschland', email: '', adresse: '', telefon: '' },
+];
+
+// v10: Labore-Datenbank + "labor"-Feld bei Proben ergänzt ("Analysen
+// auslösen" schickt jetzt einen Analysenauftrag ans Labor statt Zeilen in
+// die Analysewerte-Tabelle einzufügen). Version angehoben, damit bereits
+// laufende Test-Sessions die neuen Startwerte erhalten.
+const DB_KEY = 'pnj_mock_db_v10';
 const TOKEN_KEY = 'pnj_token';
 const USER_KEY = 'pnj_user';
 
@@ -107,6 +114,7 @@ function seedDb() {
     vevaCodes: JSON.parse(JSON.stringify(DEFAULT_VEVA_CODES)),
     analytikProgramme: JSON.parse(JSON.stringify(DEFAULT_ANALYTIK_PROGRAMME)),
     materialien: JSON.parse(JSON.stringify(DEFAULT_MATERIALIEN)),
+    labore: JSON.parse(JSON.stringify(DEFAULT_LABORE)),
   };
 }
 
@@ -214,6 +222,7 @@ export async function createEntryApi(entry) {
     menge: (entry.menge === '' || entry.menge === undefined || entry.menge === null) ? null : Number(entry.menge),
     mengeEinheit: entry.mengeEinheit === 'm3' ? 'm3' : 't',
     analytikProgramme: Array.isArray(entry.analytikProgramme) ? entry.analytikProgramme : [],
+    labor: entry.labor || '',
     createdBy: user.id,
     photos: [],
   };
@@ -239,6 +248,7 @@ export async function updateEntryApi(id, entry) {
     menge: (entry.menge === '' || entry.menge === undefined || entry.menge === null) ? null : Number(entry.menge),
     mengeEinheit: entry.mengeEinheit === 'm3' ? 'm3' : 't',
     analytikProgramme: Array.isArray(entry.analytikProgramme) ? entry.analytikProgramme : [],
+    labor: entry.labor ?? '',
     updatedAt: new Date().toISOString(),
   });
   persist();
@@ -433,6 +443,26 @@ export async function resetMaterialienApi() {
   db.materialien = JSON.parse(JSON.stringify(DEFAULT_MATERIALIEN));
   persist();
   return db.materialien;
+}
+
+// ---------- Labore ----------
+export async function getLaboreApi() {
+  await delay();
+  requireAuth();
+  return JSON.parse(JSON.stringify(db.labore));
+}
+export async function saveLaboreApi(labore) {
+  await delay();
+  requireAdmin();
+  db.labore = labore;
+  persist();
+}
+export async function resetLaboreApi() {
+  await delay();
+  requireAdmin();
+  db.labore = JSON.parse(JSON.stringify(DEFAULT_LABORE));
+  persist();
+  return db.labore;
 }
 
 // ---------- Benutzer (Admin) ----------

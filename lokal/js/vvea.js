@@ -21,6 +21,7 @@ export const STORAGE_KEY_VBBO_PARAMETERS = 'pnj_vbbo_parameters_v1';
 export const STORAGE_KEY_VEVA_CODES = 'pnj_veva_codes_v2';
 export const STORAGE_KEY_ANALYTIK_PROGRAMME = 'pnj_analytik_programme_v1';
 export const STORAGE_KEY_MATERIALIEN = 'pnj_materialien_v1';
+export const STORAGE_KEY_LABORE = 'pnj_labore_v1';
 export const STORAGE_KEY_ACK = 'pnj_vvea_disclaimer_ack_v1';
 
 // ---------- VVEA (Deponieklassen) ----------
@@ -261,6 +262,31 @@ export function saveMaterialien(list) {
 export function resetMaterialienStorage() {
   localStorage.removeItem(STORAGE_KEY_MATERIALIEN);
   return DEFAULT_MATERIALIEN.map(m => ({ ...m }));
+}
+
+// ---------- Labore (Analysenauftrag per E-Mail) ----------
+
+// email/adresse/telefon bewusst leer: die App erfindet keine Kontaktdaten
+// für echte Firmen, diese müssen vor der ersten Nutzung ergänzt werden. Auch
+// Namen/Schreibweise vor produktivem Einsatz verifizieren.
+export const DEFAULT_LABORE = [
+  { id: 'bachema', name: 'Bachema AG', ort: 'Schlieren', email: '', adresse: '', telefon: '' },
+  { id: 'nuitec', name: 'Nuitec', ort: 'Winterthur', email: '', adresse: '', telefon: '' },
+  { id: 'eurofins', name: 'Eurofins', ort: 'Deutschland', email: '', adresse: '', telefon: '' },
+];
+export function loadLabore() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_LABORE);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { /* fall through */ }
+  return DEFAULT_LABORE.map(l => ({ ...l }));
+}
+export function saveLabore(list) {
+  localStorage.setItem(STORAGE_KEY_LABORE, JSON.stringify(list));
+}
+export function resetLaboreStorage() {
+  localStorage.removeItem(STORAGE_KEY_LABORE);
+  return DEFAULT_LABORE.map(l => ({ ...l }));
 }
 
 export function findMaterial(materialName, materialien) {
