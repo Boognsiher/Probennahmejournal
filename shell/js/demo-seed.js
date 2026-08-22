@@ -2,11 +2,27 @@
 // mit 150 automatisch generierten Proben an, deren Einstufung den ganzen
 // VVEA-Bereich von Typ A bis Sonderabfall abdeckt. Nur zu Demo-/Testzwecken
 // (localStorage dieser Test-Schale) — hat nichts mit dem echten Server zu tun.
-import { createProjectApi, createEntryApi, getVevaCodesApi, isLoggedIn } from './api.js';
+//
+// Die Analysewerte je Probe folgen denselben Analytik-Programmen, die auch
+// im echten Formular unter "Analysen auslösen" zur Verfügung stehen (siehe
+// Einstellungen > Analytik-Programme) — statt einzelner Zufallswerte bekommt
+// jede Demo-Probe damit ein vollständiges, zusammenhängendes Parameter-Set
+// (VVEA Basis Feststoff, dazu situativ Organik-Zusatz bzw. beim typischen
+// "Sonderfall mit tiefen Eluatwerten"-Fall zusätzlich das Eluat-Programm).
+// Alle Werte einer Probe teilen sich einen zufälligen "Belastungsgrad" (0-1
+// innerhalb der jeweils erreichbaren Grenzwertspanne, mit leichtem Jitter je
+// Parameter), damit mehrere erhöhte Werte gemeinsam auftreten statt eines
+// einzelnen isolierten Ausreissers.
+import {
+  createProjectApi, createEntryApi, getVevaCodesApi, getAnalytikProgrammeApi,
+  getMaterialienApi, isLoggedIn,
+} from './api.js';
 import { CLASSES, PARAMETERS, DEMO_THRESHOLDS, classify, suggestVevaCode } from './vvea.js';
 
 // Nur Materialien, die automatisch VVEA ergeben (Humus/Ober-/Unterboden
-// würden auf VBBo umschalten, siehe materialToStandard() in vvea.js).
+// würden auf VBBo umschalten, siehe materialToStandard() in vvea.js) —
+// Namen entsprechen Einträgen der zentralen Materialien-Liste (Einstellungen
+// > Materialien).
 const DEMO_MATERIALIEN = [
   'Unverschmutzter Aushub', 'Aushub (allgemein)', 'Kies/Sand',
   'Mischabbruch', 'Betonabbruch', 'Asphalt', 'Ziegel/Mauerwerk', 'Bauschutt gemischt',
@@ -22,15 +38,21 @@ const TARGET_CLASS_IDS = ['typA', 'typB', 'typC', 'typD', 'typE', 'sonderfall'];
 function rand(min, max) { return min + Math.random() * (max - min); }
 function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
 function shuffled(list) { return [...list].sort(() => Math.random() - 0.5); }
+function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+function paramDef(key) { return PARAMETERS.find(p => p.key === key); }
 
-// Sucht für einen Parameter einen Wert, der bei classify() garantiert genau
-// die Zielklasse ergibt — nutzt classify()/DEMO_THRESHOLDS selbst als
-// Referenz (keine von Hand nachgebauten Grenzwert-Annahmen). Manche
-// Parameter haben für manche Klassen keinen eigenen Grenzwert (z.B. Blei:
-// Typ C/D nicht separat geregelt) — für diese ist die Zielklasse mit diesem
-// Parameter nicht erreichbar, Funktion gibt dann null zurück (Aufrufer
-// versucht dann einen anderen Parameter).
-function pickValueForClass(paramKey, targetClassId) {
+// Sucht für einen Parameter einen Wert innerhalb der Grenzwertspanne der
+// angegebenen Klasse (zwischen deren eigenem Grenzwert und dem der nächst-
+// tieferen tatsächlich definierten Klasse) — nutzt classify()/DEMO_THRESHOLDS
+// selbst als Referenz (keine von Hand nachgebauten Grenzwert-Annahmen).
+// `severity` (0-1, optional) positioniert den Wert innerhalb der Spanne statt
+// rein zufällig — mehrere Parameter mit demselben `severity` steigen dadurch
+// gemeinsam an, wie bei einer echten Kontamination, statt unabhängig
+// voneinander zu streuen. Manche Parameter haben für manche Klassen keinen
+// eigenen Grenzwert (z.B. Blei: Typ C/D nicht separat geregelt) — für diese
+// ist die Zielklasse mit diesem Parameter nicht erreichbar, Funktion gibt
+// dann null zurück (Aufrufer versucht dann einen anderen Parameter).
+function pickValueForClass(paramKey, targetClassId, severity = null) {
   const t = DEMO_THRESHOLDS[paramKey];
   if (!t) return null;
   const targetIndex = CLASSES.findIndex(c => c.id === targetClassId);
@@ -41,7 +63,8 @@ function pickValueForClass(paramKey, targetClassId) {
     // Sonderabfall: Wert muss über allen definierten Grenzwerten liegen.
     const defined = CLASSES.filter(c => !c.terminal && t[c.id] !== null && t[c.id] !== undefined).map(c => t[c.id]);
     const base = defined.length ? Math.max(...defined) : 100;
-    return Math.round(rand(base * 1.5, base * 4) * 100) / 100;
+    const f = severity === null ? rand(1.5, 4) : 1.2 + clamp01(severity) * 2.8;
+    return Math.round(base * f * 100) / 100;
   }
 
   const ownLimit = t[targetClassId];
@@ -53,17 +76,22 @@ function pickValueForClass(paramKey, targetClassId) {
   const lowerBound = lowerLimits.length ? Math.max(...lowerLimits) : 0;
   if (lowerBound >= ownLimit) return null; // keine gültige Spanne (Dateninkonsistenz) -> anderen Parameter versuchen
 
-  const value = rand(lowerBound, ownLimit);
+  const f = severity === null ? Math.random() : clamp01(severity + rand(-0.12, 0.12));
+  const value = lowerBound + f * (ownLimit - lowerBound);
   return Math.round(value * 100) / 100;
 }
 
-// Wert deutlich unterhalb "unbelastet" für harmlose Zusatz-Parameter, damit
-// sie die Gesamteinstufung nicht verfälschen.
-function pickHarmlessValue(paramKey) {
-  const t = DEMO_THRESHOLDS[paramKey];
-  const limit = t?.unbelastet;
-  if (limit === null || limit === undefined) return null;
-  return Math.round(rand(0, limit * 0.5) * 100) / 100;
+// Wie pickValueForClass(), weicht aber bei fehlendem Grenzwert für die
+// Zielklasse auf die nächsttiefere tatsächlich erreichbare Klasse aus (nie
+// höher) — damit ein Begleitparameter des Panels die Gesamteinstufung nie
+// über die für die Probe vorgesehene Klasse hinaustreibt.
+function pickValueAtMostClass(paramKey, targetClassId, severity) {
+  const targetIndex = CLASSES.findIndex(c => c.id === targetClassId);
+  for (let i = targetIndex; i >= 0; i--) {
+    const val = pickValueForClass(paramKey, CLASSES[i].id, severity);
+    if (val !== null) return val;
+  }
+  return null;
 }
 
 // TOC/TOC400 dürfen hier nicht als alleiniger "Treiber" gewählt werden: die
@@ -71,18 +99,24 @@ function pickHarmlessValue(paramKey) {
 // Einstufung durch andere Parameter bereits schlechter als Typ B ist (siehe
 // classify() in vvea.js) — als einziger Wert würde TOC daher immer
 // "unbelastet" ergeben, unabhängig vom eingegebenen Wert.
-const PRIMARY_CANDIDATE_KEYS = new Set(['toc', 'toc400']);
-function primaryCandidates() {
-  return shuffled(PARAMETERS.filter(p => p.art === 'gesamt' && !PRIMARY_CANDIDATE_KEYS.has(p.key)));
-}
+const DRIVER_EXCLUDED_KEYS = new Set(['toc', 'toc400']);
+const METAL_GESAMT_KEYS = new Set(['sb', 'as', 'pb', 'cd', 'cr', 'cr6', 'co', 'cu', 'ni', 'hg', 'tl', 'zn', 'sn']);
+
+// Treiber-Suche läuft bewusst über ALLE Gesamtgehalt-Parameter (nicht nur die
+// der gewählten Analytik-Programme) — das garantiert dieselbe Erreichbarkeit
+// jeder Zielklasse wie zuvor. Das restliche Panel (siehe buildAnalyseForClass)
+// bleibt dagegen auf die tatsächlich gewählten Programme beschränkt, damit
+// die Probe wie eine echte Analytik-Bestellung aussieht.
+const ALL_GESAMT_KEYS = PARAMETERS.filter(p => p.art === 'gesamt' && !DRIVER_EXCLUDED_KEYS.has(p.key)).map(p => p.key);
 
 // Manche Parameter/Klassen-Kombinationen haben keinen eigenen Grenzwert
 // (z.B. ist "Typ D" in den vorliegenden Quelldaten für keinen Parameter
-// separat geregelt) — die Zielklasse ist dann mit keinem Wert exakt
-// erreichbar. In diesem Fall von der Zielklasse ausgehend nach aussen zur
-// nächstliegenden tatsächlich erreichbaren Klasse ausweichen ("Sonderfall"
-// ist über jeden Parameter immer erreichbar und damit die garantierte
-// letzte Ausweichmöglichkeit, siehe pickValueForClass()).
+// separat geregelt, und Typ C ist unter den Basis-/Organik-Programm-
+// Parametern kaum von Typ B zu unterscheiden) — die Zielklasse ist dann mit
+// keinem Parameter exakt erreichbar. In diesem Fall von der Zielklasse
+// ausgehend nach aussen zur nächstliegenden tatsächlich erreichbaren Klasse
+// ausweichen ("Sonderfall" ist über jeden Parameter immer erreichbar und
+// damit die garantierte letzte Ausweichmöglichkeit).
 function nearbyClassOrder(targetClassId) {
   const targetIndex = CLASSES.findIndex(c => c.id === targetClassId);
   const order = [targetClassId];
@@ -93,31 +127,64 @@ function nearbyClassOrder(targetClassId) {
   return order;
 }
 
-function buildAnalyseForClass(targetClassId) {
-  const candidates = primaryCandidates();
-  let primary = null;
-  let achievedClassId = null;
-  for (const classId of nearbyClassOrder(targetClassId)) {
-    for (const p of candidates) {
-      const wert = pickValueForClass(p.key, classId);
-      if (wert !== null) { primary = { parameterKey: p.key, wert, einheit: p.unit, art: p.art, quelle: 'demo' }; achievedClassId = classId; break; }
-    }
-    if (primary) break;
-  }
-  if (!primary) return { analyse: [], achievedClassId: null }; // praktisch unmöglich (sonderfall ist immer erreichbar)
+// Baut die Analysewerte-Tabelle einer Demo-Probe: VVEA-Basis-Feststoff-Panel
+// (immer), dazu situativ Organik-Zusatz (Abwechslung) und — beim typischen
+// Praxisfall "hoher Schwermetall-Feststoffgehalt, aber tiefe organische
+// Schadstoffe, nach Behandlung im Eluat Typ-C-tauglich" — das Eluat-Programm,
+// um die in classify() hinterlegte Sonderfall->Typ-C-Rückstufung auch in den
+// Demo-Daten zu zeigen (siehe Kommentar dort bzw. README).
+function buildAnalyseForClass(targetClassId, programme) {
+  const basisKeys = programme.basis?.parameterKeys || [];
+  const organikKeys = programme.organik?.parameterKeys || [];
+  const eluatKeys = programme.eluat?.parameterKeys || [];
 
-  const analyse = [primary];
-  const extraCount = Math.floor(rand(0, 3)); // 0-2 zusätzliche, harmlose Werte für Realismus
-  const usedKeys = new Set([primary.parameterKey]);
-  for (const p of candidates) {
-    if (analyse.length - 1 >= extraCount) break;
-    if (usedKeys.has(p.key)) continue;
-    const wert = pickHarmlessValue(p.key);
-    if (wert === null) continue;
-    analyse.push({ parameterKey: p.key, wert, einheit: p.unit, art: p.art, quelle: 'demo' });
-    usedKeys.add(p.key);
+  const includeOrganik = Math.random() < 0.4;
+  const panelKeys = new Set([...basisKeys, ...(includeOrganik ? organikKeys : [])]);
+
+  // Treiber-Parameter suchen, der die Zielklasse exakt erreicht (ggf. auf
+  // eine benachbarte Klasse ausweichen, falls kein Parameter einen eigenen
+  // Grenzwert für die exakte Zielklasse hat).
+  const candidates = shuffled(ALL_GESAMT_KEYS);
+  let driverKey = null, driverValue = null, achievedClassId = null;
+  for (const classId of nearbyClassOrder(targetClassId)) {
+    for (const key of candidates) {
+      const wert = pickValueForClass(key, classId);
+      if (wert !== null) { driverKey = key; driverValue = wert; achievedClassId = classId; break; }
+    }
+    if (driverKey) break;
   }
-  return { analyse, achievedClassId };
+  if (!driverKey) return { analyse: [], klassifizierung: null }; // praktisch unmöglich (Sonderfall ist immer erreichbar)
+  panelKeys.add(driverKey); // Treiber immer mit ins Panel, auch falls ausserhalb der gewählten Programme
+
+  const severity = rand(0.15, 0.9);
+  const analyse = [];
+  for (const key of panelKeys) {
+    const def = paramDef(key);
+    if (!def) continue;
+    const wert = key === driverKey ? driverValue : pickValueAtMostClass(key, achievedClassId, severity);
+    if (wert === null) continue; // für diesen Parameter bei dieser Klasse kein sinnvoller Wert bestimmbar
+    analyse.push({ parameterKey: key, wert, einheit: def.unit, art: def.art || 'gesamt', quelle: 'demo' });
+  }
+
+  // Sonderfall->Typ-C-Rückstufung zeigen: nur sinnvoll, wenn der Treiber ein
+  // Feststoff-Schwermetall ist (siehe METAL_GESAMT_KEYS/classify()) — dann in
+  // ~50% der Fälle eine Eluatprüfung ergänzen, deren Werte alle innerhalb des
+  // Typ-C-Eluatgrenzwerts liegen.
+  if (achievedClassId === 'sonderfall' && METAL_GESAMT_KEYS.has(driverKey) && eluatKeys.length && Math.random() < 0.5) {
+    for (const key of eluatKeys) {
+      const def = paramDef(key);
+      if (!def) continue;
+      const wert = pickValueAtMostClass(key, 'typC', rand(0.1, 0.7));
+      if (wert === null) continue;
+      analyse.push({ parameterKey: key, wert, einheit: def.unit, art: def.art || 'gesamt', quelle: 'demo' });
+    }
+  }
+
+  // Die tatsächliche Einstufung erst jetzt (nach evtl. Eluat-Ergänzung)
+  // berechnen — die Rückstufungslogik in classify() kann das Ergebnis noch
+  // von "sonderfall" auf "typC" ändern.
+  const klassifizierung = analyse.length ? classify(analyse, DEMO_THRESHOLDS) : null;
+  return { analyse, klassifizierung };
 }
 
 function randomPastDate(maxDaysAgo) {
@@ -146,6 +213,14 @@ async function generateDemoBaustelle(onProgress) {
   localStorage.setItem('pnj_active_project_name', project.name);
 
   const vevaCodes = await getVevaCodesApi().catch(() => []);
+  const materialien = await getMaterialienApi().catch(() => []);
+  const alleProgramme = await getAnalytikProgrammeApi().catch(() => []);
+  const programme = {
+    basis: alleProgramme.find(p => p.id === 'vvea-basis-feststoff')
+      || { parameterKeys: ALL_GESAMT_KEYS },
+    organik: alleProgramme.find(p => p.id === 'vvea-organik-zusatz') || { parameterKeys: [] },
+    eluat: alleProgramme.find(p => p.id === 'vvea-eluat-typc') || { parameterKeys: [] },
+  };
 
   const TOTAL = 150;
   // Zielklassen möglichst gleichmässig über die 150 Proben verteilen, aber
@@ -154,14 +229,15 @@ async function generateDemoBaustelle(onProgress) {
     Array.from({ length: TOTAL }, (_, i) => TARGET_CLASS_IDS[i % TARGET_CLASS_IDS.length])
   );
 
-  const deviations = []; // Zielklassen, die mangels Grenzwert nicht exakt erreichbar waren
+  const deviations = []; // Zielklassen, deren tatsächliche Einstufung abweicht (kein Grenzwert erreichbar oder Typ-C-Rückstufung)
 
   const jobs = targetSequence.map((targetClassId, i) => async () => {
-    const { analyse, achievedClassId } = buildAnalyseForClass(targetClassId);
-    const klassifizierung = analyse.length ? classify(analyse, DEMO_THRESHOLDS) : null;
-    if (achievedClassId && achievedClassId !== targetClassId) deviations.push({ targetClassId, achievedClassId });
+    const { analyse, klassifizierung } = buildAnalyseForClass(targetClassId, programme);
+    if (klassifizierung && klassifizierung.classId !== targetClassId) {
+      deviations.push({ targetClassId, achievedClassId: klassifizierung.classId });
+    }
     const material = pick(DEMO_MATERIALIEN);
-    const vevaSuggestion = klassifizierung ? suggestVevaCode(material, 'vvea', klassifizierung.classId, vevaCodes) : null;
+    const vevaSuggestion = klassifizierung ? suggestVevaCode(material, 'vvea', klassifizierung.classId, vevaCodes, materialien) : null;
 
     return createEntryApi({
       projektId: project.id,
@@ -169,7 +245,7 @@ async function generateDemoBaustelle(onProgress) {
       entnahmeort: pick(DEMO_ENTNAHMEORTE),
       material,
       probenehmer: pick(DEMO_PROBENEHMER),
-      bemerkungen: `Demo-Probe #${i + 1} — Zielklasse ${targetClassId}${achievedClassId && achievedClassId !== targetClassId ? ` (kein Parameter mit Grenzwert für ${targetClassId} vorhanden, daher ${achievedClassId})` : ''}.`,
+      bemerkungen: `Demo-Probe #${i + 1} — Zielklasse ${targetClassId}${klassifizierung && klassifizierung.classId !== targetClassId ? ` (tatsächlich: ${klassifizierung.classId}, siehe Analysewerte)` : ''}.`,
       analyse,
       klassifizierung,
       standard: 'vvea',
@@ -208,7 +284,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (status) status.textContent = `Generiere Demo-Proben … ${done}/${totalCount}`;
       });
       const devNote = deviations.length
-        ? ` (${deviations.length}× musste auf die nächstliegende erreichbare Klasse ausgewichen werden, mangels Grenzwert für die exakte Zielklasse — siehe Bemerkungen der jeweiligen Probe.)`
+        ? ` (${deviations.length}× weicht die tatsächliche Einstufung von der Zielklasse ab — mangels Grenzwert für die exakte Zielklasse oder wegen der Sonderfall->Typ-C-Rückstufung, siehe Bemerkungen der jeweiligen Probe.)`
         : '';
       if (status) status.textContent = `Fertig: ${total} Demo-Proben angelegt.${devNote} Lade Journal …`;
       await new Promise(r => setTimeout(r, 1200));
