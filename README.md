@@ -83,6 +83,12 @@ vereinfachende fachliche Einschätzung, keine normative Gleichsetzung. Der ermit
 Proben-Formular bewusst **nicht manuell überschreibbar** — passt er nicht, ist die Materialien- bzw.
 VeVA-Codes-Zuordnung unter Einstellungen anzupassen (siehe oben).
 
+**Sonderabfall-Code:** Gemäss Entscheid des Auftraggebers gelten Deponietyp C und D bereits als Sonderabfall
+(gefährlicher Abfall gemäss VeVA Anhang 1 Abfallverzeichnis/LVA) und erhalten deshalb den Sonderabfall-Code
+„17 05 03\*" („Boden und Steine, die gefährliche Stoffe enthalten") statt eines gewöhnlichen Reststoff-Codes —
+ebenso die Klasse „Sonderfall" (nicht deponierbar, jenseits Typ E). Typ E bleibt beim bisherigen Code
+17 05 90/91 [akb]. Auch diese Zuordnung ist vor produktivem Einsatz durch eine Fachperson zu verifizieren.
+
 **TOC (organischer Kohlenstoff)** fliesst bei der VVEA-Einstufung erst ab einer Einstufung schlechter als
 Typ B in die Gesamtbewertung ein — bei Typ B oder besser wird ein hinterlegter TOC-Grenzwert nicht
 berücksichtigt (der Wert wird in der Analysetabelle trotzdem angezeigt, nur eben nicht in die Gesamteinstufung

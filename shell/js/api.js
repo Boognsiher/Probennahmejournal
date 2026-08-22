@@ -21,11 +21,12 @@ const DEFAULT_VEVA_CODES = [
   { code: '17 05 04', bezeichnung: 'Ober-/Unterboden – unverschmutzt', materialien: ['Oberboden', 'Unterboden'], klassen: ['unbelastet'] },
   { code: '17 05 93', bezeichnung: 'Ober-/Unterboden – schwach verschmutzt (Typ A)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typA'] },
   { code: '17 05 96 [ak]', bezeichnung: 'Ober-/Unterboden – Inertstoff (Typ B)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typB'] },
-  { code: '17 05 90 [akb]', bezeichnung: 'Ober-/Unterboden – stark verschmutzt (Typ C/D/E)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typC', 'typD', 'typE'] },
+  { code: '17 05 90 [akb]', bezeichnung: 'Ober-/Unterboden – stark verschmutzt (Typ E)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typE'] },
   { code: '17 05 06', bezeichnung: 'Aushub – unverschmutzt', materialien: ['Aushub'], klassen: ['unbelastet'] },
   { code: '17 05 94', bezeichnung: 'Aushub – schwach verschmutzt (Typ A)', materialien: ['Aushub'], klassen: ['typA'] },
   { code: '17 05 97 [ak]', bezeichnung: 'Aushub – Inertstoff (Typ B)', materialien: ['Aushub'], klassen: ['typB'] },
-  { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ C/D/E)', materialien: ['Aushub'], klassen: ['typC', 'typD', 'typE'] },
+  { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ E)', materialien: ['Aushub'], klassen: ['typE'] },
+  { code: '17 05 03*', bezeichnung: 'Boden und Steine, die gefährliche Stoffe enthalten (Sonderabfall, Typ C/D bzw. nicht deponierbar)', materialien: ['Oberboden', 'Unterboden', 'Aushub'], klassen: ['typC', 'typD', 'sonderfall'] },
 ];
 
 // Materialien: siehe server/src/vvea-defaults.js für die vollständige
@@ -64,10 +65,10 @@ const DEFAULT_ANALYTIK_PROGRAMME = [
   },
 ];
 
-// v7: Materialien-Datenbank ergänzt (ersetzt die frei getippte
-// Material-Liste) — Version angehoben, damit bereits laufende Test-Sessions
-// die neuen Startwerte erhalten.
-const DB_KEY = 'pnj_mock_db_v7';
+// v8: Sonderabfallcode (17 05 03*) für Typ C/D und die Klasse "Sonderfall"
+// ergänzt (Typ E behält den bisherigen Code) — Version angehoben, damit
+// bereits laufende Test-Sessions die neuen Startwerte erhalten.
+const DB_KEY = 'pnj_mock_db_v8';
 const TOKEN_KEY = 'pnj_token';
 const USER_KEY = 'pnj_user';
 

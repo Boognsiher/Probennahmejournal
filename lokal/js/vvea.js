@@ -136,18 +136,28 @@ export function classifyVBBO(werte, vbboThresholds, nutzungsart) {
 // ---------- VeVA-Codes (Aushub-/Bodenaushubmaterial) ----------
 
 // Ein Code kann für mehrere Materialien und/oder mehrere VVEA-Klassen
-// gleichzeitig gelten (z.B. ein gemeinsamer Code für Typ C/D/E, oder
-// derselbe Code für Ober- UND Unterboden) — daher `materialien`/`klassen`
-// als Arrays statt Einzelwerten.
+// gleichzeitig gelten — daher `materialien`/`klassen` als Arrays statt
+// Einzelwerten.
+//
+// Sonderabfall-Code (17 05 03*): auf ausdrücklichen Entscheid des
+// Auftraggebers gilt Typ C UND Typ D bereits als Sonderabfall (gefährlicher
+// Abfall gemäss VeVA Anhang 1 Abfallverzeichnis/LVA, "*"-Kennzeichnung) und
+// erhält deshalb den offiziellen Sonderabfall-Gegenpart zu 17 05 04/06
+// ("Boden und Steine, die gefährliche Stoffe enthalten") statt eines
+// gewöhnlichen Reststoff-Codes; ebenso die Klasse "Sonderfall" (nicht
+// deponierbar, jenseits Typ E). Typ E bleibt beim bisherigen Code
+// 17 05 90/91 [akb] — dieser deckt nach demselben Entscheid nur noch Typ E
+// ab (vorher gemeinsam mit Typ C/D).
 export const DEFAULT_VEVA_CODES = [
   { code: '17 05 04', bezeichnung: 'Ober-/Unterboden – unverschmutzt', materialien: ['Oberboden', 'Unterboden'], klassen: ['unbelastet'] },
   { code: '17 05 93', bezeichnung: 'Ober-/Unterboden – schwach verschmutzt (Typ A)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typA'] },
   { code: '17 05 96 [ak]', bezeichnung: 'Ober-/Unterboden – Inertstoff (Typ B)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typB'] },
-  { code: '17 05 90 [akb]', bezeichnung: 'Ober-/Unterboden – stark verschmutzt (Typ C/D/E)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typC', 'typD', 'typE'] },
+  { code: '17 05 90 [akb]', bezeichnung: 'Ober-/Unterboden – stark verschmutzt (Typ E)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typE'] },
   { code: '17 05 06', bezeichnung: 'Aushub – unverschmutzt', materialien: ['Aushub'], klassen: ['unbelastet'] },
   { code: '17 05 94', bezeichnung: 'Aushub – schwach verschmutzt (Typ A)', materialien: ['Aushub'], klassen: ['typA'] },
   { code: '17 05 97 [ak]', bezeichnung: 'Aushub – Inertstoff (Typ B)', materialien: ['Aushub'], klassen: ['typB'] },
-  { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ C/D/E)', materialien: ['Aushub'], klassen: ['typC', 'typD', 'typE'] },
+  { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ E)', materialien: ['Aushub'], klassen: ['typE'] },
+  { code: '17 05 03*', bezeichnung: 'Boden und Steine, die gefährliche Stoffe enthalten (Sonderabfall, Typ C/D bzw. nicht deponierbar)', materialien: ['Oberboden', 'Unterboden', 'Aushub'], klassen: ['typC', 'typD', 'sonderfall'] },
 ];
 export function loadVevaCodes() {
   try {
