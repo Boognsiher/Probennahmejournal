@@ -38,8 +38,9 @@ App zur Führung eines Probennahmejournals auf der Baustelle:
   der Probe **nicht manuell überschreibbar** — passt der automatisch ermittelte Code nicht, muss die
   Materialien- bzw. VeVA-Codes-Zuordnung unter Einstellungen angepasst werden, statt ihn pro Probe von Hand zu
   ändern (Nachvollziehbarkeit: derselbe Materialzustand ergibt immer denselben Code)
-- **Echter PDF-Export** je Probe, E-Mail-Versand mit PDF nach Möglichkeit direkt angehängt (native
-  Teilen-Funktion des Geräts)
+- **Echter PDF-Export** je Probe (Analysewerte-Tabelle inkl. Einstufung **und** dem dafür massgeblichen
+  Grenzwert je Wert), E-Mail-Versand mit PDF nach Möglichkeit direkt angehängt (native Teilen-Funktion des
+  Geräts)
 - **Journal mit Filtern** (Projekt, Material, Standard, Klasse) und Sortierung zum Aufräumen/Wiederfinden
 
 Es gibt **drei eigenständige Varianten** im selben Repository – je nach Bedarf wählbar:

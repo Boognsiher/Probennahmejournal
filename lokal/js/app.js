@@ -11,6 +11,7 @@ import {
   hasAcknowledgedDisclaimer, acknowledgeDisclaimer,
   VBBO_CLASSES, NUTZUNGSARTEN, VBBO_PARAMETERS, DEFAULT_VBBO_PARAMETERS,
   setVbboParameters, classifyVBBO, suggestVevaCode, materialToStandard,
+  buildVbboThresholdsForNutzung,
   loadVbboParameters, saveVbboParameters, resetVbboParametersStorage,
   loadVbboThresholds, saveVbboThresholds, resetVbboThresholdsStorage,
   loadVevaCodes, saveVevaCodes, resetVevaCodesStorage,
@@ -161,6 +162,16 @@ let journalFilter = { projekt: '', material: '', standard: '', klasse: '', sort:
 // Klassen-Array passend zum Standard einer Probe (Default 'vvea' für alte Proben).
 function classesForEntry(entry) {
   return entry?.standard === 'vbbo' ? VBBO_CLASSES : CLASSES;
+}
+
+// Grenzwert-Set passend zum Standard einer Probe — bei VBBo erst per
+// Nutzungsart auf das VVEA-ähnliche {classId: Zahl}-Format projizieren (siehe
+// buildVbboThresholdsForNutzung()), damit es zu classesForEntry() passt. Für
+// den PDF-Bericht (Grenzwert-Spalte je Analysewert).
+function thresholdsForEntry(entry) {
+  return entry?.standard === 'vbbo'
+    ? buildVbboThresholdsForNutzung(vbboThresholds, entry.nutzungsart || NUTZUNGSARTEN[0].id)
+    : thresholds;
 }
 
 async function renderJournal() {
@@ -761,7 +772,7 @@ function paintEntryForm() {
     recomputeClassification();
     toast('PDF wird erstellt …');
     try {
-      const blob = await generateReportPDF(buildPdfReportEntry(), currentClassification, classesForEntry(e));
+      const blob = await generateReportPDF(buildPdfReportEntry(), currentClassification, classesForEntry(e), thresholdsForEntry(e));
       downloadBlob(pdfFilename(), blob);
     } catch (err) {
       console.error(err);
@@ -774,7 +785,7 @@ function paintEntryForm() {
     toast('PDF wird erstellt …');
     try {
       const classes = classesForEntry(e);
-      const blob = await generateReportPDF(buildPdfReportEntry(), currentClassification, classes);
+      const blob = await generateReportPDF(buildPdfReportEntry(), currentClassification, classes, thresholdsForEntry(e));
       const subject = `Probennahmejournal – ${e.baustelle || ''} – ${e.probeBezeichnung || ''}`.trim();
       const body = buildMailSummary(e, currentClassification, classes);
       const result = await sharePDFOrDownload(blob, pdfFilename(), subject, body);

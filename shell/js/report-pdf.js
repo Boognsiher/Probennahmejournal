@@ -42,15 +42,35 @@ function hexToRgb(hex) {
   return { r: parseInt(m.slice(0, 2), 16) || 0, g: parseInt(m.slice(2, 4), 16) || 0, b: parseInt(m.slice(4, 6), 16) || 0 };
 }
 
+// Text für die "Grenzwert"-Spalte: der Grenzwert der Klasse, der dieser Wert
+// zugeordnet wurde (das ist die Obergrenze, unter der der Wert liegen musste,
+// um in diese Klasse zu fallen) — "≤ X". Bei der terminalen Klasse (VVEA
+// "Sonderfall"/VBBo "über Sanierungswert") gibt es keine Obergrenze nach
+// oben; dort wird stattdessen der höchste für den Parameter definierte
+// Grenzwert als Referenz gezeigt ("> X"), bzw. "–", falls für den Parameter
+// gar kein Grenzwert hinterlegt ist.
+function limitCellText(p, thresholdsTable, classes) {
+  const row = thresholdsTable?.[p.parameterKey];
+  if (!row) return '–';
+  const limit = row[p.classId];
+  if (limit !== null && limit !== undefined) return `≤ ${limit}`;
+  const defined = classes.filter(c => !c.terminal && row[c.id] !== null && row[c.id] !== undefined).map(c => row[c.id]);
+  return defined.length ? `> ${Math.max(...defined)}` : '–';
+}
+
 /**
  * @param {object} entry  Probe (wie im Frontend gehalten). entry.photos:
  *   Array von {filename, dataUrl} ODER {filename, blob}.
  * @param {object|null} classification  Rückgabe von vvea.classify()/classifyVBBO()
  * @param {Array} classes  Klassen-Array, das zur Klassifizierung passt (VVEA
  *   CLASSES oder VBBO_CLASSES je nach entry.standard) — Default: VVEA CLASSES.
+ * @param {object} thresholdsTable  Grenzwert-Set {parameterKey: {classId: Zahl|null}},
+ *   das zur Klassifizierung passt (VVEA thresholds oder die per Nutzungsart
+ *   projizierten VBBo-Grenzwerte, siehe buildVbboThresholdsForNutzung() in
+ *   vvea.js) — für die "Grenzwert"-Spalte der Analysewerte-Tabelle.
  * @returns {Promise<Blob>} PDF als Blob (application/pdf)
  */
-export async function generateReportPDF(entry, classification, classes = CLASSES) {
+export async function generateReportPDF(entry, classification, classes = CLASSES, thresholdsTable = {}) {
   const jsPDF = await loadJsPDF();
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
@@ -106,8 +126,9 @@ export async function generateReportPDF(entry, classification, classes = CLASSES
   const rows = classification?.perParameter || [];
   if (rows.length) {
     const cols = [
-      { label: 'Parameter', w: 58 }, { label: 'Wert', w: 20 }, { label: 'Einheit', w: 22 },
-      { label: 'Art', w: 26 }, { label: 'Einstufung', w: contentW - 58 - 20 - 22 - 26 },
+      { label: 'Parameter', w: 50 }, { label: 'Wert', w: 18 }, { label: 'Einheit', w: 20 },
+      { label: 'Art', w: 22 }, { label: 'Einstufung', w: 24 },
+      { label: 'Grenzwert', w: contentW - 50 - 18 - 20 - 22 - 24 },
     ];
     const drawHeader = () => {
       doc.setFont(undefined, 'bold'); doc.setFontSize(9);
@@ -126,7 +147,10 @@ export async function generateReportPDF(entry, classification, classes = CLASSES
       doc.setFillColor(rc.r, rc.g, rc.b); doc.setDrawColor(rc.r, rc.g, rc.b);
       doc.rect(margin, y - 4, contentW, 6, 'F');
       let x = margin;
-      const cells = [p.label, String(p.wert), p.unit || '', p.art === 'eluat' ? 'Eluat' : 'Gesamt', classes[p.classIndex].short];
+      const cells = [
+        p.label, String(p.wert), p.unit || '', p.art === 'eluat' ? 'Eluat' : 'Gesamt',
+        classes[p.classIndex].short, limitCellText(p, thresholdsTable, classes),
+      ];
       cells.forEach((val, i) => {
         const text = doc.splitTextToSize(String(val), cols[i].w - 2)[0] || '';
         doc.text(text, x + 1, y);
