@@ -398,6 +398,11 @@ let materialien = loadMaterialien();
 let labore = loadLabore();
 let unsereFirma = loadUnsereFirma(); // für Labor-Auftragsformulare (Niutec), siehe niutec-form.js
 let formProjects = [];
+// Welcher Reiter auf der Einstellungsseite gerade aktiv ist (siehe
+// paintSettings()) — die Seite ist sonst eine sehr lange Liste an Karten,
+// Reiter blenden per CSS nur ein/aus (alle Karten bleiben im DOM), damit
+// sämtliche bestehende Event-Verkabelung unverändert funktioniert.
+let settingsTab = 'grenzwerte';
 
 async function renderEntryForm(idOrNeu) {
   thresholds = loadThresholds();
@@ -1260,6 +1265,13 @@ function paintSettings() {
   const editableClasses = CLASSES.filter(c => !c.terminal);
 
   appEl.innerHTML = `
+    <div class="btn-row" style="margin-bottom:1rem;">
+      <button type="button" class="btn ${settingsTab === 'grenzwerte' ? '' : 'secondary'}" data-settings-tab="grenzwerte">📏 Grenzwerte</button>
+      <button type="button" class="btn ${settingsTab === 'stammdaten' ? '' : 'secondary'}" data-settings-tab="stammdaten">🗂️ Stammdaten</button>
+      <button type="button" class="btn ${settingsTab === 'info' ? '' : 'secondary'}" data-settings-tab="info">ℹ️ Info</button>
+    </div>
+
+    <div class="settings-section" style="display:${settingsTab === 'grenzwerte' ? '' : 'none'};">
     <div class="card">
       <h2>Grenzwerte (Deponieklassen)</h2>
       <p class="hint">Leeres Feld = für diese Klasse nicht geregelt. Diese Tabelle bestimmt die Farbcodierung
@@ -1324,7 +1336,9 @@ function paintSettings() {
       </div>
       <button class="btn secondary" id="btn-add-vbbo-param" type="button">+ Parameter hinzufügen</button>
     </div>
+    </div>
 
+    <div class="settings-section" style="display:${settingsTab === 'stammdaten' ? '' : 'none'};">
     <div class="card">
       <h2>Materialien</h2>
       <p class="hint">Legt fest, welche Materialien bei einer Probe wählbar sind und welcher Einstufungsstandard
@@ -1466,7 +1480,9 @@ function paintSettings() {
         <button class="btn secondary" id="btn-reset-firma" type="button">Zurücksetzen (leeren)</button>
       </div>
     </div>
+    </div>
 
+    <div class="settings-section" style="display:${settingsTab === 'grenzwerte' ? '' : 'none'};">
     <div class="card">
       <h2>Legende Deponieklassen (VVEA)</h2>
       <div class="entry-list">
@@ -1488,7 +1504,9 @@ function paintSettings() {
       <p class="hint">Nutzungsarten und ihre Prüfwert-/Sanierungswert-Zuordnung:
         ${NUTZUNGSARTEN.map(n => escapeHtml(n.label)).join(' · ')}</p>
     </div>
+    </div>
 
+    <div class="settings-section" style="display:${settingsTab === 'info' ? '' : 'none'};">
     <div class="card">
       <h2>Über diese App</h2>
       <p class="hint">Baustellen-Probennahmejournal – Fotodokumentation, Analyse-Import (CSV/PDF) mit
@@ -1496,7 +1514,13 @@ function paintSettings() {
       Entsorgungsweg sowie PDF/E-Mail-Export. Alle Daten werden ausschliesslich lokal im Browser gespeichert
       (IndexedDB) – es findet keine automatische Übertragung an einen Server statt.</p>
     </div>
+    </div>
   `;
+
+  $$('[data-settings-tab]').forEach(btn => btn.addEventListener('click', () => {
+    settingsTab = btn.dataset.settingsTab;
+    paintSettings();
+  }));
 
   function collectThresholdsFromTable() {
     const nt = JSON.parse(JSON.stringify(t));

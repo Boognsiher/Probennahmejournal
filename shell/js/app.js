@@ -613,6 +613,11 @@ let materialien = [];
 let labore = [];
 let unsereFirma = {}; // für Labor-Auftragsformulare (Niutec), siehe niutec-form.js
 let thresholdRequests = []; // offene Änderungsanträge für VVEA-Grenzwerte (nur admin/projektleiter)
+// Welcher Reiter auf der Einstellungsseite gerade aktiv ist (siehe
+// paintSettings()) — die Seite ist sonst eine sehr lange Liste an Karten,
+// Reiter blenden per CSS nur ein/aus (alle Karten bleiben im DOM), damit
+// sämtliche bestehende Event-Verkabelung unverändert funktioniert.
+let settingsTab = 'grenzwerte';
 let formProjects = [];
 let formRoster = [];
 
@@ -1727,6 +1732,14 @@ async function paintSettings() {
   }
 
   appEl.innerHTML = `
+    <div class="btn-row" style="margin-bottom:1rem;">
+      <button type="button" class="btn ${settingsTab === 'grenzwerte' ? '' : 'secondary'}" data-settings-tab="grenzwerte">📏 Grenzwerte</button>
+      <button type="button" class="btn ${settingsTab === 'stammdaten' ? '' : 'secondary'}" data-settings-tab="stammdaten">🗂️ Stammdaten</button>
+      ${isAdmin ? `<button type="button" class="btn ${settingsTab === 'benutzer' ? '' : 'secondary'}" data-settings-tab="benutzer">👤 Benutzer</button>` : ''}
+      <button type="button" class="btn ${settingsTab === 'info' ? '' : 'secondary'}" data-settings-tab="info">ℹ️ Info</button>
+    </div>
+
+    <div class="settings-section" style="display:${settingsTab === 'grenzwerte' ? '' : 'none'};">
     <div class="card">
       <h2>Grenzwerte (Deponieklassen)</h2>
       <p class="hint">Leeres Feld = für diese Klasse nicht geregelt. Diese Tabelle bestimmt die Farbcodierung
@@ -1819,7 +1832,9 @@ async function paintSettings() {
       <button class="btn secondary" id="btn-add-vbbo-param" type="button">+ Parameter hinzufügen</button>
       ` : ''}
     </div>
+    </div>
 
+    <div class="settings-section" style="display:${settingsTab === 'stammdaten' ? '' : 'none'};">
     <div class="card">
       <h2>Materialien</h2>
       <p class="hint">Legt fest, welche Materialien bei einer Probe wählbar sind und welcher Einstufungsstandard
@@ -1976,9 +1991,11 @@ async function paintSettings() {
       </div>
       ` : ''}
     </div>
+    </div>
 
-    ${usersHtml}
+    <div class="settings-section" style="display:${settingsTab === 'benutzer' ? '' : 'none'};">${usersHtml}</div>
 
+    <div class="settings-section" style="display:${settingsTab === 'grenzwerte' ? '' : 'none'};">
     <div class="card">
       <h2>Legende Deponieklassen (VVEA)</h2>
       <div class="entry-list">
@@ -2000,7 +2017,9 @@ async function paintSettings() {
       <p class="hint">Nutzungsarten und ihre Prüfwert-/Sanierungswert-Zuordnung:
         ${NUTZUNGSARTEN.map(n => escapeHtml(n.label)).join(' · ')}</p>
     </div>
+    </div>
 
+    <div class="settings-section" style="display:${settingsTab === 'info' ? '' : 'none'};">
     <div class="card">
       <h2>Über diese App</h2>
       <p class="hint">Baustellen-Probennahmejournal – Fotodokumentation, Analyse-Import (CSV/PDF) mit
@@ -2008,7 +2027,13 @@ async function paintSettings() {
       Entsorgungsweg sowie PDF/E-Mail-Export. Proben, Fotos, Projekte und Grenzwerte werden zentral auf dem
       Server gespeichert und sind für alle angemeldeten Team-Mitglieder sichtbar.</p>
     </div>
+    </div>
   `;
+
+  $$('[data-settings-tab]').forEach(btn => btn.addEventListener('click', () => {
+    settingsTab = btn.dataset.settingsTab;
+    paintSettings();
+  }));
 
   function collectThresholdsFromTable() {
     const t = JSON.parse(JSON.stringify(thresholds));
