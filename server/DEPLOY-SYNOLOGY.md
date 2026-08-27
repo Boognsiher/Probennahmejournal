@@ -77,8 +77,22 @@ hochladen, PDF erzeugen. Läuft das lokal sauber, weiter zu Schritt 5.
 
 ## 5. HTTPS + eigene Domain (DSM-eigener Reverse Proxy, kein extra Caddy nötig)
 
-Voraussetzung: eine Domain/Subdomain, die auf eure NAS zeigt (DDNS reicht, falls keine feste IP —
-Synology bietet dafür QuickConnect/DDNS unter Systemsteuerung → externer Zugriff).
+**Zuerst die URL festlegen** — zwei Wege, je nachdem ob ihr schon eine eigene Domain habt:
+
+- **Ohne eigene Domain (einfachster Weg)**: Systemsteuerung → Externer Zugriff → **DDNS** → Hinzufügen
+  → Anbieter „Synology“ wählen, einen Hostnamen frei wählen (z.B. `firmenname`) → ihr bekommt
+  kostenlos `firmenname.synology.me`. DSM hält das automatisch aktuell, auch wenn sich eure
+  öffentliche IP zuhause/im Büro ändert (normal bei den meisten Internetanschlüssen ohne feste IP).
+  Das ist dann eure „Domain“ für die Schritte unten.
+- **Mit eigener Domain** (z.B. `probennahmejournal.eurefirma.ch`): entweder beim Domain-Registrar
+  einen **CNAME** anlegen, der auf das eben erstellte `firmenname.synology.me` zeigt (kombiniert
+  eigenen Namen + automatische IP-Aktualisierung von Synology), oder — nur bei fester/statischer
+  IP sinnvoll — direkt einen **A-Eintrag** auf eure öffentliche IP.
+
+Wichtig in beiden Fällen: der **Router** muss Port 443 (HTTPS, und kurzzeitig 80 für die
+Let's-Encrypt-Prüfung) an die NAS weiterleiten (Port-Weiterleitung/Port-Forwarding in den
+Router-Einstellungen, „NAS-lokale-IP:443“ als Ziel) — sonst kommt von aussen nichts an, egal welche
+Domain davor steht.
 
 1. Systemsteuerung → Sicherheit → Zertifikat → **Hinzufügen** → Let's-Encrypt-Zertifikat für eure
    Domain anfordern (kostenlos, erneuert sich automatisch).
