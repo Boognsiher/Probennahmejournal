@@ -574,8 +574,8 @@ function paintEntryForm() {
       E-Mail mit den gewünschten Parametern und einem Analysenauftrag als PDF ans Labor. Die Analysewerte
       selbst werden separat erfasst (manuell oder per CSV/PDF-Import unten), sobald die Laborresultate
       vorliegen. Weitere Programme/Labore unter Einstellungen verwaltbar.</p>
-      <div id="analytik-programme-list" style="display:flex;flex-direction:column;gap:.5rem;margin-bottom:.75rem;">
-        ${relevantAnalytikProgramme().map(p => `<label style="display:flex;gap:.5rem;align-items:center;">
+      <div id="analytik-programme-list" class="choice-list">
+        ${relevantAnalytikProgramme().map(p => `<label class="choice-item">
           <input type="checkbox" data-ap="${p.id}" ${e.analytikProgramme.includes(p.id) ? 'checked' : ''}>
           <span>${escapeHtml(p.name)} <span class="hint">(${p.parameterKeys.length} Parameter)</span></span>
         </label>`).join('') || '<p class="hint">Keine Analytik-Programme für diesen Standard hinterlegt.</p>'}

@@ -6,6 +6,7 @@
   --border: #e0e0e0;
   --accent: #2e7d32;
   --accent-contrast: #ffffff;
+  --accent-soft: rgba(46, 125, 50, .09);
   --danger: #b71c1c;
   --radius: 10px;
 }
@@ -17,6 +18,7 @@
     --text: #f0f0f0;
     --muted: #9aa;
     --border: #333;
+    --accent-soft: rgba(102, 187, 106, .16);
   }
 }
 
@@ -30,18 +32,23 @@ a { color: inherit; }
 img, svg { max-width: 100%; }
 
 .topbar {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center;
   padding: .6rem 1rem; background: var(--surface); border-bottom: 1px solid var(--border);
-  position: sticky; top: 0; z-index: 10; flex-wrap: wrap; gap: .5rem;
+  position: sticky; top: 0; z-index: 10; flex-wrap: wrap; gap: .4rem .75rem;
 }
-.brand { display: flex; align-items: center; gap: .5rem; font-weight: 700; }
-.tabs { display: flex; gap: .25rem; flex-wrap: wrap; min-width: 0; }
+.brand { order: 1; display: flex; align-items: center; gap: .5rem; font-weight: 700; }
+/* Kopfzeile in klare Zeilen getrennt: Marke oben, Projekt-Hinweis und die
+   Tabs je auf eigener voller Breite darunter. */
+#project-box { order: 3; flex-basis: 100%; }
+.tabs { order: 4; flex-basis: 100%; display: flex; flex-wrap: wrap; gap: .5rem; min-width: 0; }
 .tabs a {
-  text-decoration: none; padding: .65rem .9rem; border-radius: 8px; font-size: .9rem; color: var(--muted);
-  min-height: 44px; display: flex; align-items: center; white-space: nowrap;
+  flex: 1 1 auto; justify-content: center; text-decoration: none; padding: .7rem .9rem; border-radius: 10px;
+  font-size: .95rem; font-weight: 600; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border);
+  min-height: 48px; display: flex; align-items: center; white-space: nowrap;
 }
-@media (max-width: 420px) { .tabs a { padding: .55rem .55rem; font-size: .82rem; } }
-.tabs a.active { background: var(--accent); color: var(--accent-contrast); }
+.tabs a:hover { border-color: var(--accent); }
+.tabs a.active { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
 
 .disclaimer {
   background: #fff3e0; color: #7a3b00; border-bottom: 1px solid #ffcc80;
@@ -77,6 +84,22 @@ h1, h2, h3 { line-height: 1.25; }
 .field textarea { min-height: 70px; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
 @media (max-width: 640px) { .grid-2 { grid-template-columns: 1fr; } }
+
+/* Auswahllisten mit Checkbox/Radio (z.B. Analytik-Programme): einheitlich
+   grosse, klar umrandete Zeilen statt nackter Checkbox+Text unterschiedlicher
+   Breite — besser erkennbar und leichter zu treffen (Handschuhe/Schutzausrüstung). */
+.choice-list { display: flex; flex-direction: column; gap: .5rem; margin-bottom: .75rem; }
+.choice-item {
+  display: flex; align-items: center; gap: .7rem; min-height: 48px;
+  padding: .6rem .85rem; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg); cursor: pointer; font-size: .95rem;
+}
+.choice-item:hover { border-color: var(--accent); }
+.choice-item input[type="checkbox"], .choice-item input[type="radio"] {
+  width: 20px; height: 20px; flex: none; accent-color: var(--accent);
+}
+.choice-item:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.choice-item span { min-width: 0; }
 
 .entry-list { display: flex; flex-direction: column; gap: .6rem; }
 .entry-card {
