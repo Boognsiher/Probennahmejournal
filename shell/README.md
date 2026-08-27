@@ -17,8 +17,14 @@ Beispielprojekt „Demo Baustelle Zürich“ (Kürzel `DEMO`) zum sofortigen Aus
 
 | E-Mail | Passwort | Rolle |
 |---|---|---|
-| `admin@demo.ch` | `demo1234` | Administrator (Benutzerverwaltung, Grenzwerte/Parameter bearbeiten) |
-| `team@demo.ch` | `demo1234` | Team-Mitglied (eingeschränkte Rechte) |
+| `admin@demo.ch` | `demo1234` | Admin (alles, inkl. Benutzerverwaltung, Grenzwerte/Parameter) |
+| `leitung@demo.ch` | `demo1234` | Projektleitung (eigene Projekte anlegen/freigeben, Analytik-Programme bearbeiten, VVEA-Grenzwertänderung beantragen) |
+| `team@demo.ch` | `demo1234` | Probenehmer/in (in freigegebenen Projekten Proben erfassen, Löschen nur als Antrag) |
+| `extern@demo.ch` | `demo1234` | Extern (nur lesend, nur einzeln freigegebene Proben) |
+
+Das Demo-Projekt „Demo Baustelle Zürich“ gehört `leitung@demo.ch` — für `team@demo.ch` und `extern@demo.ch`
+muss der Zugriff darauf (bzw. auf einzelne Proben) zuerst über die Projektleitung/den Admin gewährt werden
+(Projekt bearbeiten bzw. „Sichtbarkeit für externe Nutzer“ bei der Probe).
 
 Über „Testdaten zurücksetzen“ im Banner lassen sich alle simulierten Daten (Proben, Fotos, Projekte,
 zusätzlich angelegte Benutzer, Grenzwerte/Parameter) jederzeit löschen und die Schale mit den Demo-Zugängen

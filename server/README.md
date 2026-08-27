@@ -105,26 +105,49 @@ Die Daten liegen dann in den Docker-Volumes `pnj-data` / `pnj-uploads` (siehe `d
    Alternativ nginx + certbot. Ohne HTTPS werden Login-Daten und Fotos unverschlüsselt übertragen –
    für den Einsatz ausserhalb eines vertrauenswürdigen lokalen Netzes daher **nicht empfohlen**.
 
+## Rollen & Sichtbarkeit
+
+Vier Rollen (`role`-Feld je Benutzer), von umfassend zu eingeschränkt:
+
+| Rolle | Projekte | Proben | Einstellungen |
+|---|---|---|---|
+| **admin** | alle sehen/anlegen/bearbeiten/löschen | alle sehen/anlegen/bearbeiten/sofort löschen | alles (inkl. Benutzerverwaltung) |
+| **projektleiter** | nur SELBST ERSTELLTE Projekte — anlegen/bearbeiten/löschen, dort Zugriffsliste für Probenehmer/innen (`probenehmerZugriff`, Array Benutzer-IDs) und externe Sichtbarkeit je Probe (`externZugriff`) verwalten | alle Proben in eigenen Projekten sehen/anlegen/bearbeiten/sofort löschen, Löschanträge von Probenehmer/innen freigeben/ablehnen | **Analytik-Programme** direkt bearbeiten; bei **VVEA-Grenzwerten** nur einen Änderungsantrag stellen (`POST /api/settings/thresholds/requests`) — Admin übernimmt/lehnt ab. Alles andere (Parameterliste, VBBo, VeVA-Codes, Materialien, Labore, Benutzer) keine |
+| **probenehmer** | nur sehen, wo Zugriff gewährt wurde (kein Anlegen/Bearbeiten/Löschen von Projekten) | in freigegebenen Projekten anlegen/bearbeiten; Löschen nur als **Antrag** (`DELETE /api/entries/:id` setzt `deletionRequestedAt/By` statt zu löschen — braucht Freigabe der zuständigen Projektleitung/Admin) | keine |
+| **extern** | kein Projekt-Zugriff (kein eigener Scope) | NUR einzeln freigegebene Proben (`externZugriff`), rein lesend — keine Schreib-Endpunkte erreichbar | keine |
+
+Andere Rolle als die eigene setzen kann nur ein Admin, über `PUT /api/users/:id/role` (nicht die eigene Rolle).
+Bestehende `'user'`-Konten aus einer Installation vor diesem Update werden beim ersten Start automatisch auf
+`'probenehmer'` migriert — bei Bedarf danach unter Einstellungen > Benutzer auf `'projektleiter'` hochstufen.
+
 ## API-Überblick
 
 Alle `/api/*`-Endpunkte ausser `/api/auth/login` erfordern den Header `Authorization: Bearer <token>`
-(Token wird beim Login zurückgegeben).
+(Token wird beim Login zurückgegeben). Listen-/Detail-Endpunkte (`GET /api/projects`, `GET /api/entries`, …)
+filtern automatisch nach dem oben beschriebenen Sichtbarkeits-Scope der anfragenden Person — es gibt keinen
+separaten "meine Projekte"-Parameter, die normale Liste zeigt bereits nur, was sichtbar ist.
 
 | Methode | Pfad | Beschreibung |
 |---|---|---|
 | POST | `/api/auth/login` | Anmelden, liefert Token + Benutzer |
 | GET | `/api/auth/me` | Eigene Benutzerdaten |
 | GET | `/api/users` | Benutzerliste (nur Admin) |
-| POST | `/api/users` | Benutzer anlegen (nur Admin) |
+| POST | `/api/users` | Benutzer anlegen — `role` optional (nur Admin) |
+| PUT | `/api/users/:id/role` | Rolle ändern, nicht die eigene (nur Admin) |
 | DELETE | `/api/users/:id` | Benutzer löschen (nur Admin) |
 | GET | `/api/users/roster` | Namensliste aller Benutzer (für „Probenehmer/in“-Dropdown, jede Rolle) |
-| GET | `/api/projects` | Alle Projekte (inkl. `entnahmeorte`/`entsorgungswege`) |
-| POST | `/api/projects` | Projekt anlegen — optional `entnahmeorte`/`entsorgungswege` (Arrays, für die Dropdowns bei der Probe) |
-| PUT | `/api/projects/:id` | Projekt bearbeiten |
-| DELETE | `/api/projects/:id` | Projekt löschen (nur wenn keine Proben mehr referenzieren) |
+| GET | `/api/projects` | Sichtbare Projekte (inkl. `entnahmeorte`/`entsorgungswege`/`probenehmerZugriff`) |
+| POST | `/api/projects` | Projekt anlegen (nur admin/projektleiter) — optional `entnahmeorte`/`entsorgungswege`/`probenehmerZugriff` (Arrays) |
+| PUT | `/api/projects/:id` | Projekt bearbeiten, inkl. `probenehmerZugriff` (nur admin oder zuständige Projektleitung) |
+| DELETE | `/api/projects/:id` | Projekt löschen (nur wenn keine Proben mehr referenzieren; nur admin/zuständige Projektleitung) |
 | GET | `/api/settings/thresholds` | Aktuelle VVEA-Grenzwerte |
 | PUT | `/api/settings/thresholds` | Grenzwerte speichern (nur Admin) |
 | POST | `/api/settings/thresholds/reset` | Auf Beispielwerte zurücksetzen (nur Admin) |
+| GET | `/api/settings/thresholds/requests` | Offene Änderungsanträge für VVEA-Grenzwerte (Admin: alle; Projektleitung: nur eigene) |
+| POST | `/api/settings/thresholds/requests` | Änderung vorschlagen — Body `{thresholds, note}` (admin/projektleiter) |
+| POST | `/api/settings/thresholds/requests/:id/cancel` | Eigenen Antrag zurückziehen (admin, oder die antragstellende Projektleitung) |
+| POST | `/api/settings/thresholds/requests/:id/apply` | Antrag übernehmen (schreibt in die aktiven Grenzwerte, nur Admin) |
+| POST | `/api/settings/thresholds/requests/:id/reject` | Antrag ablehnen, verwirft ihn (nur Admin) |
 | GET | `/api/settings/parameters` | Aktuelle VVEA-Parameterliste (Grenzwert-Zeilen) |
 | PUT | `/api/settings/parameters` | Parameterliste speichern, inkl. neue eigene Parameter (nur Admin) |
 | POST | `/api/settings/parameters/reset` | Auf Standardliste zurücksetzen (nur Admin) |
@@ -138,19 +161,22 @@ Alle `/api/*`-Endpunkte ausser `/api/auth/login` erfordern den Header `Authoriza
 | PUT | `/api/settings/veva-codes` | VeVA-Codes speichern (nur Admin) |
 | POST | `/api/settings/veva-codes/reset` | Auf Beispielwerte zurücksetzen (nur Admin) |
 | GET | `/api/settings/analytik-programme` | Aktuelle Analytik-Programme |
-| PUT | `/api/settings/analytik-programme` | Analytik-Programme speichern (nur Admin) |
-| POST | `/api/settings/analytik-programme/reset` | Auf Beispielwerte zurücksetzen (nur Admin) |
+| PUT | `/api/settings/analytik-programme` | Analytik-Programme speichern (admin oder projektleiter) |
+| POST | `/api/settings/analytik-programme/reset` | Auf Beispielwerte zurücksetzen (admin oder projektleiter) |
 | GET | `/api/settings/materialien` | Aktuelle Materialien-Liste (Name, Standard, VeVA-Eimer je Material) |
 | PUT | `/api/settings/materialien` | Materialien-Liste speichern (nur Admin) |
 | POST | `/api/settings/materialien/reset` | Auf Beispielwerte zurücksetzen (nur Admin) |
 | GET | `/api/settings/labore` | Aktuelle Labor-Liste (Name, Ort, E-Mail, Adresse, Telefon je Labor) |
 | PUT | `/api/settings/labore` | Labor-Liste speichern (nur Admin) |
 | POST | `/api/settings/labore/reset` | Auf Beispielwerte zurücksetzen (nur Admin) |
-| GET | `/api/entries` | Alle Proben |
+| GET | `/api/entries` | Sichtbare Proben (siehe Rollentabelle oben) |
 | GET | `/api/entries/:id` | Einzelne Probe inkl. Foto-Metadaten |
-| POST | `/api/entries` | Neue Probe anlegen — `projektId` erforderlich; Chargenname (`probeBezeichnung`) wird serverseitig aus Projekt-Kürzel + fortlaufender Nummer vergeben. Weitere Felder: `standard` (`vvea`/`vbbo`), `nutzungsart` (nur bei `vbbo`), `entsorgungsweg`, `vevaCode`, `labor` |
+| POST | `/api/entries` | Neue Probe anlegen — `projektId` erforderlich (Schreibzugriff auf das Projekt nötig); Chargenname (`probeBezeichnung`) wird serverseitig aus Projekt-Kürzel + fortlaufender Nummer vergeben. Weitere Felder: `standard` (`vvea`/`vbbo`), `nutzungsart` (nur bei `vbbo`), `entsorgungsweg`, `vevaCode`, `labor`, `externZugriff` (nur admin/Projektleitung) |
 | PUT | `/api/entries/:id` | Probe aktualisieren (Projekt/Chargenname bleiben nach dem Anlegen fix) |
-| DELETE | `/api/entries/:id` | Probe löschen (inkl. zugehöriger Fotos) |
+| DELETE | `/api/entries/:id` | admin/zuständige Projektleitung: löscht sofort (inkl. Fotos). Probenehmer/in mit Zugriff: beantragt nur die Löschung (Status 202, Probe bleibt bestehen) |
+| POST | `/api/entries/:id/cancel-delete-request` | Löschantrag zurückziehen (antragstellende Person oder admin/Projektleitung) |
+| POST | `/api/entries/:id/approve-delete` | Löschantrag freigeben → endgültig löschen (nur admin/zuständige Projektleitung) |
+| POST | `/api/entries/:id/reject-delete` | Löschantrag ablehnen, Probe bleibt (nur admin/zuständige Projektleitung) |
 | POST | `/api/entries/:id/photos` | Fotos hochladen (multipart, Feld `photos`) |
 | GET | `/api/entries/:id/photos/:photoId/file` | Fotodatei abrufen |
 | DELETE | `/api/entries/:id/photos/:photoId` | Foto löschen |

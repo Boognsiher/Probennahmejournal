@@ -49,6 +49,11 @@ body.logged-out .tabs,
 body.logged-out .disclaimer,
 body.logged-out .user-box { display: none; }
 
+/* Extern: rein lesend, kein eigener Projekt-Scope — "Neue Probe"/"Projekte"
+   ergäben nur leere Formulare bzw. 403. Siehe Rollenmodell in app.js/server. */
+body.role-extern .tabs a[data-route="eintrag"],
+body.role-extern .tabs a[data-route="projekte"] { display: none; }
+
 .disclaimer {
   background: #fff3e0; color: #7a3b00; border-bottom: 1px solid #ffcc80;
   padding: .75rem 1rem; font-size: .85rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;

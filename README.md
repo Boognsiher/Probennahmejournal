@@ -53,6 +53,12 @@ App zur Führung eines Probennahmejournals auf der Baustelle:
   Grenzwert je Wert), E-Mail-Versand mit PDF nach Möglichkeit direkt angehängt (native Teilen-Funktion des
   Geräts)
 - **Journal mit Filtern** (Projekt, Material, Standard, Klasse) und Sortierung zum Aufräumen/Wiederfinden
+- **Vier Benutzerrollen** (nur `shell/`- und `server/`+`public/`-Variante, siehe Tabelle unten — `lokal/` ist
+  Einzelbenutzer-/Offline und kennt keine Rollen): **Admin** (alles), **Projektleitung** (eigene Projekte
+  anlegen und für Probenehmer/innen freigeben, Analytik-Programme bearbeiten, VVEA-Grenzwertänderungen beim
+  Admin beantragen), **Probenehmer/in** (in freigegebenen Projekten Proben erfassen/bearbeiten; Löschen braucht
+  eine Freigabe der Projektleitung), **Extern** (rein lesend, nur einzelne von der Projektleitung/dem Admin
+  freigegebene Proben — kein eigener Projekt-Zugriff). Details: [`server/README.md`](server/README.md#rollen--sichtbarkeit).
 
 Es gibt **drei eigenständige Varianten** im selben Repository – je nach Bedarf wählbar:
 
@@ -60,7 +66,7 @@ Es gibt **drei eigenständige Varianten** im selben Repository – je nach Bedar
 |---|---|---|---|
 | **Für wen** | Eine Person / ein Gerät | Team-Variante **testen/vorführen**, ohne einen Server aufzusetzen | Ein Team mit mehreren Personen/Geräten, produktiv |
 | **Daten** | Nur lokal im Browser (IndexedDB) | Simuliert im Browser (`localStorage`), nicht echt geteilt | Zentral auf dem Server (SQLite + Dateisystem) |
-| **Login** | Kein Login nötig | Simuliertes Login mit Demo-Zugängen | Echte individuelle Benutzer-Accounts |
+| **Login** | Kein Login nötig | Simuliertes Login mit Demo-Zugängen (alle 4 Rollen) | Echte individuelle Benutzer-Accounts (alle 4 Rollen) |
 | **Betrieb** | Rein statisch, z.B. GitHub Pages | Rein statisch, z.B. GitHub Pages | Braucht einen laufenden Node.js-Server (VPS/NAS/Raspberry Pi oder Docker) |
 | **Los geht's** | [`lokal/README.md`](lokal/README.md) | [`shell/README.md`](shell/README.md) | [`server/README.md`](server/README.md) |
 

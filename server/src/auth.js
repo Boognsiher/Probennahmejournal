@@ -31,3 +31,16 @@ export function requireAdmin(req, res, next) {
   if (req.user?.role !== 'admin') return res.status(403).json({ error: 'Nur für Administratoren.' });
   next();
 }
+
+// Rollenmodell: 'admin' (alles), 'projektleiter' (eigene Projekte anlegen/
+// verwalten, Zugriff für Probenehmer/externe Nutzer steuern), 'probenehmer'
+// (Proben in freigegebenen Projekten anlegen/bearbeiten, Löschung braucht
+// Freigabe der Projektleitung), 'extern' (nur lesen, nur einzeln
+// freigegebene Proben). Siehe routes/projects.js und routes/entries.js für
+// die konkrete Sichtbarkeits-/Schreibrechte-Logik je Rolle.
+export function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!roles.includes(req.user?.role)) return res.status(403).json({ error: 'Dafür fehlt die Berechtigung.' });
+    next();
+  };
+}

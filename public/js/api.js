@@ -72,8 +72,23 @@ export async function updateEntryApi(id, entry) {
   const data = await request(`/entries/${id}`, { method: 'PUT', body: entry });
   return data.entry;
 }
+// Gibt bei admin/zuständiger Projektleitung `null` zurück (sofort gelöscht,
+// Server antwortet 204). Bei Probenehmer/innen mit Zugriff wird nur eine
+// Löschung BEANTRAGT (Server antwortet 202 mit {entry, message}) — die Probe
+// bleibt bestehen, bis die Projektleitung/Admin sie freigibt oder ablehnt.
 export async function deleteEntryApi(id) {
-  await request(`/entries/${id}`, { method: 'DELETE' });
+  return request(`/entries/${id}`, { method: 'DELETE' });
+}
+export async function cancelDeleteRequestApi(id) {
+  const data = await request(`/entries/${id}/cancel-delete-request`, { method: 'POST' });
+  return data.entry;
+}
+export async function approveDeleteApi(id) {
+  await request(`/entries/${id}/approve-delete`, { method: 'POST' });
+}
+export async function rejectDeleteApi(id) {
+  const data = await request(`/entries/${id}/reject-delete`, { method: 'POST' });
+  return data.entry;
 }
 
 // ---------- Fotos ----------
@@ -106,6 +121,26 @@ export async function saveThresholdsApi(thresholds) {
 export async function resetThresholdsApi() {
   const data = await request('/settings/thresholds/reset', { method: 'POST' });
   return data.thresholds;
+}
+
+// ---------- Änderungsanträge VVEA-Grenzwerte (Projektleitung -> Admin) ----------
+export async function listThresholdRequestsApi() {
+  const data = await request('/settings/thresholds/requests');
+  return data.requests;
+}
+export async function requestThresholdChangeApi(thresholds, note = '') {
+  const data = await request('/settings/thresholds/requests', { method: 'POST', body: { thresholds, note } });
+  return data.id;
+}
+export async function cancelThresholdRequestApi(id) {
+  await request(`/settings/thresholds/requests/${id}/cancel`, { method: 'POST' });
+}
+export async function applyThresholdRequestApi(id) {
+  const data = await request(`/settings/thresholds/requests/${id}/apply`, { method: 'POST' });
+  return data.thresholds;
+}
+export async function rejectThresholdRequestApi(id) {
+  await request(`/settings/thresholds/requests/${id}/reject`, { method: 'POST' });
 }
 
 // ---------- Parameter (Grenzwerte-Zeilen) ----------
@@ -206,6 +241,10 @@ export async function listUsersApi() {
 }
 export async function createUserApi(user) {
   const data = await request('/users', { method: 'POST', body: user });
+  return data.user;
+}
+export async function updateUserRoleApi(id, role) {
+  const data = await request(`/users/${id}/role`, { method: 'PUT', body: { role } });
   return data.user;
 }
 export async function deleteUserApi(id) {

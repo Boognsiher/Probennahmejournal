@@ -75,11 +75,12 @@ const DEFAULT_LABORE = [
   { id: 'eurofins', name: 'Eurofins', ort: 'Deutschland', email: '', adresse: '', telefon: '' },
 ];
 
-// v10: Labore-Datenbank + "labor"-Feld bei Proben ergänzt ("Analysen
-// auslösen" schickt jetzt einen Analysenauftrag ans Labor statt Zeilen in
-// die Analysewerte-Tabelle einzufügen). Version angehoben, damit bereits
-// laufende Test-Sessions die neuen Startwerte erhalten.
-const DB_KEY = 'pnj_mock_db_v10';
+// v11: Rollenmodell admin/projektleiter/probenehmer/extern ergänzt (siehe
+// canView-/canManage-/canWriteInProject unten, Löschantrag-Workflow,
+// externe Einzelfreigabe je Probe, VVEA-Grenzwert-Änderungsanträge). Version
+// angehoben, damit bereits laufende Test-Sessions die neuen Demo-Konten und
+// Datenfelder erhalten (alte Rolle "user" existiert nicht mehr).
+const DB_KEY = 'pnj_mock_db_v11';
 const TOKEN_KEY = 'pnj_token';
 const USER_KEY = 'pnj_user';
 
@@ -93,20 +94,26 @@ function pad3(n) { return String(n).padStart(3, '0'); }
 
 function seedDb() {
   const now = new Date().toISOString();
+  const adminId = uid();
+  const projektleiterId = uid();
   return {
     users: [
-      { id: uid(), email: 'admin@demo.ch', password: 'demo1234', name: 'Demo Admin', role: 'admin', createdAt: now },
-      { id: uid(), email: 'team@demo.ch', password: 'demo1234', name: 'Demo Team-Mitglied', role: 'user', createdAt: now },
+      { id: adminId, email: 'admin@demo.ch', password: 'demo1234', name: 'Demo Admin', role: 'admin', createdAt: now },
+      { id: projektleiterId, email: 'leitung@demo.ch', password: 'demo1234', name: 'Demo Projektleitung', role: 'projektleiter', createdAt: now },
+      { id: uid(), email: 'team@demo.ch', password: 'demo1234', name: 'Demo Probenehmer/in', role: 'probenehmer', createdAt: now },
+      { id: uid(), email: 'extern@demo.ch', password: 'demo1234', name: 'Demo Extern', role: 'extern', createdAt: now },
     ],
     projects: [
       {
         id: uid(), name: 'Demo Baustelle Zürich', kuerzel: 'DEMO', auftraggeber: 'Muster AG', ort: 'Zürich', bemerkungen: '',
         entsorgungswege: ['Deponie Muster AG, Zürich', 'Aushubdeponie Musterhausen'],
         entnahmeorte: ['Baugrube Nord, Schicht 1', 'Baugrube Süd, Schicht 2'],
-        nextChargeNumber: 1, createdAt: now,
+        probenehmerZugriff: [],
+        nextChargeNumber: 1, createdAt: now, createdBy: projektleiterId,
       },
     ],
     entries: [],
+    thresholdRequests: [],
     thresholds: JSON.parse(JSON.stringify(DEMO_THRESHOLDS)),
     parameters: JSON.parse(JSON.stringify(DEFAULT_PARAMETERS)),
     vbboThresholds: JSON.parse(JSON.stringify(DEFAULT_VBBO_THRESHOLDS)),
@@ -159,8 +166,46 @@ function requireAdmin() {
   if (user.role !== 'admin') throw new ApiError('Nur für Administratoren.', 403);
   return user;
 }
+function requireRole(...roles) {
+  const user = requireAuth();
+  if (!roles.includes(user.role)) throw new ApiError('Dafür fehlt die Berechtigung.', 403);
+  return user;
+}
 function stripPhotoData(entry) {
   return { ...entry, photos: (entry.photos || []).map(({ dataUrl, ...meta }) => meta) };
+}
+
+// ---------- Rollen/Sichtbarkeit (bildet server/src/routes/projects.js +
+// entries.js nach — siehe dort für die ausführliche Erklärung) ----------
+function canViewProject(project, user) {
+  if (!project || !user) return false;
+  if (user.role === 'admin') return true;
+  if (user.role === 'projektleiter') return project.createdBy === user.id;
+  if (user.role === 'probenehmer') return (project.probenehmerZugriff || []).includes(user.id);
+  return false; // extern: kein Projekt-Scope, nur einzelne Proben
+}
+function canManageProject(project, user) {
+  if (!project || !user) return false;
+  if (user.role === 'admin') return true;
+  return user.role === 'projektleiter' && project.createdBy === user.id;
+}
+function canWriteInProject(project, user) {
+  if (!project || !user) return false;
+  if (canManageProject(project, user)) return true;
+  return user.role === 'probenehmer' && (project.probenehmerZugriff || []).includes(user.id);
+}
+function visibleProjects(user) {
+  return db.projects.filter(p => canViewProject(p, user));
+}
+function canViewEntry(entry, user) {
+  if (user.role === 'extern') return (entry.externZugriff || []).includes(user.id);
+  const project = db.projects.find(p => p.id === entry.projektId);
+  return canViewProject(project, user);
+}
+function sanitizeUserIds(list) {
+  if (!Array.isArray(list)) return [];
+  const known = new Set(db.users.map(u => u.id));
+  return [...new Set(list.map(String))].filter(id => known.has(id));
 }
 
 // ---------- Auth ----------
@@ -177,14 +222,15 @@ export async function login(email, password) {
 // ---------- Einträge ----------
 export async function listEntries() {
   await delay();
-  requireAuth();
-  return [...db.entries].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).map(stripPhotoData);
+  const user = requireAuth();
+  return [...db.entries].filter(e => canViewEntry(e, user))
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).map(stripPhotoData);
 }
 export async function getEntryApi(id) {
   await delay();
-  requireAuth();
+  const user = requireAuth();
   const entry = db.entries.find(e => e.id === id);
-  if (!entry) throw new ApiError('Probe nicht gefunden.', 404);
+  if (!entry || !canViewEntry(entry, user)) throw new ApiError('Probe nicht gefunden.', 404);
   return stripPhotoData(entry);
 }
 
@@ -196,6 +242,7 @@ export async function createEntryApi(entry) {
   if (!entry.projektId) throw new ApiError('Bitte zuerst ein Projekt auswählen.', 400);
   const project = db.projects.find(p => p.id === entry.projektId);
   if (!project) throw new ApiError('Projekt nicht gefunden.', 400);
+  if (!canWriteInProject(project, user)) throw new ApiError('Dafür fehlt die Berechtigung.', 403);
   const seq = project.nextChargeNumber;
   const probeBezeichnung = `${project.kuerzel}-${pad3(seq)}`;
   project.nextChargeNumber = seq + 1;
@@ -223,6 +270,12 @@ export async function createEntryApi(entry) {
     mengeEinheit: entry.mengeEinheit === 'm3' ? 'm3' : 't',
     analytikProgramme: Array.isArray(entry.analytikProgramme) ? entry.analytikProgramme : [],
     labor: entry.labor || '',
+    // externZugriff beim Anlegen nur übernehmen, wenn die anlegende Person auch
+    // verwalten darf — Probenehmer/innen können beim Erfassen keine externe
+    // Sichtbarkeit vergeben (siehe server/src/routes/entries.js upsertFields).
+    externZugriff: canManageProject(project, user) ? sanitizeUserIds(entry.externZugriff) : [],
+    deletionRequestedAt: null,
+    deletionRequestedBy: null,
     createdBy: user.id,
     photos: [],
   };
@@ -233,9 +286,12 @@ export async function createEntryApi(entry) {
 // Projekt und Chargenname bleiben nach dem Anlegen fix (Nachvollziehbarkeit).
 export async function updateEntryApi(id, entry) {
   await delay();
-  requireAuth();
+  const user = requireAuth();
   const existing = db.entries.find(e => e.id === id);
   if (!existing) throw new ApiError('Probe nicht gefunden.', 404);
+  const project = db.projects.find(p => p.id === existing.projektId);
+  if (!canWriteInProject(project, user)) throw new ApiError('Dafür fehlt die Berechtigung.', 403);
+  const manage = canManageProject(project, user);
   Object.assign(existing, {
     entnahmeort: entry.entnahmeort ?? '', gps: entry.gps ?? null,
     material: entry.material ?? '', probenehmer: entry.probenehmer ?? '',
@@ -249,16 +305,70 @@ export async function updateEntryApi(id, entry) {
     mengeEinheit: entry.mengeEinheit === 'm3' ? 'm3' : 't',
     analytikProgramme: Array.isArray(entry.analytikProgramme) ? entry.analytikProgramme : [],
     labor: entry.labor ?? '',
+    // externZugriff darf nur ändern, wer die Probe auch verwaltet — sonst bleibt der bisherige Wert.
+    externZugriff: manage ? sanitizeUserIds(entry.externZugriff ?? existing.externZugriff) : existing.externZugriff,
     updatedAt: new Date().toISOString(),
   });
   persist();
   return stripPhotoData(existing);
 }
+// Admin/zuständige Projektleitung löschen sofort (gibt `null` zurück).
+// Probenehmer/innen mit Schreibzugriff können nur eine Löschung BEANTRAGEN
+// (gibt {entry, message} zurück) — braucht Freigabe, siehe approveDeleteApi.
 export async function deleteEntryApi(id) {
   await delay();
-  requireAuth();
+  const user = requireAuth();
+  const existing = db.entries.find(e => e.id === id);
+  if (!existing) throw new ApiError('Probe nicht gefunden.', 404);
+  const project = db.projects.find(p => p.id === existing.projektId);
+  if (canManageProject(project, user)) {
+    db.entries = db.entries.filter(e => e.id !== id);
+    persist();
+    return null;
+  }
+  if (user.role === 'probenehmer' && canWriteInProject(project, user)) {
+    existing.deletionRequestedAt = new Date().toISOString();
+    existing.deletionRequestedBy = user.id;
+    persist();
+    return { entry: stripPhotoData(existing), message: 'Löschung beantragt — braucht Freigabe der Projektleitung.' };
+  }
+  throw new ApiError('Dafür fehlt die Berechtigung.', 403);
+}
+export async function cancelDeleteRequestApi(id) {
+  await delay();
+  const user = requireAuth();
+  const existing = db.entries.find(e => e.id === id);
+  if (!existing) throw new ApiError('Probe nicht gefunden.', 404);
+  const project = db.projects.find(p => p.id === existing.projektId);
+  const isRequester = existing.deletionRequestedBy === user.id;
+  if (!isRequester && !canManageProject(project, user)) throw new ApiError('Dafür fehlt die Berechtigung.', 403);
+  existing.deletionRequestedAt = null;
+  existing.deletionRequestedBy = null;
+  persist();
+  return stripPhotoData(existing);
+}
+export async function approveDeleteApi(id) {
+  await delay();
+  const user = requireAuth();
+  const existing = db.entries.find(e => e.id === id);
+  if (!existing) throw new ApiError('Probe nicht gefunden.', 404);
+  const project = db.projects.find(p => p.id === existing.projektId);
+  if (!canManageProject(project, user)) throw new ApiError('Dafür fehlt die Berechtigung.', 403);
+  if (!existing.deletionRequestedAt) throw new ApiError('Kein offener Löschantrag für diese Probe.', 400);
   db.entries = db.entries.filter(e => e.id !== id);
   persist();
+}
+export async function rejectDeleteApi(id) {
+  await delay();
+  const user = requireAuth();
+  const existing = db.entries.find(e => e.id === id);
+  if (!existing) throw new ApiError('Probe nicht gefunden.', 404);
+  const project = db.projects.find(p => p.id === existing.projektId);
+  if (!canManageProject(project, user)) throw new ApiError('Dafür fehlt die Berechtigung.', 403);
+  existing.deletionRequestedAt = null;
+  existing.deletionRequestedBy = null;
+  persist();
+  return stripPhotoData(existing);
 }
 
 // ---------- Fotos (als data: URLs in localStorage) ----------
@@ -323,6 +433,53 @@ export async function resetThresholdsApi() {
   db.thresholds = JSON.parse(JSON.stringify(DEMO_THRESHOLDS));
   persist();
   return db.thresholds;
+}
+
+// ---------- Änderungsanträge VVEA-Grenzwerte (Projektleitung -> Admin) ----------
+// Projektleiter dürfen Grenzwerte nicht direkt speichern (siehe
+// saveThresholdsApi oben, weiterhin nur admin), können aber eine Anpassung
+// VORSCHLAGEN — Admin sieht die Anträge und übernimmt oder lehnt ab.
+export async function listThresholdRequestsApi() {
+  await delay();
+  const user = requireRole('admin', 'projektleiter');
+  const rows = user.role === 'admin' ? db.thresholdRequests : db.thresholdRequests.filter(r => r.requestedBy === user.id);
+  return rows.map(r => ({ ...r, requestedByName: db.users.find(u => u.id === r.requestedBy)?.name || null }))
+    .sort((a, b) => (b.requestedAt || '').localeCompare(a.requestedAt || ''));
+}
+export async function requestThresholdChangeApi(thresholds, note = '') {
+  await delay();
+  const user = requireRole('admin', 'projektleiter');
+  const id = uid();
+  db.thresholdRequests.push({ id, thresholds: JSON.parse(JSON.stringify(thresholds)), note: String(note || '').slice(0, 500), requestedAt: new Date().toISOString(), requestedBy: user.id });
+  persist();
+  return id;
+}
+export async function cancelThresholdRequestApi(id) {
+  await delay();
+  const user = requireRole('admin', 'projektleiter');
+  const row = db.thresholdRequests.find(r => r.id === id);
+  if (!row) throw new ApiError('Antrag nicht gefunden.', 404);
+  if (user.role !== 'admin' && row.requestedBy !== user.id) throw new ApiError('Dafür fehlt die Berechtigung.', 403);
+  db.thresholdRequests = db.thresholdRequests.filter(r => r.id !== id);
+  persist();
+}
+export async function applyThresholdRequestApi(id) {
+  await delay();
+  requireAdmin();
+  const row = db.thresholdRequests.find(r => r.id === id);
+  if (!row) throw new ApiError('Antrag nicht gefunden.', 404);
+  db.thresholds = row.thresholds;
+  db.thresholdRequests = db.thresholdRequests.filter(r => r.id !== id);
+  persist();
+  return db.thresholds;
+}
+export async function rejectThresholdRequestApi(id) {
+  await delay();
+  requireAdmin();
+  const before = db.thresholdRequests.length;
+  db.thresholdRequests = db.thresholdRequests.filter(r => r.id !== id);
+  if (db.thresholdRequests.length === before) throw new ApiError('Antrag nicht gefunden.', 404);
+  persist();
 }
 
 // ---------- Parameter (Grenzwerte-Zeilen) ----------
@@ -411,15 +568,18 @@ export async function getAnalytikProgrammeApi() {
   requireAuth();
   return JSON.parse(JSON.stringify(db.analytikProgramme));
 }
+// Anders als die übrigen Grenzwerte/Codes dürfen Analytik-Programme auch von
+// der Projektleitung direkt bearbeitet werden (projektbezogene Auswahl,
+// keine sicherheitskritische Konfiguration) — siehe server/src/routes/settings.js.
 export async function saveAnalytikProgrammeApi(programme) {
   await delay();
-  requireAdmin();
+  requireRole('admin', 'projektleiter');
   db.analytikProgramme = programme;
   persist();
 }
 export async function resetAnalytikProgrammeApi() {
   await delay();
-  requireAdmin();
+  requireRole('admin', 'projektleiter');
   db.analytikProgramme = JSON.parse(JSON.stringify(DEFAULT_ANALYTIK_PROGRAMME));
   persist();
   return db.analytikProgramme;
@@ -471,6 +631,7 @@ export async function listUsersApi() {
   requireAdmin();
   return db.users.map(({ password, ...safe }) => safe);
 }
+const ROLES = ['admin', 'projektleiter', 'probenehmer', 'extern'];
 export async function createUserApi(user) {
   await delay();
   requireAdmin();
@@ -478,10 +639,24 @@ export async function createUserApi(user) {
   if (user.password.length < 8) throw new ApiError('Passwort muss mindestens 8 Zeichen haben.', 400);
   const email = String(user.email).toLowerCase().trim();
   if (db.users.some(u => u.email === email)) throw new ApiError('Ein Benutzer mit dieser E-Mail existiert bereits.', 409);
-  const created = { id: uid(), email, name: user.name, password: user.password, role: user.role === 'admin' ? 'admin' : 'user', createdAt: new Date().toISOString() };
+  const created = { id: uid(), email, name: user.name, password: user.password, role: ROLES.includes(user.role) ? user.role : 'probenehmer', createdAt: new Date().toISOString() };
   db.users.push(created);
   persist();
   const { password, ...safe } = created;
+  return safe;
+}
+// Rolle eines bestehenden Kontos ändern — eigene Rolle kann nicht selbst
+// geändert werden (verhindert, dass sich der letzte Admin aussperrt).
+export async function updateUserRoleApi(id, role) {
+  await delay();
+  const me = requireAdmin();
+  if (id === me.id) throw new ApiError('Eigene Rolle kann nicht selbst geändert werden.', 400);
+  if (!ROLES.includes(role)) throw new ApiError('Ungültige Rolle.', 400);
+  const user = db.users.find(u => u.id === id);
+  if (!user) throw new ApiError('Benutzer nicht gefunden.', 404);
+  user.role = role;
+  persist();
+  const { password, ...safe } = user;
   return safe;
 }
 export async function deleteUserApi(id) {
@@ -491,17 +666,19 @@ export async function deleteUserApi(id) {
   db.users = db.users.filter(u => u.id !== id);
   persist();
 }
+// Namensliste für Dropdowns — jede angemeldete Person darf sie sehen,
+// `role` wird mitgeliefert (z.B. damit eine Projektleitung nach Rolle filtern kann).
 export async function getUserRosterApi() {
   await delay();
   requireAuth();
-  return db.users.map(u => ({ id: u.id, name: u.name }));
+  return db.users.map(u => ({ id: u.id, name: u.name, role: u.role }));
 }
 
 // ---------- Projekte ----------
 export async function listProjectsApi() {
   await delay();
-  requireAuth();
-  return [...db.projects].sort((a, b) => a.name.localeCompare(b.name));
+  const user = requireAuth();
+  return visibleProjects(user).sort((a, b) => a.name.localeCompare(b.name));
 }
 function sanitizeKuerzel(k) {
   return String(k || '').toUpperCase().replace(/[^A-Z0-9\-]/g, '').slice(0, 12);
@@ -512,7 +689,7 @@ function sanitizeList(list) {
 }
 export async function createProjectApi(project) {
   await delay();
-  const user = requireAuth();
+  const user = requireRole('admin', 'projektleiter');
   const kuerzel = sanitizeKuerzel(project.kuerzel);
   if (!project.name || !kuerzel) throw new ApiError('Projektname und Kürzel sind erforderlich.', 400);
   const created = {
@@ -520,6 +697,7 @@ export async function createProjectApi(project) {
     auftraggeber: project.auftraggeber || '', ort: project.ort || '', bemerkungen: project.bemerkungen || '',
     entsorgungswege: sanitizeList(project.entsorgungswege),
     entnahmeorte: sanitizeList(project.entnahmeorte),
+    probenehmerZugriff: sanitizeUserIds(project.probenehmerZugriff),
     nextChargeNumber: 1, createdAt: new Date().toISOString(), createdBy: user.id,
   };
   db.projects.push(created);
@@ -528,9 +706,10 @@ export async function createProjectApi(project) {
 }
 export async function updateProjectApi(id, project) {
   await delay();
-  requireAuth();
+  const user = requireAuth();
   const existing = db.projects.find(p => p.id === id);
   if (!existing) throw new ApiError('Projekt nicht gefunden.', 404);
+  if (!canManageProject(existing, user)) throw new ApiError('Dafür fehlt die Berechtigung.', 403);
   const kuerzel = sanitizeKuerzel(project.kuerzel);
   if (!project.name || !kuerzel) throw new ApiError('Projektname und Kürzel sind erforderlich.', 400);
   Object.assign(existing, {
@@ -538,13 +717,17 @@ export async function updateProjectApi(id, project) {
     auftraggeber: project.auftraggeber || '', ort: project.ort || '', bemerkungen: project.bemerkungen || '',
     entsorgungswege: sanitizeList(project.entsorgungswege),
     entnahmeorte: sanitizeList(project.entnahmeorte),
+    probenehmerZugriff: sanitizeUserIds(project.probenehmerZugriff),
   });
   persist();
   return existing;
 }
 export async function deleteProjectApi(id) {
   await delay();
-  requireAuth();
+  const user = requireAuth();
+  const existing = db.projects.find(p => p.id === id);
+  if (!existing) throw new ApiError('Projekt nicht gefunden.', 404);
+  if (!canManageProject(existing, user)) throw new ApiError('Dafür fehlt die Berechtigung.', 403);
   const used = db.entries.filter(e => e.projektId === id).length;
   if (used > 0) throw new ApiError(`Projekt hat noch ${used} Probe(n) und kann nicht gelöscht werden.`, 409);
   db.projects = db.projects.filter(p => p.id !== id);

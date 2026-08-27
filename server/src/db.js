@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT UNIQUE NOT NULL,
   passwordHash TEXT NOT NULL,
   name TEXT NOT NULL,
-  role TEXT NOT NULL DEFAULT 'user', -- 'admin' | 'user'
+  role TEXT NOT NULL DEFAULT 'probenehmer', -- 'admin' | 'projektleiter' | 'probenehmer' | 'extern'
   createdAt TEXT NOT NULL
 );
 
@@ -39,8 +39,9 @@ CREATE TABLE IF NOT EXISTS projects (
   nextChargeNumber INTEGER NOT NULL DEFAULT 1,
   entsorgungswegeJson TEXT DEFAULT '[]', -- vordefinierte Entsorgungswege (Dropdown bei der Probe)
   entnahmeorteJson TEXT DEFAULT '[]',    -- vordefinierte Beprobungsorte (Dropdown bei der Probe)
+  probenehmerZugriffJson TEXT DEFAULT '[]', -- User-IDs (Rolle 'probenehmer') mit Zugriff auf dieses Projekt
   createdAt TEXT NOT NULL,
-  createdBy TEXT REFERENCES users(id)
+  createdBy TEXT REFERENCES users(id) -- Projektleiter/Admin, dem/der das Projekt "gehört" (Sichtbarkeits-Scope)
 );
 
 CREATE TABLE IF NOT EXISTS entries (
@@ -66,6 +67,9 @@ CREATE TABLE IF NOT EXISTS entries (
   mengeEinheit TEXT DEFAULT 't', -- 't' | 'm3'
   analytikProgrammeJson TEXT DEFAULT '[]', -- Array gewählter Analytik-Programm-IDs
   labor TEXT DEFAULT '', -- Name des Labors, an das der Analysenauftrag ging (siehe Einstellungen > Labore)
+  externZugriffJson TEXT DEFAULT '[]', -- User-IDs (Rolle 'extern') mit Lesezugriff auf GENAU diese Probe
+  deletionRequestedAt TEXT, -- gesetzt, wenn ein/e Probenehmer/in die Löschung beantragt hat (braucht Freigabe)
+  deletionRequestedBy TEXT REFERENCES users(id),
   createdBy TEXT REFERENCES users(id)
 );
 CREATE INDEX IF NOT EXISTS idx_entries_projekt ON entries(projektId);
@@ -80,6 +84,18 @@ CREATE TABLE IF NOT EXISTS photos (
   uploadedBy TEXT REFERENCES users(id)
 );
 CREATE INDEX IF NOT EXISTS idx_photos_entry ON photos(entryId);
+
+-- Änderungsanträge, die eine Rolle ohne direktes Schreibrecht auf eine
+-- Einstellung einreichen kann (aktuell: Projektleitung schlägt neue
+-- VVEA-Grenzwerte vor, Admin übernimmt/lehnt ab — siehe routes/settings.js).
+CREATE TABLE IF NOT EXISTS change_requests (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL, -- z.B. 'vvea_thresholds'
+  payloadJson TEXT NOT NULL,
+  note TEXT DEFAULT '',
+  requestedAt TEXT NOT NULL,
+  requestedBy TEXT REFERENCES users(id)
+);
 
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
@@ -101,11 +117,23 @@ addColumnIfMissing('entries', entryCols, 'menge', "menge REAL");
 addColumnIfMissing('entries', entryCols, 'mengeEinheit', "mengeEinheit TEXT DEFAULT 't'");
 addColumnIfMissing('entries', entryCols, 'analytikProgrammeJson', "analytikProgrammeJson TEXT DEFAULT '[]'");
 addColumnIfMissing('entries', entryCols, 'labor', "labor TEXT DEFAULT ''");
+addColumnIfMissing('entries', entryCols, 'externZugriffJson', "externZugriffJson TEXT DEFAULT '[]'");
+addColumnIfMissing('entries', entryCols, 'deletionRequestedAt', "deletionRequestedAt TEXT");
+addColumnIfMissing('entries', entryCols, 'deletionRequestedBy', "deletionRequestedBy TEXT REFERENCES users(id)");
 db.exec('CREATE INDEX IF NOT EXISTS idx_entries_projekt ON entries(projektId)');
 
 const projectCols = db.prepare("PRAGMA table_info(projects)").all().map(c => c.name);
 addColumnIfMissing('projects', projectCols, 'entsorgungswegeJson', "entsorgungswegeJson TEXT DEFAULT '[]'");
 addColumnIfMissing('projects', projectCols, 'entnahmeorteJson', "entnahmeorteJson TEXT DEFAULT '[]'");
+addColumnIfMissing('projects', projectCols, 'probenehmerZugriffJson', "probenehmerZugriffJson TEXT DEFAULT '[]'");
+
+// Rollenmodell erweitert (admin/projektleiter/probenehmer/extern statt nur
+// admin/user) — bestehende 'user'-Konten auf 'probenehmer' migrieren, die
+// nächstliegende Rolle zum bisherigen Verhalten (Proben erfassen/bearbeiten,
+// keine Einstellungen). Betroffene Personen ggf. anschliessend unter
+// Einstellungen > Benutzer auf 'projektleiter' hochstufen, wo nötig — und
+// müssen für ihre Projekte per Zugriffsliste freigeschaltet werden.
+db.prepare("UPDATE users SET role = 'probenehmer' WHERE role = 'user'").run();
 
 // Einstellungen mit Startwerten vorbefüllen, falls noch nicht vorhanden ODER
 // falls ein vorhandener Eintrag erkennbar leer/veraltet ist (z.B. aus einer

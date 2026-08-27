@@ -9,8 +9,11 @@ import {
   getAnalytikProgrammeApi, saveAnalytikProgrammeApi, resetAnalytikProgrammeApi,
   getMaterialienApi, saveMaterialienApi, resetMaterialienApi,
   getLaboreApi, saveLaboreApi, resetLaboreApi,
-  listUsersApi, createUserApi, deleteUserApi, getUserRosterApi,
+  listUsersApi, createUserApi, deleteUserApi, updateUserRoleApi, getUserRosterApi,
   listProjectsApi, createProjectApi, updateProjectApi, deleteProjectApi,
+  cancelDeleteRequestApi, approveDeleteApi, rejectDeleteApi,
+  listThresholdRequestsApi, requestThresholdChangeApi, cancelThresholdRequestApi,
+  applyThresholdRequestApi, rejectThresholdRequestApi,
   login, logout, isLoggedIn, getCurrentUser, ApiError,
 } from './api.js';
 import {
@@ -78,6 +81,24 @@ function errMsg(err) {
   return err instanceof ApiError ? err.message : (err?.message || 'Unbekannter Fehler.');
 }
 
+// ---------- Rollen ----------
+// admin: alles. projektleiter: eigene Projekte anlegen/verwalten, darin
+// Zugriff für Probenehmer/innen und externe Sichtbarkeit je Probe steuern.
+// probenehmer: in freigegebenen Projekten Proben anlegen/bearbeiten, Löschen
+// nur als Antrag (braucht Freigabe). extern: nur lesen, nur einzeln
+// freigegebene Proben.
+function isAdmin(me) { return me?.role === 'admin'; }
+function isProjektleiter(me) { return me?.role === 'projektleiter'; }
+function isProbenehmer(me) { return me?.role === 'probenehmer'; }
+function isExtern(me) { return me?.role === 'extern'; }
+function canManageProjects(me) { return isAdmin(me) || isProjektleiter(me); }
+// true, wenn `me` dieses konkrete Projekt anlegen/bearbeiten/löschen bzw.
+// dessen Zugriffslisten verwalten darf (muss mit projects.js canManageProject
+// serverseitig übereinstimmen — hier nur für die UI, der Server prüft ohnehin).
+function canManageThisProject(me, project) {
+  return isAdmin(me) || (isProjektleiter(me) && project?.createdBy === me.id);
+}
+
 // ---------- Disclaimer ----------
 function initDisclaimer() {
   const el = $('#disclaimer');
@@ -89,8 +110,13 @@ function initDisclaimer() {
 }
 
 // ---------- Topbar / Auth-Status ----------
+const ROLE_LABELS = { admin: 'Admin', projektleiter: 'Projektleitung', probenehmer: 'Probenehmer/in', extern: 'Extern' };
+
 function paintTopbar() {
   document.body.classList.toggle('logged-out', !isLoggedIn());
+  document.body.classList.remove('role-admin', 'role-projektleiter', 'role-probenehmer', 'role-extern');
+  const me = getCurrentUser();
+  if (me?.role) document.body.classList.add(`role-${me.role}`);
   let projectBox = $('#project-box');
   if (!projectBox) {
     projectBox = document.createElement('div');
@@ -111,7 +137,8 @@ function paintTopbar() {
   }
   const user = getCurrentUser();
   if (user) {
-    userBox.innerHTML = `<span class="hint">${escapeHtml(user.name)}${user.role === 'admin' ? ' (Admin)' : ''}</span>
+    const roleLabel = ROLE_LABELS[user.role] || user.role;
+    userBox.innerHTML = `<span class="hint">${escapeHtml(user.name)} (${escapeHtml(roleLabel)})</span>
       <button class="btn secondary" id="btn-logout" type="button">Abmelden</button>`;
     $('#btn-logout').addEventListener('click', () => {
       logout();
@@ -201,11 +228,12 @@ function renderLogin() {
 // ---------- Start (Projektauswahl) ----------
 async function renderStart() {
   appEl.innerHTML = '<p class="hint">Lade Projekte …</p>';
+  const me = getCurrentUser();
   const projects = await listProjectsApi();
   if (projects.length === 0) {
     appEl.innerHTML = `<div class="empty-state">
-      <p>Noch keine Projekte angelegt.</p>
-      <a class="btn" href="#/projekte">+ Projekt anlegen</a>
+      <p>${canManageProjects(me) ? 'Noch keine Projekte angelegt.' : 'Noch kein Projekt-Zugriff — bitte bei der Projektleitung melden.'}</p>
+      ${canManageProjects(me) ? '<a class="btn" href="#/projekte">+ Projekt anlegen</a>' : ''}
     </div>`;
     return;
   }
@@ -217,7 +245,7 @@ async function renderStart() {
       Jederzeit über „Projekt wechseln“ in der Kopfzeile änderbar.</p>
       <div class="entry-list" id="start-project-list"></div>
     </div>
-    <div class="btn-row"><a class="btn secondary" href="#/projekte">+ Neues Projekt anlegen / verwalten</a></div>
+    ${canManageProjects(me) ? '<div class="btn-row"><a class="btn secondary" href="#/projekte">+ Neues Projekt anlegen / verwalten</a></div>' : ''}
   `;
   const list = $('#start-project-list');
   for (const p of projects) {
@@ -371,18 +399,26 @@ let editingProjectId = null;
 
 async function renderProjects() {
   appEl.innerHTML = '<p class="hint">Lade Projekte …</p>';
-  const projects = await listProjectsApi();
+  const me = getCurrentUser();
+  const [projects, roster] = await Promise.all([
+    listProjectsApi(),
+    canManageProjects(me) ? getUserRosterApi().catch(() => []) : Promise.resolve([]),
+  ]);
   editingProjectId = null;
-  paintProjects(projects);
+  paintProjects(projects, roster);
 }
 
-function paintProjects(projects) {
+function paintProjects(projects, roster) {
+  const me = getCurrentUser();
   const editing = projects.find(p => p.id === editingProjectId) || null;
+  const probenehmerOptions = roster.filter(u => u.role === 'probenehmer');
   appEl.innerHTML = `
     <div class="card">
       <h2>Projekte</h2>
-      <p class="hint">Vor der ersten Probennahme ein Projekt anlegen — Chargennamen werden danach automatisch
-      und fortlaufend pro Projekt vergeben (Kürzel-Nummer, z.B. <code>A123-001</code>).</p>
+      <p class="hint">${canManageProjects(me)
+        ? 'Vor der ersten Probennahme ein Projekt anlegen — Chargennamen werden danach automatisch und '
+          + 'fortlaufend pro Projekt vergeben (Kürzel-Nummer, z.B. <code>A123-001</code>).'
+        : 'Projekte, für die dir Zugriff gewährt wurde.'}</p>
       ${projects.length === 0 ? '<p class="hint">Noch keine Projekte.</p>' : `
       <div class="entry-list">
         ${projects.map(p => `
@@ -393,14 +429,16 @@ function paintProjects(projects) {
               <p class="hint">Beprobungsorte: ${(p.entnahmeorte || []).length ? escapeHtml(p.entnahmeorte.join(', ')) : '–'}</p>
               <p class="hint">Entsorgungswege: ${(p.entsorgungswege || []).length ? escapeHtml(p.entsorgungswege.join(', ')) : '–'}</p>
             </div>
+            ${canManageThisProject(me, p) ? `
             <div class="btn-row" style="margin:0;">
               <button class="btn secondary" type="button" data-edit-project="${p.id}">Bearbeiten</button>
               <button class="btn danger" type="button" data-del-project="${p.id}">Löschen</button>
-            </div>
+            </div>` : ''}
           </div>`).join('')}
       </div>`}
     </div>
 
+    ${canManageProjects(me) ? `
     <div class="card">
       <h2>${editing ? 'Projekt bearbeiten' : 'Neues Projekt anlegen'}</h2>
       <div class="grid-2">
@@ -420,11 +458,23 @@ function paintProjects(projects) {
           <textarea id="p-entsorgungswege" rows="3" placeholder="z.B. Deponie Muster AG, Zürich">${escapeHtml((editing?.entsorgungswege || []).join('\n'))}</textarea>
         </div>
       </div>
+      <div class="field">
+        <label>Zugriff für Probenehmer/innen <span class="hint">(sehen das Projekt und können darin Proben erfassen)</span></label>
+        ${probenehmerOptions.length === 0 ? '<p class="hint">Keine Benutzer mit Rolle „Probenehmer/in“ vorhanden — unter Einstellungen &gt; Benutzer anlegen.</p>' : `
+        <div style="display:flex;flex-direction:column;gap:.3rem;">
+          ${probenehmerOptions.map(u => `<label style="display:flex;align-items:center;gap:.5rem;">
+            <input type="checkbox" data-probenehmer-zugriff value="${u.id}" ${(editing?.probenehmerZugriff || []).includes(u.id) ? 'checked' : ''}>
+            ${escapeHtml(u.name)}
+          </label>`).join('')}
+        </div>`}
+      </div>
       <div class="btn-row">
         <button class="btn" id="btn-save-project" type="button">${editing ? '💾 Speichern' : '+ Projekt anlegen'}</button>
         ${editing ? '<button class="btn secondary" id="btn-cancel-edit-project" type="button">Abbrechen</button>' : ''}
       </div>
-    </div>`;
+    </div>` : ''}`;
+
+  if (!canManageProjects(me)) return;
 
   const nameInput = $('#p-name'), kuerzelInput = $('#p-kuerzel');
   let kuerzelTouched = !!editing?.kuerzel;
@@ -436,7 +486,7 @@ function paintProjects(projects) {
 
   $$('[data-edit-project]').forEach(btn => btn.addEventListener('click', () => {
     editingProjectId = btn.dataset.editProject;
-    paintProjects(projects);
+    paintProjects(projects, roster);
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
   }));
   $$('[data-del-project]').forEach(btn => btn.addEventListener('click', async () => {
@@ -449,7 +499,7 @@ function paintProjects(projects) {
     } catch (err) { toast('Fehler: ' + errMsg(err)); }
   }));
   const cancelBtn = $('#btn-cancel-edit-project');
-  if (cancelBtn) cancelBtn.addEventListener('click', () => { editingProjectId = null; paintProjects(projects); });
+  if (cancelBtn) cancelBtn.addEventListener('click', () => { editingProjectId = null; paintProjects(projects, roster); });
 
   const parseLines = text => text.split('\n').map(s => s.trim()).filter(Boolean);
 
@@ -462,6 +512,7 @@ function paintProjects(projects) {
       bemerkungen: $('#p-bemerkungen').value.trim(),
       entnahmeorte: parseLines($('#p-entnahmeorte').value),
       entsorgungswege: parseLines($('#p-entsorgungswege').value),
+      probenehmerZugriff: $$('[data-probenehmer-zugriff]:checked').map(cb => cb.value),
     };
     if (!payload.name || !payload.kuerzel) { toast('Bitte Projektname und Kürzel angeben.'); return; }
     try {
@@ -488,6 +539,7 @@ let vevaCodes = [];
 let analytikProgramme = [];
 let materialien = [];
 let labore = [];
+let thresholdRequests = []; // offene Änderungsanträge für VVEA-Grenzwerte (nur admin/projektleiter)
 let formProjects = [];
 let formRoster = [];
 
@@ -499,6 +551,7 @@ function newDraftEntry() {
     material: '', probenehmer: '', bemerkungen: '', menge: null, mengeEinheit: 't',
     standard: 'vvea', nutzungsart: NUTZUNGSARTEN[0].id, entsorgungsweg: '', vevaCode: '', labor: '',
     analytikProgramme: [], photos: [], analyse: [], klassifizierung: null,
+    externZugriff: [], deletionRequestedAt: null, deletionRequestedBy: null,
   };
 }
 
@@ -528,9 +581,10 @@ async function renderEntryForm(idOrNeu) {
     isNew = true;
     formProjects = await listProjectsApi();
     if (formProjects.length === 0) {
+      const canCreate = canManageProjects(getCurrentUser());
       appEl.innerHTML = `<div class="empty-state">
-        <p>Bevor eine Probe erfasst werden kann, muss zuerst ein Projekt angelegt werden.</p>
-        <a class="btn" href="#/projekte">+ Projekt anlegen</a>
+        <p>${canCreate ? 'Bevor eine Probe erfasst werden kann, muss zuerst ein Projekt angelegt werden.' : 'Noch kein Projekt-Zugriff — bitte bei der Projektleitung melden.'}</p>
+        ${canCreate ? '<a class="btn" href="#/projekte">+ Projekt anlegen</a>' : ''}
       </div>`;
       return;
     }
@@ -546,7 +600,65 @@ async function renderEntryForm(idOrNeu) {
   }
   formRoster = await getUserRosterApi().catch(() => []);
   recomputeClassification();
+  if (!isNew && isExtern(getCurrentUser())) { paintEntryReadOnly(); return; }
   paintEntryForm();
+}
+
+// Rein lesende Ansicht für die Rolle "extern" — bewusst ein eigenes,
+// schlankes Template statt des interaktiven Formulars mit lauter
+// disabled-Feldern: klarer für die Nutzenden, weniger Angriffsfläche für
+// versehentliche Schreibversuche (der Server lehnt sie ohnehin ab).
+function paintEntryReadOnly() {
+  const e = currentEntry;
+  appEl.innerHTML = `
+    <div class="card">
+      <h2>Probe ${escapeHtml(e.probeBezeichnung)} <span class="hint">(nur Lesezugriff)</span></h2>
+      <div class="grid-2">
+        <div class="field"><label>Projekt</label><p>${escapeHtml(e.baustelle || '–')}</p></div>
+        <div class="field"><label>Material</label><p>${escapeHtml(e.material || '–')}</p></div>
+        <div class="field"><label>Beprobungsort</label><p>${escapeHtml(e.entnahmeort || '–')}</p></div>
+        <div class="field"><label>Datum</label><p>${fmtDate(e.createdAt)}</p></div>
+        <div class="field"><label>Menge</label><p>${fmtMenge(e) || '–'}</p></div>
+        <div class="field"><label>Probenehmer/in</label><p>${escapeHtml(e.probenehmer || '–')}</p></div>
+        <div class="field"><label>Standard</label><p>${e.standard === 'vbbo' ? 'VBBo (Bodenqualität)' : 'VVEA (Deponieklassen)'}</p></div>
+        <div class="field"><label>VeVA-Code</label><p>${escapeHtml(e.vevaCode || '–')}</p></div>
+        <div class="field"><label>Entsorgungsweg</label><p>${escapeHtml(e.entsorgungsweg || '–')}</p></div>
+        <div class="field"><label>Labor</label><p>${escapeHtml(e.labor || '–')}</p></div>
+      </div>
+      ${e.bemerkungen ? `<div class="field"><label>Bemerkungen</label><p>${escapeHtml(e.bemerkungen)}</p></div>` : ''}
+    </div>
+
+    <div class="card">
+      <h2>Fotos</h2>
+      <div class="photo-grid" id="photo-grid-ro">${(e.photos || []).length ? '' : '<p class="hint">Keine Fotos.</p>'}</div>
+    </div>
+
+    <div class="card">
+      <h2>Analysewerte</h2>
+      <div style="overflow-x:auto"><table class="analyse-table">
+        <tr><th>Parameter</th><th>Wert</th><th>Einheit</th><th>Art</th><th>Einstufung</th></tr>
+        ${(e.analyse || []).map(r => `
+          <tr>
+            <td>${escapeHtml(activeParamList().find(p => p.key === r.parameterKey)?.label || r.parameterKey)}</td>
+            <td>${r.wert ?? '–'}</td>
+            <td class="hint">${escapeHtml(r.einheit || '')}</td>
+            <td>${r.art === 'eluat' ? 'Eluat' : 'Gesamt'}</td>
+            <td>${rowClassBadge(r)}</td>
+          </tr>`).join('') || '<tr><td class="hint" colspan="5">Keine Analysewerte erfasst.</td></tr>'}
+      </table></div>
+      <div id="classification-banner"></div>
+    </div>
+  `;
+  const grid = $('#photo-grid-ro');
+  (e.photos || []).forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'photo-thumb';
+    const img = document.createElement('img');
+    div.appendChild(img);
+    grid.appendChild(div);
+    getPhotoUrl(e.id, p).then(url => { img.src = url; }).catch(() => {});
+  });
+  paintClassificationBanner();
 }
 
 function recomputeClassification() {
@@ -579,6 +691,8 @@ function paintEntryForm() {
   const entsorgungswegIsCustom = e.entsorgungsweg && !projectEntsorgungswege.includes(e.entsorgungsweg);
   const laborIsCustom = e.labor && !labore.some(l => l.name === e.labor);
   const labelSize = loadLabelSize();
+  const canManageThisEntry = canManageThisProject(me, project);
+  const externOptions = formRoster.filter(u => u.role === 'extern');
   if (isNew && !e.probenehmer && me) e.probenehmer = me.name;
   if (!Array.isArray(e.analytikProgramme)) e.analytikProgramme = [];
   e.standard = materialToStandard(e.material, materialien);
@@ -740,11 +854,40 @@ function paintEntryForm() {
       `}
     </div>
 
+    ${(!isNew && canManageThisEntry) ? `
+    <div class="card">
+      <h2>Sichtbarkeit für externe Nutzer</h2>
+      <p class="hint">Wer hier angehakt ist, sieht GENAU diese Probe (nur lesend) — unabhängig vom
+      restlichen Projekt. Weitere externe Nutzer unter Einstellungen &gt; Benutzer anlegen.</p>
+      ${externOptions.length === 0 ? '<p class="hint">Keine Benutzer mit Rolle „Extern“ vorhanden.</p>' : `
+      <div style="display:flex;flex-direction:column;gap:.3rem;">
+        ${externOptions.map(u => `<label style="display:flex;align-items:center;gap:.5rem;">
+          <input type="checkbox" data-extern-zugriff value="${u.id}" ${(e.externZugriff || []).includes(u.id) ? 'checked' : ''}>
+          ${escapeHtml(u.name)}
+        </label>`).join('')}
+      </div>`}
+    </div>` : ''}
+
+    ${(!isNew && e.deletionRequestedAt) ? `
+    <div class="card" style="border:2px solid #b71c1c;">
+      <h2>⚠️ Löschung beantragt</h2>
+      <p class="hint">Beantragt am ${fmtDate(e.deletionRequestedAt)}${e.deletionRequestedBy === me?.id ? ' (von dir)' : ''}.</p>
+      <div class="btn-row">
+        ${canManageThisEntry ? `
+          <button class="btn danger" id="btn-approve-delete" type="button">✅ Löschung freigeben</button>
+          <button class="btn secondary" id="btn-reject-delete" type="button">❌ Ablehnen (Probe bleibt)</button>
+        ` : (e.deletionRequestedBy === me?.id ? `<button class="btn secondary" id="btn-cancel-delete-request" type="button">Antrag zurückziehen</button>` : '')}
+      </div>
+    </div>` : ''}
+
     <div class="btn-row">
       <button class="btn" id="btn-save" type="button">💾 Speichern</button>
       <button class="btn secondary" id="btn-pdf" type="button">📄 Als PDF generieren</button>
       <button class="btn secondary" id="btn-mail" type="button">✉️ E-Mail mit PDF senden</button>
-      ${!isNew ? `<button class="btn danger" id="btn-delete" type="button">🗑 Löschen</button>` : ''}
+      ${(!isNew && !e.deletionRequestedAt) ? (canManageThisEntry
+          ? '<button class="btn danger" id="btn-delete" type="button">🗑 Löschen</button>'
+          : (isProbenehmer(me) ? '<button class="btn danger" id="btn-delete" type="button">🗑 Löschung beantragen</button>' : '')
+        ) : ''}
     </div>
   `;
 
@@ -921,6 +1064,9 @@ function paintEntryForm() {
       updateVevaCodeUI();
       const payload = { ...e };
       delete payload.photos;
+      if (!isNew && canManageThisEntry) {
+        payload.externZugriff = $$('[data-extern-zugriff]').filter(cb => cb.checked).map(cb => cb.value);
+      }
       let saved;
       if (isNew) saved = await createEntryApi(payload);
       else saved = await updateEntryApi(e.id, payload);
@@ -994,16 +1140,63 @@ function paintEntryForm() {
   });
 
   if (!isNew) {
-    $('#btn-delete').addEventListener('click', async () => {
-      if (!confirm('Diese Probe wirklich löschen?')) return;
-      try {
-        await deleteEntryApi(e.id);
-        toast('Gelöscht');
-        location.hash = '#/journal';
-      } catch (err) {
-        toast('Fehler beim Löschen: ' + errMsg(err));
-      }
-    });
+    if ($('#btn-delete')) {
+      $('#btn-delete').addEventListener('click', async () => {
+        const confirmMsg = canManageThisEntry
+          ? 'Diese Probe wirklich löschen?'
+          : 'Löschung dieser Probe bei der Projektleitung/Admin beantragen?';
+        if (!confirm(confirmMsg)) return;
+        try {
+          const result = await deleteEntryApi(e.id);
+          if (result && result.entry) {
+            // 202 — nur beantragt, Probe bleibt bestehen
+            toast(result.message || 'Löschung beantragt');
+            await renderEntryForm(e.id);
+          } else {
+            // 204 — sofort gelöscht
+            toast('Gelöscht');
+            location.hash = '#/journal';
+          }
+        } catch (err) {
+          toast('Fehler: ' + errMsg(err));
+        }
+      });
+    }
+
+    if ($('#btn-approve-delete')) {
+      $('#btn-approve-delete').addEventListener('click', async () => {
+        if (!confirm('Löschung dieser Probe endgültig freigeben?')) return;
+        try {
+          await approveDeleteApi(e.id);
+          toast('Gelöscht');
+          location.hash = '#/journal';
+        } catch (err) {
+          toast('Fehler: ' + errMsg(err));
+        }
+      });
+    }
+    if ($('#btn-reject-delete')) {
+      $('#btn-reject-delete').addEventListener('click', async () => {
+        try {
+          await rejectDeleteApi(e.id);
+          toast('Löschantrag abgelehnt — Probe bleibt bestehen');
+          await renderEntryForm(e.id);
+        } catch (err) {
+          toast('Fehler: ' + errMsg(err));
+        }
+      });
+    }
+    if ($('#btn-cancel-delete-request')) {
+      $('#btn-cancel-delete-request').addEventListener('click', async () => {
+        try {
+          await cancelDeleteRequestApi(e.id);
+          toast('Antrag zurückgezogen');
+          await renderEntryForm(e.id);
+        } catch (err) {
+          toast('Fehler: ' + errMsg(err));
+        }
+      });
+    }
 
     $('#btn-print-label').addEventListener('click', async () => {
       const size = { w: parseFloat($('#f-label-w').value) || 62, h: parseFloat($('#f-label-h').value) || 29 };
@@ -1275,6 +1468,8 @@ const VEVA_MATERIALIEN = ['Oberboden', 'Unterboden', 'Aushub'];
 async function renderSettings() {
   appEl.innerHTML = '<p class="hint">Lade Einstellungen …</p>';
   await loadVveaConfig();
+  const me = getCurrentUser();
+  thresholdRequests = (isAdmin(me) || isProjektleiter(me)) ? await listThresholdRequestsApi().catch(() => []) : [];
   await paintSettings();
 }
 
@@ -1286,6 +1481,9 @@ async function renderSettings() {
 async function paintSettings() {
   const me = getCurrentUser();
   const isAdmin = me?.role === 'admin';
+  const isProjektleiterRole = me?.role === 'projektleiter';
+  const canProposeThresholds = isAdmin || isProjektleiterRole;
+  const canEditAnalytik = isAdmin || isProjektleiterRole;
   const editableClasses = CLASSES.filter(c => !c.terminal);
 
   let usersHtml = '';
@@ -1301,7 +1499,12 @@ async function paintSettings() {
         <div class="field"><label>E-Mail</label><input id="nu-email" type="email"></div>
         <div class="field"><label>Passwort (mind. 8 Zeichen)</label><input id="nu-pass" type="password"></div>
         <div class="field"><label>Rolle</label>
-          <select id="nu-role"><option value="user">Team-Mitglied</option><option value="admin">Administrator/in</option></select>
+          <select id="nu-role">
+            <option value="probenehmer">Probenehmer/in</option>
+            <option value="projektleiter">Projektleitung</option>
+            <option value="extern">Extern (nur lesen)</option>
+            <option value="admin">Administrator/in</option>
+          </select>
         </div>
       </div>
       <button class="btn" id="btn-create-user" type="button">+ Benutzer anlegen</button>
@@ -1312,7 +1515,8 @@ async function paintSettings() {
     <div class="card">
       <h2>Grenzwerte (Deponieklassen)</h2>
       <p class="hint">Leeres Feld = für diese Klasse nicht geregelt. Diese Tabelle bestimmt die Farbcodierung
-      für <strong>alle</strong> Benutzer/innen.${isAdmin ? '' : ' Nur Administrator/innen können sie ändern.'}</p>
+      für <strong>alle</strong> Benutzer/innen.
+      ${isAdmin ? '' : isProjektleiterRole ? ' Projektleitung kann eine Änderung vorschlagen — wirksam erst nach Freigabe durch einen Admin.' : ' Nur Administrator/innen (bzw. auf Antrag die Projektleitung) können sie ändern.'}</p>
       <div style="overflow-x:auto">
       <table class="threshold-table" id="threshold-table">
         <tr><th>Parameter</th><th>Art</th><th>Einheit</th>${editableClasses.map(c => `<th style="color:${c.color}">${c.short}</th>`).join('')}${isAdmin ? '<th></th>' : ''}</tr>
@@ -1321,7 +1525,7 @@ async function paintSettings() {
             <td>${escapeHtml(p.label)}</td>
             <td class="readonly">${p.art === 'eluat' ? 'Eluat' : 'Gesamt'}</td>
             <td class="readonly">${escapeHtml(p.unit || '–')}</td>
-            ${editableClasses.map(c => `<td><input type="number" step="any" ${isAdmin ? '' : 'disabled'} data-p="${p.key}" data-c="${c.id}" value="${thresholds[p.key]?.[c.id] ?? ''}"></td>`).join('')}
+            ${editableClasses.map(c => `<td><input type="number" step="any" ${canProposeThresholds ? '' : 'disabled'} data-p="${p.key}" data-c="${c.id}" value="${thresholds[p.key]?.[c.id] ?? ''}"></td>`).join('')}
             ${isAdmin ? `<td><button type="button" class="btn danger" style="padding:.2rem .5rem;" data-del-param="${p.key}">×</button></td>` : ''}
           </tr>`).join('')}
       </table>
@@ -1345,6 +1549,28 @@ async function paintSettings() {
         <div class="field"><label>Art</label><select id="np-art"><option value="gesamt">Gesamtgehalt</option><option value="eluat">Eluat</option></select></div>
       </div>
       <button class="btn secondary" id="btn-add-param" type="button">+ Parameter hinzufügen</button>
+      ` : isProjektleiterRole ? `
+      <div class="field"><label>Notiz zum Antrag <span class="hint">(optional, z.B. Grund der Anpassung)</span></label><input id="thr-request-note"></div>
+      <div class="btn-row"><button class="btn" id="btn-request-thresholds" type="button">📨 Änderung beantragen</button></div>
+      ` : ''}
+      ${(isAdmin || isProjektleiterRole) ? `
+      <h3>${isAdmin ? 'Offene Änderungsanträge' : 'Meine offenen Änderungsanträge'}</h3>
+      ${thresholdRequests.length === 0 ? '<p class="hint">Keine offenen Anträge.</p>' : `
+      <div class="entry-list">
+        ${thresholdRequests.map(r => `
+          <div class="entry-card" style="cursor:default;">
+            <div class="entry-info">
+              <h3 class="entry-title">${escapeHtml(r.requestedByName || 'Unbekannt')} <span class="hint">${fmtDate(r.requestedAt)}</span></h3>
+              <p class="hint">${escapeHtml(r.note || 'Keine Notiz.')}</p>
+            </div>
+            <div class="btn-row" style="margin:0;">
+              ${isAdmin ? `
+                <button class="btn secondary" type="button" data-apply-thr-req="${r.id}">✅ Übernehmen</button>
+                <button class="btn danger" type="button" data-reject-thr-req="${r.id}">❌ Ablehnen</button>
+              ` : `<button class="btn secondary" type="button" data-cancel-thr-req="${r.id}">Zurückziehen</button>`}
+            </div>
+          </div>`).join('')}
+      </div>`}
       ` : ''}
     </div>
 
@@ -1456,27 +1682,27 @@ async function paintSettings() {
       <h2>Analytik-Programme</h2>
       <p class="hint">Benannte Zusammenstellungen von Analyseparametern, die bei einer Probe ausgewählt und
       ausgelöst werden können (Analysewerte-Tabelle wird damit vorbefüllt).
-      ${isAdmin ? '' : ' Nur Administrator/innen können sie ändern.'}</p>
+      ${canEditAnalytik ? '' : ' Nur Administrator/innen bzw. Projektleitung können sie ändern.'}</p>
       <div style="overflow-x:auto">
       <table class="threshold-table" id="analytik-programme-table">
-        <tr><th>Name</th><th>Parameter <span class="hint">(mehrfach wählbar)</span></th>${isAdmin ? '<th></th>' : ''}</tr>
+        <tr><th>Name</th><th>Parameter <span class="hint">(mehrfach wählbar)</span></th>${canEditAnalytik ? '<th></th>' : ''}</tr>
         ${analytikProgramme.map((prog, i) => `
           <tr>
-            <td><input data-anp="${i}" data-anpf="name" ${isAdmin ? '' : 'disabled'} value="${escapeHtml(prog.name)}" style="width:14rem;"></td>
+            <td><input data-anp="${i}" data-anpf="name" ${canEditAnalytik ? '' : 'disabled'} value="${escapeHtml(prog.name)}" style="width:14rem;"></td>
             <td style="min-width:18rem;max-height:14rem;overflow-y:auto;">
               ${analytikParamGroups().map(g => `
                 <div class="hint" style="margin-top:.3rem;font-weight:600;">${escapeHtml(g.label)}</div>
                 <div style="display:flex;flex-wrap:wrap;gap:.1rem .6rem;">
                   ${g.list.map(p => `<label style="display:flex;align-items:center;gap:.25rem;font-size:.8rem;white-space:nowrap;">
-                    <input type="checkbox" data-anp="${i}" data-anpf-arr="parameterKeys" value="${p.key}" ${isAdmin ? '' : 'disabled'} ${(prog.parameterKeys || []).includes(p.key) ? 'checked' : ''}> ${escapeHtml(p.label)}
+                    <input type="checkbox" data-anp="${i}" data-anpf-arr="parameterKeys" value="${p.key}" ${canEditAnalytik ? '' : 'disabled'} ${(prog.parameterKeys || []).includes(p.key) ? 'checked' : ''}> ${escapeHtml(p.label)}
                   </label>`).join('')}
                 </div>`).join('')}
             </td>
-            ${isAdmin ? `<td><button type="button" class="btn danger" style="padding:.2rem .5rem;" data-del-analytik="${i}">×</button></td>` : ''}
+            ${canEditAnalytik ? `<td><button type="button" class="btn danger" style="padding:.2rem .5rem;" data-del-analytik="${i}">×</button></td>` : ''}
           </tr>`).join('')}
       </table>
       </div>
-      ${isAdmin ? `
+      ${canEditAnalytik ? `
       <div class="btn-row">
         <button class="btn secondary" id="btn-add-analytik" type="button">+ Neues Programm</button>
         <button class="btn" id="btn-save-analytik" type="button">💾 Analytik-Programme speichern</button>
@@ -1547,17 +1773,73 @@ async function paintSettings() {
     </div>
   `;
 
-  if (isAdmin) {
-    function collectThresholdsFromTable() {
-      const t = JSON.parse(JSON.stringify(thresholds));
-      $$('#threshold-table input[data-p]').forEach(inp => {
-        const p = inp.dataset.p, c = inp.dataset.c;
-        t[p] = t[p] || {};
-        t[p][c] = inp.value === '' ? null : parseFloat(inp.value);
-      });
-      return t;
-    }
+  function collectThresholdsFromTable() {
+    const t = JSON.parse(JSON.stringify(thresholds));
+    $$('#threshold-table input[data-p]').forEach(inp => {
+      const p = inp.dataset.p, c = inp.dataset.c;
+      t[p] = t[p] || {};
+      t[p][c] = inp.value === '' ? null : parseFloat(inp.value);
+    });
+    return t;
+  }
 
+  if (canProposeThresholds && !isAdmin) {
+    // Projektleitung: keine direkte Speicherung, nur Antrag stellen.
+    $('#btn-request-thresholds').addEventListener('click', async () => {
+      const newT = collectThresholdsFromTable();
+      const note = $('#thr-request-note').value.trim();
+      try {
+        await requestThresholdChangeApi(newT, note);
+        toast('Änderung beantragt — wartet auf Freigabe durch einen Admin.');
+        await renderSettings();
+      } catch (err) { toast('Fehler: ' + errMsg(err)); }
+    });
+  }
+
+  // ---------- Analytik-Programme (admin ODER projektleiter) ----------
+  if (canEditAnalytik) {
+    function collectAnalytikProgrammeFromTable() {
+      const programme = analytikProgramme.map(p => ({ id: p.id, name: p.name, parameterKeys: [] }));
+      $$('#analytik-programme-table [data-anp]').forEach(el => {
+        const i = Number(el.dataset.anp);
+        if (!programme[i]) return;
+        if (el.dataset.anpf) programme[i][el.dataset.anpf] = el.value;
+        else if (el.dataset.anpfArr && el.checked) programme[i][el.dataset.anpfArr].push(el.value);
+      });
+      return programme;
+    }
+    $$('[data-del-analytik]').forEach(btn => btn.addEventListener('click', async () => {
+      if (!confirm('Dieses Analytik-Programm wirklich entfernen?')) return;
+      const newProgramme = collectAnalytikProgrammeFromTable();
+      newProgramme.splice(Number(btn.dataset.delAnalytik), 1);
+      try {
+        await saveAnalytikProgrammeApi(newProgramme);
+        analytikProgramme = newProgramme;
+        toast('Programm entfernt');
+        await renderSettings();
+      } catch (err) { toast('Fehler: ' + errMsg(err)); }
+    }));
+    $('#btn-add-analytik').addEventListener('click', async () => {
+      analytikProgramme = collectAnalytikProgrammeFromTable();
+      analytikProgramme.push({ id: slugifyParamKey(`programm_${analytikProgramme.length + 1}`, new Set(analytikProgramme.map(p => p.id))), name: '', parameterKeys: [] });
+      await paintSettings();
+    });
+    $('#btn-save-analytik').addEventListener('click', async () => {
+      const newProgramme = collectAnalytikProgrammeFromTable();
+      try { await saveAnalytikProgrammeApi(newProgramme); analytikProgramme = newProgramme; toast('Analytik-Programme gespeichert'); }
+      catch (err) { toast('Fehler: ' + errMsg(err)); }
+    });
+    $('#btn-reset-analytik').addEventListener('click', async () => {
+      if (!confirm('Analytik-Programme wirklich auf die Beispielwerte zurücksetzen?')) return;
+      try {
+        analytikProgramme = await resetAnalytikProgrammeApi();
+        toast('Zurückgesetzt');
+        await renderSettings();
+      } catch (err) { toast('Fehler: ' + errMsg(err)); }
+    });
+  }
+
+  if (isAdmin) {
     $('#btn-save-thresholds').addEventListener('click', async () => {
       const newT = collectThresholdsFromTable();
       try { await saveThresholdsApi(newT); thresholds = newT; toast('Grenzwerte gespeichert'); }
@@ -1751,47 +2033,6 @@ async function paintSettings() {
       } catch (err) { toast('Fehler: ' + errMsg(err)); }
     });
 
-    // ---------- Analytik-Programme ----------
-    function collectAnalytikProgrammeFromTable() {
-      const programme = analytikProgramme.map(p => ({ id: p.id, name: p.name, parameterKeys: [] }));
-      $$('#analytik-programme-table [data-anp]').forEach(el => {
-        const i = Number(el.dataset.anp);
-        if (!programme[i]) return;
-        if (el.dataset.anpf) programme[i][el.dataset.anpf] = el.value;
-        else if (el.dataset.anpfArr && el.checked) programme[i][el.dataset.anpfArr].push(el.value);
-      });
-      return programme;
-    }
-    $$('[data-del-analytik]').forEach(btn => btn.addEventListener('click', async () => {
-      if (!confirm('Dieses Analytik-Programm wirklich entfernen?')) return;
-      const newProgramme = collectAnalytikProgrammeFromTable();
-      newProgramme.splice(Number(btn.dataset.delAnalytik), 1);
-      try {
-        await saveAnalytikProgrammeApi(newProgramme);
-        analytikProgramme = newProgramme;
-        toast('Programm entfernt');
-        await renderSettings();
-      } catch (err) { toast('Fehler: ' + errMsg(err)); }
-    }));
-    $('#btn-add-analytik').addEventListener('click', async () => {
-      analytikProgramme = collectAnalytikProgrammeFromTable();
-      analytikProgramme.push({ id: slugifyParamKey(`programm_${analytikProgramme.length + 1}`, new Set(analytikProgramme.map(p => p.id))), name: '', parameterKeys: [] });
-      await paintSettings();
-    });
-    $('#btn-save-analytik').addEventListener('click', async () => {
-      const newProgramme = collectAnalytikProgrammeFromTable();
-      try { await saveAnalytikProgrammeApi(newProgramme); analytikProgramme = newProgramme; toast('Analytik-Programme gespeichert'); }
-      catch (err) { toast('Fehler: ' + errMsg(err)); }
-    });
-    $('#btn-reset-analytik').addEventListener('click', async () => {
-      if (!confirm('Analytik-Programme wirklich auf die Beispielwerte zurücksetzen?')) return;
-      try {
-        analytikProgramme = await resetAnalytikProgrammeApi();
-        toast('Zurückgesetzt');
-        await renderSettings();
-      } catch (err) { toast('Fehler: ' + errMsg(err)); }
-    });
-
     // ---------- Labore ----------
     function collectLaboreFromTable() {
       const list = labore.map(l => ({ id: l.id, name: l.name, ort: l.ort, email: l.email, adresse: l.adresse, telefon: l.telefon }));
@@ -1848,6 +2089,32 @@ async function paintSettings() {
       } catch (err) { toast('Fehler: ' + errMsg(err)); }
     });
   }
+
+  // Änderungsanträge VVEA-Grenzwerte: Übernehmen/Ablehnen nur Admin,
+  // Zurückziehen Admin oder die antragstellende Projektleitung selbst.
+  $$('[data-apply-thr-req]').forEach(btn => btn.addEventListener('click', async () => {
+    if (!confirm('Diese Grenzwert-Änderung übernehmen? Ersetzt die aktuellen VVEA-Grenzwerte.')) return;
+    try {
+      thresholds = await applyThresholdRequestApi(btn.dataset.applyThrReq);
+      toast('Grenzwerte übernommen');
+      await renderSettings();
+    } catch (err) { toast('Fehler: ' + errMsg(err)); }
+  }));
+  $$('[data-reject-thr-req]').forEach(btn => btn.addEventListener('click', async () => {
+    if (!confirm('Diesen Änderungsantrag wirklich ablehnen?')) return;
+    try {
+      await rejectThresholdRequestApi(btn.dataset.rejectThrReq);
+      toast('Antrag abgelehnt');
+      await renderSettings();
+    } catch (err) { toast('Fehler: ' + errMsg(err)); }
+  }));
+  $$('[data-cancel-thr-req]').forEach(btn => btn.addEventListener('click', async () => {
+    try {
+      await cancelThresholdRequestApi(btn.dataset.cancelThrReq);
+      toast('Antrag zurückgezogen');
+      await renderSettings();
+    } catch (err) { toast('Fehler: ' + errMsg(err)); }
+  }));
 }
 
 function showThresholdsImportPreview(rows) {
@@ -1903,11 +2170,24 @@ async function paintUserList() {
   try {
     const users = await listUsersApi();
     const me = getCurrentUser();
+    const roleOptions = [
+      ['probenehmer', 'Probenehmer/in'], ['projektleiter', 'Projektleitung'],
+      ['extern', 'Extern (nur lesen)'], ['admin', 'Administrator/in'],
+    ];
     box.innerHTML = users.map(u => `
       <div style="display:flex;align-items:center;gap:.5rem;">
-        <span style="flex:1;">${escapeHtml(u.name)} — ${escapeHtml(u.email)} ${u.role === 'admin' ? '<span class="badge" style="background:#4a148c;">Admin</span>' : ''}</span>
-        ${u.id !== me.id ? `<button class="btn danger" style="padding:.2rem .6rem;" data-del-user="${u.id}">Entfernen</button>` : '<span class="hint">(du)</span>'}
+        <span style="flex:1;">${escapeHtml(u.name)} — ${escapeHtml(u.email)}</span>
+        ${u.id !== me.id ? `
+          <select data-role-user="${u.id}" style="width:auto;">
+            ${roleOptions.map(([val, label]) => `<option value="${val}" ${u.role === val ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}
+          </select>
+          <button class="btn danger" style="padding:.2rem .6rem;" data-del-user="${u.id}">Entfernen</button>
+        ` : `<span class="hint">${escapeHtml(ROLE_LABELS[u.role] || u.role)} (du)</span>`}
       </div>`).join('');
+    $$('[data-role-user]').forEach(sel => sel.addEventListener('change', async () => {
+      try { await updateUserRoleApi(sel.dataset.roleUser, sel.value); toast('Rolle geändert'); }
+      catch (err) { toast('Fehler: ' + errMsg(err)); await paintUserList(); }
+    }));
     $$('[data-del-user]').forEach(btn => btn.addEventListener('click', async () => {
       if (!confirm('Diesen Benutzer wirklich entfernen?')) return;
       try { await deleteUserApi(btn.dataset.delUser); await paintUserList(); }

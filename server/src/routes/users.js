@@ -8,12 +8,18 @@ export const usersRouter = Router();
 
 // Namensliste für Dropdowns (z.B. "Probenehmer/in") — jede angemeldete Person
 // darf sie sehen, unabhängig von der Rolle. Muss vor dem Admin-Guard stehen.
+// `role` wird mitgeliefert, damit z.B. eine Projektleitung beim Zuweisen von
+// Projekt-/Proben-Zugriff nach Rolle filtern kann (nur 'probenehmer' bzw.
+// 'extern' zur Auswahl anbieten), ohne selbst Admin zu sein (die vollständige
+// Benutzerliste mit E-Mail bleibt admin-exklusiv, siehe unten).
 usersRouter.get('/roster', requireAuth, (req, res) => {
-  const users = db.prepare('SELECT id, name FROM users ORDER BY name COLLATE NOCASE').all();
+  const users = db.prepare('SELECT id, name, role FROM users ORDER BY name COLLATE NOCASE').all();
   res.json({ users });
 });
 
 usersRouter.use(requireAuth, requireAdmin);
+
+const ROLES = ['admin', 'projektleiter', 'probenehmer', 'extern'];
 
 usersRouter.get('/', (req, res) => {
   const users = db.prepare('SELECT id, email, name, role, createdAt FROM users ORDER BY createdAt').all();
@@ -29,10 +35,23 @@ usersRouter.post('/', (req, res) => {
   if (existing) return res.status(409).json({ error: 'Ein Benutzer mit dieser E-Mail existiert bereits.' });
   const id = randomUUID();
   const passwordHash = bcrypt.hashSync(password, 12);
-  const finalRole = role === 'admin' ? 'admin' : 'user';
+  const finalRole = ROLES.includes(role) ? role : 'probenehmer';
   db.prepare('INSERT INTO users (id, email, passwordHash, name, role, createdAt) VALUES (?,?,?,?,?,?)')
     .run(id, normalizedEmail, passwordHash, name, finalRole, new Date().toISOString());
   res.status(201).json({ user: { id, email: normalizedEmail, name, role: finalRole } });
+});
+
+// Rolle eines bestehenden Kontos ändern (z.B. Probenehmer/in zu Projektleitung
+// hochstufen) — eigene Rolle kann nicht selbst geändert werden (verhindert,
+// dass sich der letzte Admin versehentlich aussperrt).
+usersRouter.put('/:id/role', (req, res) => {
+  if (req.params.id === req.user.id) return res.status(400).json({ error: 'Eigene Rolle kann nicht selbst geändert werden.' });
+  const { role } = req.body || {};
+  if (!ROLES.includes(role)) return res.status(400).json({ error: 'Ungültige Rolle.' });
+  const info = db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, req.params.id);
+  if (info.changes === 0) return res.status(404).json({ error: 'Benutzer nicht gefunden.' });
+  const user = db.prepare('SELECT id, email, name, role, createdAt FROM users WHERE id = ?').get(req.params.id);
+  res.json({ user });
 });
 
 usersRouter.delete('/:id', (req, res) => {
