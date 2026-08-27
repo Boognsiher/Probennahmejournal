@@ -47,11 +47,14 @@ export function canViewProject(project, user) {
   return false; // extern
 }
 // true, wenn `user` das Projekt anlegen/bearbeiten/löschen bzw. die
-// Zugriffsliste verwalten darf.
+// Zugriffsliste verwalten darf. `project` muss ein existierender Datensatz
+// sein — für eigenständige Proben ohne Projekt (Probenahmeprotokoll/
+// Scratchbook, siehe entries.js) gilt eine eigene, separate Prüfung
+// (canManageEntry dort), NICHT diese Funktion mit project=null.
 export function canManageProject(project, user) {
+  if (!project) return false;
   if (user.role === 'admin') return true;
-  if (user.role === 'projektleiter') return !project || project.createdBy === user.id;
-  return false;
+  return user.role === 'projektleiter' && project.createdBy === user.id;
 }
 // true, wenn `user` in diesem Projekt Proben anlegen/bearbeiten darf.
 export function canWriteInProject(project, user) {

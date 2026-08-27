@@ -101,6 +101,15 @@ CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+-- Fortlaufende Nummerierung für eigenständige Proben ohne Projekt
+-- ("Probenahmeprotokoll"/Scratchbook, siehe routes/entries.js) — analog zu
+-- projects.nextChargeNumber, aber global statt pro Projekt (kein Kürzel
+-- vorhanden, das die Charge sonst eindeutig macht).
+CREATE TABLE IF NOT EXISTS counters (
+  key TEXT PRIMARY KEY,
+  value INTEGER NOT NULL DEFAULT 0
+);
 `);
 
 // Migrationen für bestehende Datenbanken: fehlende Spalten nachrüsten.

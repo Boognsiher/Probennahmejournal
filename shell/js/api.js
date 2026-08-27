@@ -113,6 +113,7 @@ function seedDb() {
       },
     ],
     entries: [],
+    standaloneCounter: 0, // fortlaufende Nummer für Einzelproben ohne Projekt (PP-####)
     thresholdRequests: [],
     thresholds: JSON.parse(JSON.stringify(DEMO_THRESHOLDS)),
     parameters: JSON.parse(JSON.stringify(DEFAULT_PARAMETERS)),
@@ -197,15 +198,36 @@ function canWriteInProject(project, user) {
 function visibleProjects(user) {
   return db.projects.filter(p => canViewProject(p, user));
 }
+// Eigenständige Probe ohne Projekt ("Probenahmeprotokoll"/Scratchbook, siehe
+// server/src/routes/entries.js für die ausführliche Erklärung) — jede Rolle
+// ausser 'extern' kann sich selbst welche anlegen; sichtbar nur für
+// Ersteller/in + Admin, keine externe Freigabe möglich.
+function isStandalone(entry) { return !entry.projektId; }
 function canViewEntry(entry, user) {
   if (user.role === 'extern') return (entry.externZugriff || []).includes(user.id);
+  if (isStandalone(entry)) return user.role === 'admin' || entry.createdBy === user.id;
   const project = db.projects.find(p => p.id === entry.projektId);
   return canViewProject(project, user);
+}
+function canWriteEntry(entry, user) {
+  if (isStandalone(entry)) return user.role !== 'extern' && (user.role === 'admin' || entry.createdBy === user.id);
+  const project = db.projects.find(p => p.id === entry.projektId);
+  return canWriteInProject(project, user);
+}
+function canManageEntry(entry, user) {
+  if (isStandalone(entry)) return user.role === 'admin' || entry.createdBy === user.id;
+  const project = db.projects.find(p => p.id === entry.projektId);
+  return canManageProject(project, user);
 }
 function sanitizeUserIds(list) {
   if (!Array.isArray(list)) return [];
   const known = new Set(db.users.map(u => u.id));
   return [...new Set(list.map(String))].filter(id => known.has(id));
+}
+// Fortlaufende Nummer für Einzelproben-Chargennamen (PP-0001, PP-0002, …).
+function nextStandaloneNumber() {
+  db.standaloneCounter = (db.standaloneCounter || 0) + 1;
+  return db.standaloneCounter;
 }
 
 // ---------- Auth ----------
@@ -234,27 +256,8 @@ export async function getEntryApi(id) {
   return stripPhotoData(entry);
 }
 
-// Chargenname (Probenbezeichnung) wird ausschliesslich hier vergeben — analog
-// zum echten Server — aus Projekt-Kürzel + fortlaufender Nummer.
-export async function createEntryApi(entry) {
-  await delay();
-  const user = requireAuth();
-  if (!entry.projektId) throw new ApiError('Bitte zuerst ein Projekt auswählen.', 400);
-  const project = db.projects.find(p => p.id === entry.projektId);
-  if (!project) throw new ApiError('Projekt nicht gefunden.', 400);
-  if (!canWriteInProject(project, user)) throw new ApiError('Dafür fehlt die Berechtigung.', 403);
-  const seq = project.nextChargeNumber;
-  const probeBezeichnung = `${project.kuerzel}-${pad3(seq)}`;
-  project.nextChargeNumber = seq + 1;
-
-  const now = new Date().toISOString();
-  const created = {
-    id: uid(),
-    createdAt: entry.createdAt || now,
-    updatedAt: now,
-    projektId: project.id,
-    baustelle: project.name,
-    probeBezeichnung,
+function commonEntryFields(entry) {
+  return {
     entnahmeort: entry.entnahmeort || '',
     gps: entry.gps || null,
     material: entry.material || '',
@@ -270,6 +273,56 @@ export async function createEntryApi(entry) {
     mengeEinheit: entry.mengeEinheit === 'm3' ? 'm3' : 't',
     analytikProgramme: Array.isArray(entry.analytikProgramme) ? entry.analytikProgramme : [],
     labor: entry.labor || '',
+  };
+}
+
+// Chargenname (Probenbezeichnung) wird ausschliesslich hier vergeben — analog
+// zum echten Server — bei Projekt-Proben aus Projekt-Kürzel + fortlaufender
+// Nummer, bei Einzelproben (kein Projekt) aus der globalen PP-Nummerierung.
+export async function createEntryApi(entry) {
+  await delay();
+  const user = requireAuth();
+
+  // Eigenständige Probe ohne Projekt ("Probenahmeprotokoll"/Scratchbook).
+  if (!entry.projektId) {
+    if (user.role === 'extern') throw new ApiError('Dafür fehlt die Berechtigung.', 403);
+    const now = new Date().toISOString();
+    const created = {
+      id: uid(),
+      createdAt: entry.createdAt || now,
+      updatedAt: now,
+      projektId: null,
+      baustelle: 'Einzelprobe (ohne Projekt)',
+      probeBezeichnung: `PP-${String(nextStandaloneNumber()).padStart(4, '0')}`,
+      ...commonEntryFields(entry),
+      // Einzelproben unterstützen keine externe Freigabe (kein Projekt-Kontext).
+      externZugriff: [],
+      deletionRequestedAt: null,
+      deletionRequestedBy: null,
+      createdBy: user.id,
+      photos: [],
+    };
+    db.entries.push(created);
+    persist();
+    return stripPhotoData(created);
+  }
+
+  const project = db.projects.find(p => p.id === entry.projektId);
+  if (!project) throw new ApiError('Projekt nicht gefunden.', 400);
+  if (!canWriteInProject(project, user)) throw new ApiError('Dafür fehlt die Berechtigung.', 403);
+  const seq = project.nextChargeNumber;
+  const probeBezeichnung = `${project.kuerzel}-${pad3(seq)}`;
+  project.nextChargeNumber = seq + 1;
+
+  const now = new Date().toISOString();
+  const created = {
+    id: uid(),
+    createdAt: entry.createdAt || now,
+    updatedAt: now,
+    projektId: project.id,
+    baustelle: project.name,
+    probeBezeichnung,
+    ...commonEntryFields(entry),
     // externZugriff beim Anlegen nur übernehmen, wenn die anlegende Person auch
     // verwalten darf — Probenehmer/innen können beim Erfassen keine externe
     // Sichtbarkeit vergeben (siehe server/src/routes/entries.js upsertFields).
@@ -289,9 +342,8 @@ export async function updateEntryApi(id, entry) {
   const user = requireAuth();
   const existing = db.entries.find(e => e.id === id);
   if (!existing) throw new ApiError('Probe nicht gefunden.', 404);
-  const project = db.projects.find(p => p.id === existing.projektId);
-  if (!canWriteInProject(project, user)) throw new ApiError('Dafür fehlt die Berechtigung.', 403);
-  const manage = canManageProject(project, user);
+  if (!canWriteEntry(existing, user)) throw new ApiError('Dafür fehlt die Berechtigung.', 403);
+  const manage = canManageEntry(existing, user);
   Object.assign(existing, {
     entnahmeort: entry.entnahmeort ?? '', gps: entry.gps ?? null,
     material: entry.material ?? '', probenehmer: entry.probenehmer ?? '',
@@ -305,28 +357,30 @@ export async function updateEntryApi(id, entry) {
     mengeEinheit: entry.mengeEinheit === 'm3' ? 'm3' : 't',
     analytikProgramme: Array.isArray(entry.analytikProgramme) ? entry.analytikProgramme : [],
     labor: entry.labor ?? '',
-    // externZugriff darf nur ändern, wer die Probe auch verwaltet — sonst bleibt der bisherige Wert.
-    externZugriff: manage ? sanitizeUserIds(entry.externZugriff ?? existing.externZugriff) : existing.externZugriff,
+    // externZugriff darf nur ändern, wer die Probe auch verwaltet — sonst bleibt der
+    // bisherige Wert; bei Einzelproben immer leer (keine externe Freigabe möglich).
+    externZugriff: isStandalone(existing) ? [] : (manage ? sanitizeUserIds(entry.externZugriff ?? existing.externZugriff) : existing.externZugriff),
     updatedAt: new Date().toISOString(),
   });
   persist();
   return stripPhotoData(existing);
 }
-// Admin/zuständige Projektleitung löschen sofort (gibt `null` zurück).
-// Probenehmer/innen mit Schreibzugriff können nur eine Löschung BEANTRAGEN
-// (gibt {entry, message} zurück) — braucht Freigabe, siehe approveDeleteApi.
+// Admin, zuständige Projektleitung, und bei Einzelproben die erstellende
+// Person selbst löschen sofort (gibt `null` zurück — bei Einzelproben gibt
+// es keine Projektleitung, die einen Antrag entscheiden könnte). Sonst können
+// Probenehmer/innen mit Schreibzugriff nur eine Löschung BEANTRAGEN (gibt
+// {entry, message} zurück) — braucht Freigabe, siehe approveDeleteApi.
 export async function deleteEntryApi(id) {
   await delay();
   const user = requireAuth();
   const existing = db.entries.find(e => e.id === id);
   if (!existing) throw new ApiError('Probe nicht gefunden.', 404);
-  const project = db.projects.find(p => p.id === existing.projektId);
-  if (canManageProject(project, user)) {
+  if (canManageEntry(existing, user)) {
     db.entries = db.entries.filter(e => e.id !== id);
     persist();
     return null;
   }
-  if (user.role === 'probenehmer' && canWriteInProject(project, user)) {
+  if (!isStandalone(existing) && user.role === 'probenehmer' && canWriteInProject(db.projects.find(p => p.id === existing.projektId), user)) {
     existing.deletionRequestedAt = new Date().toISOString();
     existing.deletionRequestedBy = user.id;
     persist();
@@ -339,9 +393,8 @@ export async function cancelDeleteRequestApi(id) {
   const user = requireAuth();
   const existing = db.entries.find(e => e.id === id);
   if (!existing) throw new ApiError('Probe nicht gefunden.', 404);
-  const project = db.projects.find(p => p.id === existing.projektId);
   const isRequester = existing.deletionRequestedBy === user.id;
-  if (!isRequester && !canManageProject(project, user)) throw new ApiError('Dafür fehlt die Berechtigung.', 403);
+  if (!isRequester && !canManageEntry(existing, user)) throw new ApiError('Dafür fehlt die Berechtigung.', 403);
   existing.deletionRequestedAt = null;
   existing.deletionRequestedBy = null;
   persist();
@@ -352,8 +405,7 @@ export async function approveDeleteApi(id) {
   const user = requireAuth();
   const existing = db.entries.find(e => e.id === id);
   if (!existing) throw new ApiError('Probe nicht gefunden.', 404);
-  const project = db.projects.find(p => p.id === existing.projektId);
-  if (!canManageProject(project, user)) throw new ApiError('Dafür fehlt die Berechtigung.', 403);
+  if (!canManageEntry(existing, user)) throw new ApiError('Dafür fehlt die Berechtigung.', 403);
   if (!existing.deletionRequestedAt) throw new ApiError('Kein offener Löschantrag für diese Probe.', 400);
   db.entries = db.entries.filter(e => e.id !== id);
   persist();
@@ -363,8 +415,7 @@ export async function rejectDeleteApi(id) {
   const user = requireAuth();
   const existing = db.entries.find(e => e.id === id);
   if (!existing) throw new ApiError('Probe nicht gefunden.', 404);
-  const project = db.projects.find(p => p.id === existing.projektId);
-  if (!canManageProject(project, user)) throw new ApiError('Dafür fehlt die Berechtigung.', 403);
+  if (!canManageEntry(existing, user)) throw new ApiError('Dafür fehlt die Berechtigung.', 403);
   existing.deletionRequestedAt = null;
   existing.deletionRequestedBy = null;
   persist();

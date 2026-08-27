@@ -120,6 +120,17 @@ Andere Rolle als die eigene setzen kann nur ein Admin, über `PUT /api/users/:id
 Bestehende `'user'`-Konten aus einer Installation vor diesem Update werden beim ersten Start automatisch auf
 `'probenehmer'` migriert — bei Bedarf danach unter Einstellungen > Benutzer auf `'projektleiter'` hochstufen.
 
+### Probenahmeprotokoll (Einzelproben ohne Projekt)
+
+Jede Rolle ausser `extern` kann Proben auch **ohne Projekt** anlegen (`POST /api/entries` ohne `projektId`) —
+gedacht für vereinzelte Spontanproben, die keiner Baustelle zugeteilt werden sollen ("Scratchbook"). Der
+Chargenname wird dann global fortlaufend als `PP-0001`, `PP-0002`, … vergeben (statt Projekt-Kürzel +
+Nummer). Sichtbarkeit ist bewusst eng: **nur die erstellende Person + Admin** sehen eine solche Probe — keine
+Projektleitung, keine externe Freigabe (`externZugriff` ist bei Einzelproben immer leer). Löschen geht dort
+immer sofort (kein Antrag nötig, da keine Projektleitung zuständig wäre): Ersteller/in oder Admin. Im Client
+erreichbar über „Nur Probenahmeprotokoll (ohne Projekt)“ auf dem Startbildschirm bzw. unter `#/protokoll`;
+die Proben erscheinen zusätzlich ganz normal im Journal (für die berechtigten Personen).
+
 ## API-Überblick
 
 Alle `/api/*`-Endpunkte ausser `/api/auth/login` erfordern den Header `Authorization: Bearer <token>`
@@ -171,12 +182,12 @@ separaten "meine Projekte"-Parameter, die normale Liste zeigt bereits nur, was s
 | POST | `/api/settings/labore/reset` | Auf Beispielwerte zurücksetzen (nur Admin) |
 | GET | `/api/entries` | Sichtbare Proben (siehe Rollentabelle oben) |
 | GET | `/api/entries/:id` | Einzelne Probe inkl. Foto-Metadaten |
-| POST | `/api/entries` | Neue Probe anlegen — `projektId` erforderlich (Schreibzugriff auf das Projekt nötig); Chargenname (`probeBezeichnung`) wird serverseitig aus Projekt-Kürzel + fortlaufender Nummer vergeben. Weitere Felder: `standard` (`vvea`/`vbbo`), `nutzungsart` (nur bei `vbbo`), `entsorgungsweg`, `vevaCode`, `labor`, `externZugriff` (nur admin/Projektleitung) |
+| POST | `/api/entries` | Neue Probe anlegen — mit `projektId` (Schreibzugriff auf das Projekt nötig) oder ohne (Einzelprobe/Probenahmeprotokoll, nicht für `extern`); Chargenname (`probeBezeichnung`) wird serverseitig vergeben (Projekt-Kürzel+Nummer bzw. `PP-####`). Weitere Felder: `standard` (`vvea`/`vbbo`), `nutzungsart` (nur bei `vbbo`), `entsorgungsweg`, `vevaCode`, `labor`, `externZugriff` (nur admin/Projektleitung, nicht bei Einzelproben) |
 | PUT | `/api/entries/:id` | Probe aktualisieren (Projekt/Chargenname bleiben nach dem Anlegen fix) |
-| DELETE | `/api/entries/:id` | admin/zuständige Projektleitung: löscht sofort (inkl. Fotos). Probenehmer/in mit Zugriff: beantragt nur die Löschung (Status 202, Probe bleibt bestehen) |
-| POST | `/api/entries/:id/cancel-delete-request` | Löschantrag zurückziehen (antragstellende Person oder admin/Projektleitung) |
-| POST | `/api/entries/:id/approve-delete` | Löschantrag freigeben → endgültig löschen (nur admin/zuständige Projektleitung) |
-| POST | `/api/entries/:id/reject-delete` | Löschantrag ablehnen, Probe bleibt (nur admin/zuständige Projektleitung) |
+| DELETE | `/api/entries/:id` | admin/zuständige Projektleitung/(bei Einzelproben) Ersteller/in: löscht sofort (inkl. Fotos). Probenehmer/in mit Projekt-Zugriff sonst: beantragt nur die Löschung (Status 202, Probe bleibt bestehen) |
+| POST | `/api/entries/:id/cancel-delete-request` | Löschantrag zurückziehen (antragstellende Person oder wer die Probe verwaltet) |
+| POST | `/api/entries/:id/approve-delete` | Löschantrag freigeben → endgültig löschen (nur wer die Probe verwaltet) |
+| POST | `/api/entries/:id/reject-delete` | Löschantrag ablehnen, Probe bleibt (nur wer die Probe verwaltet) |
 | POST | `/api/entries/:id/photos` | Fotos hochladen (multipart, Feld `photos`) |
 | GET | `/api/entries/:id/photos/:photoId/file` | Fotodatei abrufen |
 | DELETE | `/api/entries/:id/photos/:photoId` | Foto löschen |

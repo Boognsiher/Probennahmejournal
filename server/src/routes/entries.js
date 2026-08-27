@@ -75,16 +75,38 @@ function getProject(id) {
   return id ? db.prepare('SELECT * FROM projects WHERE id = ?').get(id) : null;
 }
 
+// Eigenständige Probe ohne Projekt ("Probenahmeprotokoll"/Scratchbook für
+// vereinzelte Proben, die keinem Projekt zugeteilt werden sollen) — jede
+// Rolle ausser 'extern' kann sich selbst welche anlegen. Sichtbarkeit/
+// Verwaltung ist bewusst NICHT projektbasiert (canView-/canManageProject
+// erwarten einen existierenden Projekt-Datensatz), sondern eigene, engere
+// Regeln: nur Ersteller/in + Admin.
+function isStandalone(row) { return !row.projektId; }
+
 // Sichtbarkeit je Rolle (siehe auth.js/projects.js):
-// - admin: alle Proben.
+// - admin: alle Proben (auch alle Einzelproben, für Support/Aufräumen).
 // - projektleiter: Proben in selbst erstellten Projekten.
 // - probenehmer: Proben in Projekten, für die Zugriff gewährt wurde.
 // - extern: NUR Proben, die einzeln über externZugriffJson freigegeben sind
 //   (unabhängig vom Projekt-Zugriff — es gibt für "extern" keinen
-//   Projekt-Scope).
+//   Projekt-Scope; Einzelproben unterstützen keine externe Freigabe).
+// - Einzelproben (kein Projekt): nur die erstellende Person + Admin.
 function canViewEntry(row, user) {
   if (user.role === 'extern') return JSON.parse(row.externZugriffJson || '[]').includes(user.id);
+  if (isStandalone(row)) return user.role === 'admin' || row.createdBy === user.id;
   return canViewProject(getProject(row.projektId), user);
+}
+// Schreibrecht (bearbeiten, Fotos hinzufügen/löschen) auf eine bestehende Probe.
+function canWriteEntry(row, user) {
+  if (isStandalone(row)) return user.role !== 'extern' && (user.role === 'admin' || row.createdBy === user.id);
+  return canWriteInProject(getProject(row.projektId), user);
+}
+// Volles Verwalten: sofort löschen (kein Antrag nötig), externe Freigabe
+// setzen, über fremde Löschanträge entscheiden. Bei Einzelproben: nur
+// Ersteller/in oder Admin — es gibt keine Projektleitung, die zuständig wäre.
+function canManageEntry(row, user) {
+  if (isStandalone(row)) return user.role === 'admin' || row.createdBy === user.id;
+  return canManageProject(getProject(row.projektId), user);
 }
 function visibleEntryRows(user) {
   const all = db.prepare('SELECT * FROM entries ORDER BY createdAt DESC').all();
@@ -92,7 +114,15 @@ function visibleEntryRows(user) {
   if (user.role === 'extern') return all.filter(r => JSON.parse(r.externZugriffJson || '[]').includes(user.id));
   const projects = db.prepare('SELECT * FROM projects').all();
   const projectById = new Map(projects.map(p => [p.id, p]));
-  return all.filter(r => canViewProject(projectById.get(r.projektId), user));
+  return all.filter(r => r.projektId ? canViewProject(projectById.get(r.projektId), user) : r.createdBy === user.id);
+}
+// Fortlaufende Nummer für Einzelproben-Chargennamen (PP-0001, PP-0002, …) —
+// global statt pro Projekt, da kein Kürzel vorhanden ist. Einzelner
+// synchroner Aufruf (better-sqlite3), daher ohne Race zwischen Requests.
+function nextStandaloneNumber() {
+  db.prepare(`INSERT INTO counters (key, value) VALUES ('standalone_probe', 1)
+    ON CONFLICT(key) DO UPDATE SET value = value + 1`).run();
+  return db.prepare('SELECT value FROM counters WHERE key = ?').get('standalone_probe').value;
 }
 
 entriesRouter.get('/', (req, res) => {
@@ -129,11 +159,34 @@ function upsertFields(body, existingExternZugriff) {
   };
 }
 
-// Chargenname (Probenbezeichnung) wird ausschliesslich serverseitig aus dem
-// Projekt-Kürzel + fortlaufender Nummer vergeben — Client kann sie nicht setzen.
+// Chargenname (Probenbezeichnung) wird ausschliesslich serverseitig vergeben
+// — bei Projekt-Proben aus Projekt-Kürzel + fortlaufender Nummer, bei
+// Einzelproben aus der globalen PP-Nummerierung — Client kann sie nicht setzen.
 entriesRouter.post('/', (req, res) => {
-  const projektId = req.body?.projektId;
-  if (!projektId) return res.status(400).json({ error: 'Bitte zuerst ein Projekt auswählen.' });
+  const projektId = req.body?.projektId || null;
+
+  // Eigenständige Probe ohne Projekt ("Probenahmeprotokoll"/Scratchbook).
+  if (!projektId) {
+    if (req.user.role === 'extern') return res.status(403).json({ error: 'Dafür fehlt die Berechtigung.' });
+    const seq = nextStandaloneNumber();
+    const probeBezeichnung = `PP-${String(seq).padStart(4, '0')}`;
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    // Einzelproben unterstützen keine externe Freigabe (kein Projekt-Kontext,
+    // rein privates Scratchbook) — externZugriff immer leer, unabhängig vom Body.
+    const f = upsertFields(req.body || {}, []);
+    f.externZugriffJson = '[]';
+    db.prepare(`INSERT INTO entries
+      (id, createdAt, updatedAt, projektId, baustelle, probeBezeichnung, entnahmeort, gpsLat, gpsLng, material, probenehmer, bemerkungen, analyseJson, klassifizierungJson, standard, nutzungsart, entsorgungsweg, vevaCode, menge, mengeEinheit, analytikProgrammeJson, labor, externZugriffJson, createdBy)
+      VALUES (@id, @createdAt, @updatedAt, NULL, @baustelle, @probeBezeichnung, @entnahmeort, @gpsLat, @gpsLng, @material, @probenehmer, @bemerkungen, @analyseJson, @klassifizierungJson, @standard, @nutzungsart, @entsorgungsweg, @vevaCode, @menge, @mengeEinheit, @analytikProgrammeJson, @labor, @externZugriffJson, @createdBy)`)
+      .run({
+        id, createdAt: req.body?.createdAt || now, updatedAt: now, createdBy: req.user.id,
+        baustelle: 'Einzelprobe (ohne Projekt)', probeBezeichnung, ...f,
+      });
+    const row = db.prepare('SELECT * FROM entries WHERE id = ?').get(id);
+    return res.status(201).json({ entry: rowToEntry(row) });
+  }
+
   const project = getProject(projektId);
   if (!project) return res.status(400).json({ error: 'Projekt nicht gefunden.' });
   if (!canWriteInProject(project, req.user)) return res.status(403).json({ error: 'Dafür fehlt die Berechtigung.' });
@@ -164,11 +217,11 @@ entriesRouter.post('/', (req, res) => {
 entriesRouter.put('/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM entries WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Probe nicht gefunden.' });
-  const project = getProject(existing.projektId);
-  if (!canWriteInProject(project, req.user)) return res.status(403).json({ error: 'Dafür fehlt die Berechtigung.' });
+  if (!canWriteEntry(existing, req.user)) return res.status(403).json({ error: 'Dafür fehlt die Berechtigung.' });
 
-  const manage = canManageProject(project, req.user);
+  const manage = canManageEntry(existing, req.user);
   const f = upsertFields(req.body || {}, manage ? undefined : JSON.parse(existing.externZugriffJson || '[]'));
+  if (isStandalone(existing)) f.externZugriffJson = '[]'; // keine externe Freigabe bei Einzelproben
   db.prepare(`UPDATE entries SET
       entnahmeort=@entnahmeort,
       gpsLat=@gpsLat, gpsLng=@gpsLng, material=@material, probenehmer=@probenehmer,
@@ -183,23 +236,24 @@ entriesRouter.put('/:id', (req, res) => {
   res.json({ entry: rowToEntry(row) });
 });
 
-// Löschen: admin und die zuständige Projektleitung löschen sofort endgültig.
-// Probenehmer/innen mit Schreibzugriff auf das Projekt können nur eine
+// Löschen: admin, die zuständige Projektleitung, und bei Einzelproben die
+// erstellende Person selbst löschen sofort endgültig (bei Einzelproben gibt
+// es keine Projektleitung, die einen Antrag entscheiden könnte). Sonst
+// können Probenehmer/innen mit Schreibzugriff auf das Projekt nur eine
 // Löschung BEANTRAGEN (braucht Freigabe, siehe /approve-delete unten) — die
 // Probe bleibt bis zur Entscheidung bestehen. Externe haben ohnehin nur
-// Lesezugriff (canWriteInProject liefert für sie immer false).
+// Lesezugriff.
 entriesRouter.delete('/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM entries WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Probe nicht gefunden.' });
-  const project = getProject(existing.projektId);
 
-  if (canManageProject(project, req.user)) {
+  if (canManageEntry(existing, req.user)) {
     const photos = db.prepare('SELECT filename FROM photos WHERE entryId = ?').all(req.params.id);
     db.prepare('DELETE FROM entries WHERE id = ?').run(req.params.id);
     for (const p of photos) fs.unlink(path.join(uploadsDir, p.filename), () => {});
     return res.status(204).end();
   }
-  if (req.user.role === 'probenehmer' && canWriteInProject(project, req.user)) {
+  if (!isStandalone(existing) && req.user.role === 'probenehmer' && canWriteInProject(getProject(existing.projektId), req.user)) {
     db.prepare('UPDATE entries SET deletionRequestedAt=?, deletionRequestedBy=? WHERE id=?')
       .run(new Date().toISOString(), req.user.id, req.params.id);
     const row = db.prepare('SELECT * FROM entries WHERE id = ?').get(req.params.id);
@@ -213,9 +267,8 @@ entriesRouter.delete('/:id', (req, res) => {
 entriesRouter.post('/:id/cancel-delete-request', (req, res) => {
   const existing = db.prepare('SELECT * FROM entries WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Probe nicht gefunden.' });
-  const project = getProject(existing.projektId);
   const isRequester = existing.deletionRequestedBy === req.user.id;
-  if (!isRequester && !canManageProject(project, req.user)) return res.status(403).json({ error: 'Dafür fehlt die Berechtigung.' });
+  if (!isRequester && !canManageEntry(existing, req.user)) return res.status(403).json({ error: 'Dafür fehlt die Berechtigung.' });
   db.prepare('UPDATE entries SET deletionRequestedAt=NULL, deletionRequestedBy=NULL WHERE id=?').run(req.params.id);
   const row = db.prepare('SELECT * FROM entries WHERE id = ?').get(req.params.id);
   res.json({ entry: rowToEntry(row) });
@@ -225,8 +278,7 @@ entriesRouter.post('/:id/cancel-delete-request', (req, res) => {
 entriesRouter.post('/:id/approve-delete', (req, res) => {
   const existing = db.prepare('SELECT * FROM entries WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Probe nicht gefunden.' });
-  const project = getProject(existing.projektId);
-  if (!canManageProject(project, req.user)) return res.status(403).json({ error: 'Dafür fehlt die Berechtigung.' });
+  if (!canManageEntry(existing, req.user)) return res.status(403).json({ error: 'Dafür fehlt die Berechtigung.' });
   if (!existing.deletionRequestedAt) return res.status(400).json({ error: 'Kein offener Löschantrag für diese Probe.' });
   const photos = db.prepare('SELECT filename FROM photos WHERE entryId = ?').all(req.params.id);
   db.prepare('DELETE FROM entries WHERE id = ?').run(req.params.id);
@@ -239,8 +291,7 @@ entriesRouter.post('/:id/approve-delete', (req, res) => {
 entriesRouter.post('/:id/reject-delete', (req, res) => {
   const existing = db.prepare('SELECT * FROM entries WHERE id = ?').get(req.params.id);
   if (!existing) return res.status(404).json({ error: 'Probe nicht gefunden.' });
-  const project = getProject(existing.projektId);
-  if (!canManageProject(project, req.user)) return res.status(403).json({ error: 'Dafür fehlt die Berechtigung.' });
+  if (!canManageEntry(existing, req.user)) return res.status(403).json({ error: 'Dafür fehlt die Berechtigung.' });
   db.prepare('UPDATE entries SET deletionRequestedAt=NULL, deletionRequestedBy=NULL WHERE id=?').run(req.params.id);
   const row = db.prepare('SELECT * FROM entries WHERE id = ?').get(req.params.id);
   res.json({ entry: rowToEntry(row) });
@@ -249,7 +300,7 @@ entriesRouter.post('/:id/reject-delete', (req, res) => {
 entriesRouter.post('/:id/photos', upload.array('photos', 20), (req, res) => {
   const entry = db.prepare('SELECT * FROM entries WHERE id = ?').get(req.params.id);
   if (!entry) return res.status(404).json({ error: 'Probe nicht gefunden.' });
-  if (!canWriteInProject(getProject(entry.projektId), req.user)) return res.status(403).json({ error: 'Dafür fehlt die Berechtigung.' });
+  if (!canWriteEntry(entry, req.user)) return res.status(403).json({ error: 'Dafür fehlt die Berechtigung.' });
   const now = new Date().toISOString();
   const inserted = [];
   const insertStmt = db.prepare('INSERT INTO photos (id, entryId, filename, originalName, mimeType, takenAt, uploadedBy) VALUES (?,?,?,?,?,?,?)');
@@ -277,7 +328,7 @@ entriesRouter.get('/:id/photos/:photoId/file', (req, res) => {
 entriesRouter.delete('/:id/photos/:photoId', (req, res) => {
   const entry = db.prepare('SELECT * FROM entries WHERE id = ?').get(req.params.id);
   if (!entry) return res.status(404).json({ error: 'Probe nicht gefunden.' });
-  if (!canWriteInProject(getProject(entry.projektId), req.user)) return res.status(403).json({ error: 'Dafür fehlt die Berechtigung.' });
+  if (!canWriteEntry(entry, req.user)) return res.status(403).json({ error: 'Dafür fehlt die Berechtigung.' });
   const photo = db.prepare('SELECT * FROM photos WHERE id = ? AND entryId = ?').get(req.params.photoId, req.params.id);
   if (!photo) return res.status(404).json({ error: 'Foto nicht gefunden.' });
   db.prepare('DELETE FROM photos WHERE id = ?').run(req.params.photoId);

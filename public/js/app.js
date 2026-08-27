@@ -180,6 +180,9 @@ async function route() {
     } else if (parts[0] === 'journal') {
       setActiveTab('journal');
       await renderJournal();
+    } else if (parts[0] === 'protokoll') {
+      setActiveTab('protokoll');
+      await renderProtokoll();
     } else {
       setActiveTab('start');
       await renderStart();
@@ -230,11 +233,19 @@ async function renderStart() {
   appEl.innerHTML = '<p class="hint">Lade Projekte …</p>';
   const me = getCurrentUser();
   const projects = await listProjectsApi();
+  const scratchCard = !isExtern(me) ? `
+    <div class="card">
+      <h2>Oder: nur eine einzelne Probe</h2>
+      <p class="hint">Ohne Projekt/Baustelle — fürs Probenahmeprotokoll (vereinzelte Proben, „Scratchbook“).
+      Sichtbar nur für dich und den Admin.</p>
+      <a class="btn secondary" href="#/protokoll">📝 Probenahmeprotokoll</a>
+    </div>` : '';
   if (projects.length === 0) {
     appEl.innerHTML = `<div class="empty-state">
       <p>${canManageProjects(me) ? 'Noch keine Projekte angelegt.' : 'Noch kein Projekt-Zugriff — bitte bei der Projektleitung melden.'}</p>
       ${canManageProjects(me) ? '<a class="btn" href="#/projekte">+ Projekt anlegen</a>' : ''}
-    </div>`;
+    </div>
+    ${scratchCard}`;
     return;
   }
   const activeId = getActiveProjectId();
@@ -246,6 +257,7 @@ async function renderStart() {
       <div class="entry-list" id="start-project-list"></div>
     </div>
     ${canManageProjects(me) ? '<div class="btn-row"><a class="btn secondary" href="#/projekte">+ Neues Projekt anlegen / verwalten</a></div>' : ''}
+    ${scratchCard}
   `;
   const list = $('#start-project-list');
   for (const p of projects) {
@@ -384,6 +396,64 @@ function paintJournalList() {
     const stdLabel = entry.standard === 'vbbo' ? 'VBBo' : 'VVEA';
     const mengeLabel = fmtMenge(entry);
     card.querySelector('.entry-sub').textContent = `${entry.baustelle || '–'} · ${entry.material || ''}${mengeLabel ? ' · ' + mengeLabel : ''} · ${stdLabel} · ${fmtDate(entry.createdAt)}`;
+    if (cls) { const b = card.querySelector('.badge'); b.textContent = cls.short; b.style.background = cls.color; }
+    card.prepend(thumbEl);
+    card.addEventListener('click', () => { location.hash = `#/eintrag/${entry.id}`; });
+    container.appendChild(card);
+    if (entry.photos && entry.photos[0]) {
+      getPhotoUrl(entry.id, entry.photos[0]).then(url => { thumbEl.style.backgroundImage = `url(${url})`; thumbEl.textContent = ''; }).catch(() => {});
+    }
+  }
+}
+
+// ---------- Probenahmeprotokoll (Scratchbook: Einzelproben ohne Projekt) ----------
+// Eigener, schlanker Bereich für vereinzelte Proben ohne Projektzuteilung —
+// sichtbar nur für die erstellende Person + Admin (siehe entries.js
+// canViewEntry). Diese Proben laufen serverseitig über dieselbe
+// /api/entries-Liste wie Projekt-Proben (projektId=null) und erscheinen
+// daher — für die berechtigten Personen — auch ganz normal im Journal
+// (dort über den Projekt-Filter „Einzelprobe (ohne Projekt)“ ausfilterbar),
+// diese Ansicht hier ist nur eine fokussierte Kurzliste.
+async function renderProtokoll() {
+  appEl.innerHTML = '<p class="hint">Lade Probenahmeprotokoll …</p>';
+  const me = getCurrentUser();
+  // Admin sieht (wie sonst überall) auch fremde Einzelproben — anders als bei
+  // allen anderen Rollen (nur die eigenen), daher hier zusätzlich die
+  // Namensliste laden, um in der Kurzliste kenntlich zu machen, von wem eine
+  // Probe stammt (sonst nicht unterscheidbar, da alle im selben Protokoll landen).
+  const [all, roster] = await Promise.all([
+    listEntries(),
+    isAdmin(me) ? getUserRosterApi().catch(() => []) : Promise.resolve([]),
+  ]);
+  const entries = all.filter(e => !e.projektId).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+  appEl.innerHTML = `
+    <div class="card">
+      <h2>📝 Probenahmeprotokoll</h2>
+      <p class="hint">Vereinzelte Proben ohne Projekt/Baustelle — z.B. für Spontanproben unterwegs. Nur du (und
+      der Admin) siehst diese Liste; sie erscheinen auch im normalen Journal.</p>
+      <a class="btn" href="#/eintrag/neu-einzeln">+ Neue Einzelprobe</a>
+    </div>
+    ${entries.length === 0 ? '<p class="hint">Noch keine Einzelproben erfasst.</p>' : '<div class="entry-list" id="protokoll-list"></div>'}
+  `;
+  if (entries.length === 0) return;
+  const container = $('#protokoll-list');
+  for (const entry of entries) {
+    const card = document.createElement('article');
+    card.className = 'entry-card';
+    const thumbEl = document.createElement('div');
+    thumbEl.className = 'entry-thumb';
+    thumbEl.textContent = '📷';
+    const cls = entry.klassifizierung ? classesForEntry(entry)[entry.klassifizierung.classIndex] : null;
+    card.innerHTML = `<div class="entry-info">
+        <h3 class="entry-title"></h3>
+        <p class="entry-sub"></p>
+        ${cls ? `<span class="badge"></span>` : '<span class="hint">keine Analyse</span>'}
+      </div>`;
+    card.querySelector('.entry-title').textContent = entry.probeBezeichnung || '(ohne Bezeichnung)';
+    const mengeLabel = fmtMenge(entry);
+    const creatorLabel = isAdmin(me) ? (roster.find(u => u.id === entry.createdBy)?.name || '') : '';
+    card.querySelector('.entry-sub').textContent = `${entry.material || '–'}${mengeLabel ? ' · ' + mengeLabel : ''} · ${fmtDate(entry.createdAt)}${creatorLabel ? ' · von ' + creatorLabel : ''}`;
     if (cls) { const b = card.querySelector('.badge'); b.textContent = cls.short; b.style.background = cls.color; }
     card.prepend(thumbEl);
     card.addEventListener('click', () => { location.hash = `#/eintrag/${entry.id}`; });
@@ -576,15 +646,23 @@ async function loadVveaConfig() {
 async function renderEntryForm(idOrNeu) {
   await loadVveaConfig();
   pendingPhotos = [];
-  if (idOrNeu === 'neu') {
+  if (idOrNeu === 'neu-einzeln') {
+    // Eigenständige Probe ohne Projekt (Probenahmeprotokoll/Scratchbook) —
+    // siehe renderProtokoll(). Extern darf ohnehin nichts anlegen.
+    if (isExtern(getCurrentUser())) { location.hash = '#/protokoll'; return; }
+    currentEntry = newDraftEntry();
+    isNew = true;
+    formProjects = [];
+  } else if (idOrNeu === 'neu') {
     currentEntry = newDraftEntry();
     isNew = true;
     formProjects = await listProjectsApi();
     if (formProjects.length === 0) {
       const canCreate = canManageProjects(getCurrentUser());
       appEl.innerHTML = `<div class="empty-state">
-        <p>${canCreate ? 'Bevor eine Probe erfasst werden kann, muss zuerst ein Projekt angelegt werden.' : 'Noch kein Projekt-Zugriff — bitte bei der Projektleitung melden.'}</p>
+        <p>${canCreate ? 'Bevor eine Probe einem Projekt zugeteilt werden kann, muss zuerst ein Projekt angelegt werden.' : 'Noch kein Projekt-Zugriff — bitte bei der Projektleitung melden.'}</p>
         ${canCreate ? '<a class="btn" href="#/projekte">+ Projekt anlegen</a>' : ''}
+        ${!isExtern(getCurrentUser()) ? '<a class="btn secondary" href="#/eintrag/neu-einzeln">📝 Nur Probenahmeprotokoll (ohne Projekt)</a>' : ''}
       </div>`;
       return;
     }
@@ -682,6 +760,11 @@ function projektHint() {
 function paintEntryForm() {
   const e = currentEntry;
   const me = getCurrentUser();
+  // Eigenständige Probe ohne Projekt (Probenahmeprotokoll/Scratchbook, siehe
+  // renderProtokoll()) — projektId ist dann sowohl bei neuen als auch bei
+  // bestehenden Proben null. "Verwalten" ist dort nicht projektbasiert
+  // (Admin oder die erstellende Person selbst, siehe entries.js canManageEntry).
+  const standalone = !e.projektId;
   const project = formProjects.find(p => p.id === e.projektId) || null;
   const projectEntnahmeorte = project?.entnahmeorte || [];
   const projectEntsorgungswege = project?.entsorgungswege || [];
@@ -691,7 +774,7 @@ function paintEntryForm() {
   const entsorgungswegIsCustom = e.entsorgungsweg && !projectEntsorgungswege.includes(e.entsorgungsweg);
   const laborIsCustom = e.labor && !labore.some(l => l.name === e.labor);
   const labelSize = loadLabelSize();
-  const canManageThisEntry = canManageThisProject(me, project);
+  const canManageThisEntry = standalone ? (isAdmin(me) || e.createdBy === me?.id) : canManageThisProject(me, project);
   const externOptions = formRoster.filter(u => u.role === 'extern');
   if (isNew && !e.probenehmer && me) e.probenehmer = me.name;
   if (!Array.isArray(e.analytikProgramme)) e.analytikProgramme = [];
@@ -703,15 +786,21 @@ function paintEntryForm() {
     <div class="card">
       <h2>${isNew ? 'Neue Probe' : `Probe ${escapeHtml(e.probeBezeichnung)}`}</h2>
 
-      ${isNew ? `
+      ${isNew ? (standalone ? `
+        <p class="hint">📝 Probenahmeprotokoll — eigenständige Probe <strong>ohne Projekt</strong>. Chargenname
+        wird automatisch als „PP-####“ vergeben. Nur du (und der Admin) siehst diese Probe — siehe
+        <a href="#/protokoll">Probenahmeprotokoll</a>.</p>
+      ` : `
         <div class="field">
           <label>Projekt *</label>
           <select id="f-projekt">${formProjects.map(p => `<option value="${p.id}" ${p.id === e.projektId ? 'selected' : ''}>${escapeHtml(p.name)} (${escapeHtml(p.kuerzel)})</option>`).join('')}</select>
           <p class="hint" id="projekt-hint">${projektHint()}</p>
         </div>
+      `) : (standalone ? `
+        <div class="field"><label>Projekt</label><p>📝 ${escapeHtml(e.baustelle)} <span class="hint">(nur für dich sichtbar, siehe <a href="#/protokoll">Probenahmeprotokoll</a>)</span></p></div>
       ` : `
         <div class="field"><label>Projekt</label><p>${escapeHtml(e.baustelle)}</p></div>
-      `}
+      `)}
 
       <div class="grid-2">
         <div class="field">
@@ -854,7 +943,7 @@ function paintEntryForm() {
       `}
     </div>
 
-    ${(!isNew && canManageThisEntry) ? `
+    ${(!isNew && !standalone && canManageThisEntry) ? `
     <div class="card">
       <h2>Sichtbarkeit für externe Nutzer</h2>
       <p class="hint">Wer hier angehakt ist, sieht GENAU diese Probe (nur lesend) — unabhängig vom
@@ -891,7 +980,7 @@ function paintEntryForm() {
     </div>
   `;
 
-  if (isNew) {
+  if (isNew && !standalone) {
     $('#f-projekt').addEventListener('change', ev => {
       e.projektId = ev.target.value;
       // Beprobungsorte/Entsorgungswege sind projektabhängig — bei Projektwechsel
@@ -1056,7 +1145,7 @@ function paintEntryForm() {
   paintAnalyseTable();
 
   $('#btn-save').addEventListener('click', async () => {
-    if (isNew && !e.projektId) { toast('Bitte ein Projekt auswählen.'); return; }
+    if (isNew && !standalone && !e.projektId) { toast('Bitte ein Projekt auswählen.'); return; }
     const btn = $('#btn-save');
     btn.disabled = true;
     try {
@@ -1064,7 +1153,7 @@ function paintEntryForm() {
       updateVevaCodeUI();
       const payload = { ...e };
       delete payload.photos;
-      if (!isNew && canManageThisEntry) {
+      if (!isNew && !standalone && canManageThisEntry) {
         payload.externZugriff = $$('[data-extern-zugriff]').filter(cb => cb.checked).map(cb => cb.value);
       }
       let saved;

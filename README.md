@@ -12,6 +12,11 @@ App zur Führung eines Probennahmejournals auf der Baustelle:
   Verfügung stehen (Beprobungsort alternativ auch per GPS erfassbar).
 - **Möglichst wenig Tippen**: Material, Probenehmer/in, Beprobungsort und Entsorgungsweg als Auswahllisten,
   grosse Bedienelemente — gedacht für die Bedienung mit Handschuhen/Schutzausrüstung
+- **Probenahmeprotokoll (nur `shell/` und `server/`+`public/`)**: vereinzelte Proben ganz ohne Projekt
+  erfassen — z.B. Spontanproben unterwegs — als eigenes „Scratchbook“ neben der normalen Projektauswahl auf
+  dem Startbildschirm. Chargenname wird automatisch als `PP-0001`, `PP-0002`, … vergeben, PDF/E-Mail/Analysen
+  auslösen funktioniert genau wie bei Projekt-Proben. Sichtbar nur für die erstellende Person selbst (und den
+  Admin) — keine Projektleitung, keine externe Freigabe.
 - Fotodokumentation des Materials
 - **Menge je Probe erfassbar** (geschätzt, in t oder m³) — optional, wird im Journal, im PDF-Bericht und in der
   E-Mail-Zusammenfassung mit ausgewiesen
