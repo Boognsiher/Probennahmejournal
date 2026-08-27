@@ -87,36 +87,13 @@ Station/SSH einsehbar und mit dem bestehenden Backup-Skript sicherbar.
 
 ### Auf einer Synology-NAS (Container Manager)
 
-1. Repo **per Git klonen**, nicht als ZIP herunterladen — nur so lässt es sich später mit
-   `git pull` (bzw. `scripts/update.sh`, siehe unten) aktualisieren. Auf der NAS z.B. über das
-   Paket **Git Server** aus dem Synology Paketzentrum + SSH-Zugriff (Systemsteuerung → Terminal &
-   SNMP → SSH-Dienst aktivieren), dann per SSH: `git clone <Repo-URL>`.
-2. `server/.env.example` nach `server/.env` kopieren und anpassen (`JWT_SECRET`, `ADMIN_EMAIL`,
-   `ADMIN_PASSWORD`, `CORS_ORIGIN`, `TRUST_PROXY=1` — siehe Schritt 5 unten).
-3. **Container Manager** (DSM-Paket, bei älteren DSM-Versionen „Docker“ genannt) öffnen → **Projekt**
-   → **Erstellen** → als Pfad den Ordner mit der `docker-compose.yml` im Repo-Root wählen. Container
-   Manager liest die Datei ein und baut/startet den Container automatisch (entspricht `docker compose
-   up -d --build`).
-4. **Eigener Port/eigene Domain, nicht über den DSM-Login**: Die App läuft auf Port 3000 im
-   Container — in Container Manager auf einen freien Host-Port mappen (z.B. 3001), damit sie
-   unabhängig von der DSM-Weboberfläche (Port 5000/5001) erreichbar ist.
-5. **HTTPS über DSM selbst** (kein eigener Caddy/nginx-Container nötig): Systemsteuerung →
-   Anmeldeportal → Erweitert → **Reverse-Proxy** → neue Regel anlegen, die eure Domain/Subdomain auf
-   `localhost:<Host-Port aus Schritt 4>` weiterleitet. Zertifikat unter Systemsteuerung →
-   Sicherheit → Zertifikat → **Let's-Encrypt-Zertifikat hinzufügen** (kostenlos, automatische
-   Erneuerung). Da der Zugriff dann über diesen Reverse-Proxy läuft: `TRUST_PROXY=1` in der `.env`
-   setzen (siehe Schritt 2), sonst sieht der Login-Rate-Limiter nur die DSM-interne IP statt der
-   echten Client-IP.
-6. Falls die NAS ohnehin schon ans Internet exponiert ist (z.B. für private Dateiablage): DSM-Login
-   selbst auf 2FA stellen und DSM/Pakete aktuell halten — die App ist nur so sicher wie das
-   darunterliegende System. Idealerweise ist der DSM-Login selbst nicht öffentlich erreichbar (nur
-   die neue Reverse-Proxy-Regel für die App-Domain), sondern nur über lokales Netz/VPN.
-7. Backup: `server/data/`/`server/uploads/` liegen als normale Ordner im Repo-Checkout vor — das
-   Backup-Skript (`scripts/backup-to-onedrive.sh`) lässt sich per Synology **Aufgabenplaner**
-   (Systemsteuerung → Aufgabenplaner → geplante Aufgabe → Benutzerdefiniertes Skript) statt Cron
-   einrichten.
-8. Updates: siehe „Updates“ unten — `scripts/update.sh` per SSH oder ebenfalls als
-   Aufgabenplaner-Skript (manuell mit „Jetzt ausführen“ angestossen, statt zeitgesteuert).
+Ausführliche Schritt-für-Schritt-Anleitung zum Abarbeiten (Code holen → lokal testen → HTTPS/Domain
+→ absichern → Backup/Updates einrichten): **[`DEPLOY-SYNOLOGY.md`](DEPLOY-SYNOLOGY.md)**.
+
+Kurzfassung: Repo per `git clone` (nicht ZIP) auf die NAS, `server/.env` aus `.env.example`
+befüllen, dann per **Container Manager** → Projekt → auf den geklonten Ordner zeigen (baut/startet
+automatisch). HTTPS über DSMs eigenen Reverse-Proxy + kostenlosem Let's-Encrypt-Zertifikat, kein
+zusätzlicher Caddy/nginx-Container nötig.
 
 ## Updates
 
