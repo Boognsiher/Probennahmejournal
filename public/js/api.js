@@ -247,6 +247,12 @@ export async function updateUserRoleApi(id, role) {
   const data = await request(`/users/${id}/role`, { method: 'PUT', body: { role } });
   return data.user;
 }
+// Kein Self-Service-Passwort-Reset per E-Mail (die App verschickt keine
+// E-Mails) — der Admin setzt hier direkt ein neues Passwort, auch fürs
+// eigene Konto.
+export async function updateUserPasswordApi(id, password) {
+  await request(`/users/${id}/password`, { method: 'PUT', body: { password } });
+}
 export async function deleteUserApi(id) {
   await request(`/users/${id}`, { method: 'DELETE' });
 }

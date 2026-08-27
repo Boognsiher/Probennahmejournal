@@ -710,6 +710,18 @@ export async function updateUserRoleApi(id, role) {
   const { password, ...safe } = user;
   return safe;
 }
+// Kein Self-Service-Passwort-Reset per E-Mail (die App verschickt keine
+// E-Mails) — der Admin setzt hier direkt ein neues Passwort, auch fürs
+// eigene Konto.
+export async function updateUserPasswordApi(id, password) {
+  await delay();
+  requireAdmin();
+  if (!password || password.length < 8) throw new ApiError('Passwort muss mindestens 8 Zeichen haben.', 400);
+  const user = db.users.find(u => u.id === id);
+  if (!user) throw new ApiError('Benutzer nicht gefunden.', 404);
+  user.password = password;
+  persist();
+}
 export async function deleteUserApi(id) {
   await delay();
   const me = requireAdmin();

@@ -54,6 +54,21 @@ usersRouter.put('/:id/role', (req, res) => {
   res.json({ user });
 });
 
+// Passwort eines bestehenden Kontos setzen — es gibt keinen Self-Service-
+// Reset per E-Mail (die App verschickt keine E-Mails, siehe README >
+// Sicherheit), daher setzt der Admin ein neues Passwort direkt, z.B. wenn
+// jemand sein Passwort vergessen hat. Auch für das eigene Konto erlaubt
+// (anders als die Rolle — dort geht's um versehentliches Aussperren, hier
+// nicht: wer sein eigenes Passwort ändert, kennt es ja gerade erst gesetzt).
+usersRouter.put('/:id/password', (req, res) => {
+  const { password } = req.body || {};
+  if (!password || password.length < 8) return res.status(400).json({ error: 'Passwort muss mindestens 8 Zeichen haben.' });
+  const passwordHash = bcrypt.hashSync(password, 12);
+  const info = db.prepare('UPDATE users SET passwordHash = ? WHERE id = ?').run(passwordHash, req.params.id);
+  if (info.changes === 0) return res.status(404).json({ error: 'Benutzer nicht gefunden.' });
+  res.status(204).end();
+});
+
 usersRouter.delete('/:id', (req, res) => {
   if (req.params.id === req.user.id) return res.status(400).json({ error: 'Eigenes Konto kann nicht gelöscht werden.' });
   const info = db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id);

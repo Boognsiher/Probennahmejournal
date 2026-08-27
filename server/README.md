@@ -127,11 +127,11 @@ Die Daten liegen dann in den Docker-Volumes `pnj-data` / `pnj-uploads` (siehe `d
   (offenes CORS, praktisch für lokale Entwicklung). Für den produktiven Einsatz die eigene Domain in
   der `.env` eintragen (siehe `.env.example`) — betrifft nur browserseitige Aufrufe von einer
   ANDEREN Domain aus, das Frontend selbst (vom selben Server ausgeliefert) ist davon nicht betroffen.
-- Es gibt aktuell **kein „Passwort vergessen“** — nur der Admin kann Konten anlegen/löschen/Rollen
-  ändern, aber kein Passwort eines bestehenden Kontos zurücksetzen. Bei Bedarf das Konto löschen und
-  mit neuem Passwort neu anlegen lassen (Achtung: das ändert die Benutzer-ID, wodurch Zugriffslisten
-  wie `probenehmerZugriff`/`externZugriff` auf die alte ID ins Leere zeigen — die Person muss dort
-  ggf. neu freigeschaltet werden). Ein Reset-Endpunkt für den Admin liesse sich bei Bedarf ergänzen.
+- **Kein „Passwort vergessen“ per E-Mail** (die App verschickt keine E-Mails, siehe oben) — der Admin
+  setzt stattdessen unter Einstellungen &gt; Benutzer direkt ein neues Passwort für das betroffene
+  Konto (`PUT /api/users/:id/password`, mind. 8 Zeichen), auch fürs eigene Konto. Das Konto bleibt
+  dabei erhalten (gleiche ID) — anders als Löschen+Neuanlegen, wodurch Zugriffslisten wie
+  `probenehmerZugriff`/`externZugriff` sonst auf eine nicht mehr existierende ID zeigen würden.
 
 ## Rollen & Sichtbarkeit
 
@@ -173,6 +173,7 @@ separaten "meine Projekte"-Parameter, die normale Liste zeigt bereits nur, was s
 | GET | `/api/users` | Benutzerliste (nur Admin) |
 | POST | `/api/users` | Benutzer anlegen — `role` optional (nur Admin) |
 | PUT | `/api/users/:id/role` | Rolle ändern, nicht die eigene (nur Admin) |
+| PUT | `/api/users/:id/password` | Neues Passwort setzen (auch fürs eigene Konto, nur Admin) |
 | DELETE | `/api/users/:id` | Benutzer löschen (nur Admin) |
 | GET | `/api/users/roster` | Namensliste aller Benutzer (für „Probenehmer/in“-Dropdown, jede Rolle) |
 | GET | `/api/projects` | Sichtbare Projekte (inkl. `entnahmeorte`/`entsorgungswege`/`probenehmerZugriff`) |

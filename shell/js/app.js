@@ -9,7 +9,7 @@ import {
   getAnalytikProgrammeApi, saveAnalytikProgrammeApi, resetAnalytikProgrammeApi,
   getMaterialienApi, saveMaterialienApi, resetMaterialienApi,
   getLaboreApi, saveLaboreApi, resetLaboreApi,
-  listUsersApi, createUserApi, deleteUserApi, updateUserRoleApi, getUserRosterApi,
+  listUsersApi, createUserApi, deleteUserApi, updateUserRoleApi, updateUserPasswordApi, getUserRosterApi,
   listProjectsApi, createProjectApi, updateProjectApi, deleteProjectApi,
   cancelDeleteRequestApi, approveDeleteApi, rejectDeleteApi,
   listThresholdRequestsApi, requestThresholdChangeApi, cancelThresholdRequestApi,
@@ -2252,6 +2252,11 @@ function showThresholdsImportPreview(rows) {
   $('#btn-cancel-thresholds-import').addEventListener('click', () => { el.innerHTML = ''; });
 }
 
+// Wessen Passwort-Formular gerade aufgeklappt ist (id) — kein Self-Service-
+// Reset per E-Mail (die App verschickt keine E-Mails), daher setzt der Admin
+// hier direkt ein neues Passwort, auch fürs eigene Konto.
+let passwordResetUserId = null;
+
 async function paintUserList() {
   const box = $('#user-list');
   if (!box) return;
@@ -2264,14 +2269,20 @@ async function paintUserList() {
       ['extern', 'Extern (nur lesen)'], ['admin', 'Administrator/in'],
     ];
     box.innerHTML = users.map(u => `
-      <div style="display:flex;align-items:center;gap:.5rem;">
-        <span style="flex:1;">${escapeHtml(u.name)} — ${escapeHtml(u.email)}</span>
+      <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;padding:.3rem 0;border-bottom:1px solid var(--border);">
+        <span style="flex:1;min-width:0;">${escapeHtml(u.name)} — ${escapeHtml(u.email)}</span>
         ${u.id !== me.id ? `
           <select data-role-user="${u.id}" style="width:auto;">
             ${roleOptions.map(([val, label]) => `<option value="${val}" ${u.role === val ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}
           </select>
-          <button class="btn danger" style="padding:.2rem .6rem;" data-del-user="${u.id}">Entfernen</button>
         ` : `<span class="hint">${escapeHtml(ROLE_LABELS[u.role] || u.role)} (du)</span>`}
+        <button class="btn secondary" style="padding:.2rem .6rem;" data-toggle-pw="${u.id}">🔑 Passwort</button>
+        ${u.id !== me.id ? `<button class="btn danger" style="padding:.2rem .6rem;" data-del-user="${u.id}">Entfernen</button>` : ''}
+        ${passwordResetUserId === u.id ? `
+          <div style="display:flex;align-items:center;gap:.5rem;flex-basis:100%;margin-top:.3rem;">
+            <input type="password" id="pw-reset-input" placeholder="Neues Passwort (mind. 8 Zeichen)" autocomplete="new-password" style="flex:1;min-width:0;">
+            <button class="btn" style="padding:.2rem .6rem;" data-set-pw="${u.id}">Setzen</button>
+          </div>` : ''}
       </div>`).join('');
     $$('[data-role-user]').forEach(sel => sel.addEventListener('change', async () => {
       try { await updateUserRoleApi(sel.dataset.roleUser, sel.value); toast('Rolle geändert'); }
@@ -2281,6 +2292,20 @@ async function paintUserList() {
       if (!confirm('Diesen Benutzer wirklich entfernen?')) return;
       try { await deleteUserApi(btn.dataset.delUser); await paintUserList(); }
       catch (err) { toast('Fehler: ' + errMsg(err)); }
+    }));
+    $$('[data-toggle-pw]').forEach(btn => btn.addEventListener('click', () => {
+      passwordResetUserId = passwordResetUserId === btn.dataset.togglePw ? null : btn.dataset.togglePw;
+      paintUserList();
+    }));
+    $$('[data-set-pw]').forEach(btn => btn.addEventListener('click', async () => {
+      const pw = $('#pw-reset-input').value;
+      if (pw.length < 8) { toast('Passwort muss mindestens 8 Zeichen haben.'); return; }
+      try {
+        await updateUserPasswordApi(btn.dataset.setPw, pw);
+        toast('Passwort gesetzt');
+        passwordResetUserId = null;
+        await paintUserList();
+      } catch (err) { toast('Fehler: ' + errMsg(err)); }
     }));
   } catch (err) {
     box.innerHTML = `<p class="hint">Fehler beim Laden: ${escapeHtml(errMsg(err))}</p>`;
