@@ -104,6 +104,34 @@ Die Daten liegen dann in den Docker-Volumes `pnj-data` / `pnj-uploads` (siehe `d
    ```
    Alternativ nginx + certbot. Ohne HTTPS werden Login-Daten und Fotos unverschlüsselt übertragen –
    für den Einsatz ausserhalb eines vertrauenswürdigen lokalen Netzes daher **nicht empfohlen**.
+5. Läuft der Server hinter dem Reverse Proxy aus Schritt 4: `TRUST_PROXY=1` in der `.env` setzen (siehe
+   .env.example) — sonst sieht z.B. der Login-Rate-Limiter unten nur die IP des Proxys statt der
+   echten Client-IP. **Nicht** setzen, wenn der Server ohne eigenen Proxy direkt erreichbar ist.
+
+## Sicherheit
+
+- **HTTPS ist Pflicht** für den Einsatz ausserhalb eines vertrauenswürdigen lokalen Netzes — siehe
+  „HTTPS/Reverse Proxy“ oben. Der Node-Prozess selbst verschlüsselt nichts.
+- **Verschlüsselung "at rest"**: Passwörter sind korrekt gehasht (bcrypt), alle übrigen Daten
+  (Proben, Materialien, GPS-Koordinaten, Fotos) liegen unverschlüsselt in der SQLite-Datei bzw. als
+  Bilddateien auf der Server-Platte — kein Verschlüsselung auf Anwendungsebene. Für den Basisschutz
+  reicht meist eine verschlüsselte Server-/Volume-Platte (bei den meisten Cloud-Anbietern
+  Standard, bei eigener Hardware z.B. LUKS); echte Verschlüsselung auf DB-Ebene (z.B. SQLCipher)
+  wäre ein grösserer Umbau und für eine Alpha mit kleinem, bekanntem Nutzerkreis meist nicht nötig.
+- **`JWT_SECRET`** muss vor dem produktiven Start durch einen eigenen, zufälligen Wert ersetzt werden
+  (siehe oben) — mit dem Platzhalter aus `.env.example` liessen sich gültige Login-Token fälschen.
+- **Login-Rate-Limiting**: `/api/auth/login` ist pro IP-Adresse auf 10 fehlgeschlagene Versuche
+  innerhalb von 10 Minuten begrenzt (danach `429 Too Many Requests`, siehe `src/rate-limit.js`) —
+  schützt vor Passwort-Brute-Force. Ein erfolgreicher Login setzt den Zähler zurück.
+- **`CORS_ORIGIN`**: ohne gesetzten Wert akzeptiert die API Cross-Origin-Aufrufe von jeder Herkunft
+  (offenes CORS, praktisch für lokale Entwicklung). Für den produktiven Einsatz die eigene Domain in
+  der `.env` eintragen (siehe `.env.example`) — betrifft nur browserseitige Aufrufe von einer
+  ANDEREN Domain aus, das Frontend selbst (vom selben Server ausgeliefert) ist davon nicht betroffen.
+- Es gibt aktuell **kein „Passwort vergessen“** — nur der Admin kann Konten anlegen/löschen/Rollen
+  ändern, aber kein Passwort eines bestehenden Kontos zurücksetzen. Bei Bedarf das Konto löschen und
+  mit neuem Passwort neu anlegen lassen (Achtung: das ändert die Benutzer-ID, wodurch Zugriffslisten
+  wie `probenehmerZugriff`/`externZugriff` auf die alte ID ins Leere zeigen — die Person muss dort
+  ggf. neu freigeschaltet werden). Ein Reset-Endpunkt für den Admin liesse sich bei Bedarf ergänzen.
 
 ## Rollen & Sichtbarkeit
 
