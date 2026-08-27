@@ -81,12 +81,16 @@ cp server/.env.example server/.env   # anpassen!
 docker compose up -d --build
 ```
 
-Die Daten liegen dann in den Docker-Volumes `pnj-data` / `pnj-uploads` (siehe `docker-compose.yml`).
+Die Daten liegen dann direkt (Bind-Mount, kein "verstecktes" Docker-Volume) unter `server/data/`
+bzw. `server/uploads/` im Repo-Checkout (siehe `docker-compose.yml`) — normale Dateien, per File
+Station/SSH einsehbar und mit dem bestehenden Backup-Skript sicherbar.
 
 ### Auf einer Synology-NAS (Container Manager)
 
-1. Repo auf die NAS bringen (z.B. per Git-Paket aus dem Synology Paketzentrum, oder das Repo als
-   ZIP herunterladen und über File Station hochladen/entpacken).
+1. Repo **per Git klonen**, nicht als ZIP herunterladen — nur so lässt es sich später mit
+   `git pull` (bzw. `scripts/update.sh`, siehe unten) aktualisieren. Auf der NAS z.B. über das
+   Paket **Git Server** aus dem Synology Paketzentrum + SSH-Zugriff (Systemsteuerung → Terminal &
+   SNMP → SSH-Dienst aktivieren), dann per SSH: `git clone <Repo-URL>`.
 2. `server/.env.example` nach `server/.env` kopieren und anpassen (`JWT_SECRET`, `ADMIN_EMAIL`,
    `ADMIN_PASSWORD`, `CORS_ORIGIN`, `TRUST_PROXY=1` — siehe Schritt 5 unten).
 3. **Container Manager** (DSM-Paket, bei älteren DSM-Versionen „Docker“ genannt) öffnen → **Projekt**
@@ -107,9 +111,36 @@ Die Daten liegen dann in den Docker-Volumes `pnj-data` / `pnj-uploads` (siehe `d
    selbst auf 2FA stellen und DSM/Pakete aktuell halten — die App ist nur so sicher wie das
    darunterliegende System. Idealerweise ist der DSM-Login selbst nicht öffentlich erreichbar (nur
    die neue Reverse-Proxy-Regel für die App-Domain), sondern nur über lokales Netz/VPN.
-7. Backup: `server/data/`/`server/uploads/` liegen als Docker-Volumes vor — das Backup-Skript
-   (`scripts/backup-to-onedrive.sh`) lässt sich per Synology **Aufgabenplaner** (Systemsteuerung →
-   Aufgabenplaner → geplante Aufgabe → Benutzerdefiniertes Skript) statt Cron einrichten.
+7. Backup: `server/data/`/`server/uploads/` liegen als normale Ordner im Repo-Checkout vor — das
+   Backup-Skript (`scripts/backup-to-onedrive.sh`) lässt sich per Synology **Aufgabenplaner**
+   (Systemsteuerung → Aufgabenplaner → geplante Aufgabe → Benutzerdefiniertes Skript) statt Cron
+   einrichten.
+8. Updates: siehe „Updates“ unten — `scripts/update.sh` per SSH oder ebenfalls als
+   Aufgabenplaner-Skript (manuell mit „Jetzt ausführen“ angestossen, statt zeitgesteuert).
+
+## Updates
+
+Der Server holt sich **keinen** Code automatisch von GitHub — auf der NAS liegt ein einmal per
+`git clone` angelegter, lokaler Checkout des Repos, und `docker compose up -d --build` baut das
+Docker-Image jeweils aus **diesem lokalen Checkout**. Ein Update bedeutet also: neue Commits erst in
+diesen Checkout holen (`git pull`), danach neu bauen — Docker zieht nichts selbstständig nach.
+
+Am einfachsten mit dem neuen Skript, ein Befehl für beides:
+```bash
+server/scripts/update.sh
+```
+Es holt den aktuellen Stand des Branches, den ihr auf der NAS ausgecheckt habt (`git fetch` +
+`git merge --ff-only`, bricht bei lokalen uncommitteten Änderungen sicherheitshalber ab statt etwas
+zu überschreiben), baut das Image neu und startet den Container neu.
+
+**Eure Daten bleiben dabei erhalten** — `server/data/` (SQLite-Datenbank) und `server/uploads/`
+(Fotos) sind als Bind-Mounts eingebunden (siehe `docker-compose.yml`), ein Image-Rebuild rührt sie
+nicht an. Neue Datenbankspalten/-tabellen legt der Server beim Start selbst automatisch an
+(`server/src/db.js`, Migrationen), bestehende Proben/Projekte/Benutzer bleiben unverändert. Trotzdem
+gilt wie bei jedem Update: vor grösseren Sprüngen ein aktuelles Backup nicht schaden lassen.
+
+Kein Docker im Einsatz (Direktinstallation, siehe unten): `git pull` + `npm install` (falls sich
+Abhängigkeiten geändert haben) + Prozess neu starten (`pm2 restart probennahmejournal`).
 
 ### Direkt auf einem eigenen Server/NAS/Raspberry Pi (ohne Docker)
 

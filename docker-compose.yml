@@ -7,11 +7,15 @@ services:
       - "3000:3000"
     env_file:
       - server/.env
+    # Bind-Mounts statt benannter Docker-Volumes: Datenbank und Fotos liegen
+    # dadurch direkt und sichtbar als normale Dateien unter server/data/ bzw.
+    # server/uploads/ im Repo-Checkout (z.B. per File Station auf einer
+    # Synology-NAS einsehbar/sicherbar) — nicht in Dockers interner
+    # Volume-Verwaltung versteckt. Ein "docker compose up -d --build" (Update
+    # auf eine neue Version) baut nur das Image neu, diese Ordner bleiben
+    # davon unberührt — Proben/Fotos/Login-Daten bleiben über Updates hinweg
+    # erhalten. Siehe server/README.md > Daten & Backups.
     volumes:
-      - pnj-data:/app/server/data
-      - pnj-uploads:/app/server/uploads
+      - ./server/data:/app/server/data
+      - ./server/uploads:/app/server/uploads
     restart: unless-stopped
-
-volumes:
-  pnj-data:
-  pnj-uploads:
