@@ -203,7 +203,7 @@ function renderLogin() {
   appEl.innerHTML = `
     <div class="card" style="max-width:360px;margin:3rem auto;">
       <h2>Anmelden</h2>
-      <div class="field"><label>E-Mail</label><input id="li-email" type="email" autocomplete="username"></div>
+      <div class="field"><label>E-Mail oder Kürzel</label><input id="li-email" type="text" autocomplete="username"></div>
       <div class="field"><label>Passwort</label><input id="li-pass" type="password" autocomplete="current-password"></div>
       <p class="hint" id="li-error" style="color:#b71c1c;"></p>
       <button class="btn" id="li-submit" type="button" style="width:100%;">Anmelden</button>
@@ -214,7 +214,7 @@ function renderLogin() {
     const email = $('#li-email').value.trim();
     const pass = $('#li-pass').value;
     $('#li-error').textContent = '';
-    if (!email || !pass) { $('#li-error').textContent = 'Bitte E-Mail und Passwort eingeben.'; return; }
+    if (!email || !pass) { $('#li-error').textContent = 'Bitte Login und Passwort eingeben.'; return; }
     try {
       await login(email, pass);
       paintTopbar();
@@ -1585,8 +1585,8 @@ async function paintSettings() {
       <h3>Neuen Benutzer anlegen</h3>
       <div class="grid-2">
         <div class="field"><label>Name</label><input id="nu-name"></div>
-        <div class="field"><label>E-Mail</label><input id="nu-email" type="email"></div>
-        <div class="field"><label>Passwort (mind. 8 Zeichen)</label><input id="nu-pass" type="password"></div>
+        <div class="field"><label>E-Mail oder Kürzel <span class="hint">(zum Anmelden, muss eindeutig sein)</span></label><input id="nu-email" type="text" autocomplete="off"></div>
+        <div class="field"><label>Passwort (mind. 8 Zeichen)</label><input id="nu-pass" type="password" autocomplete="new-password"></div>
         <div class="field"><label>Rolle</label>
           <select id="nu-role">
             <option value="probenehmer">Probenehmer/in</option>
@@ -2169,7 +2169,7 @@ async function paintSettings() {
       const email = $('#nu-email').value.trim();
       const password = $('#nu-pass').value;
       const role = $('#nu-role').value;
-      if (!name || !email || !password) { toast('Bitte Name, E-Mail und Passwort ausfüllen.'); return; }
+      if (!name || !email || !password) { toast('Bitte Name, Login (E-Mail/Kürzel) und Passwort ausfüllen.'); return; }
       try {
         await createUserApi({ name, email, password, role });
         toast('Benutzer angelegt');

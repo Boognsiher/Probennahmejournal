@@ -83,7 +83,35 @@ docker compose up -d --build
 
 Die Daten liegen dann in den Docker-Volumes `pnj-data` / `pnj-uploads` (siehe `docker-compose.yml`).
 
-### Direkt auf einem eigenen Server/NAS/Raspberry Pi
+### Auf einer Synology-NAS (Container Manager)
+
+1. Repo auf die NAS bringen (z.B. per Git-Paket aus dem Synology Paketzentrum, oder das Repo als
+   ZIP herunterladen und über File Station hochladen/entpacken).
+2. `server/.env.example` nach `server/.env` kopieren und anpassen (`JWT_SECRET`, `ADMIN_EMAIL`,
+   `ADMIN_PASSWORD`, `CORS_ORIGIN`, `TRUST_PROXY=1` — siehe Schritt 5 unten).
+3. **Container Manager** (DSM-Paket, bei älteren DSM-Versionen „Docker“ genannt) öffnen → **Projekt**
+   → **Erstellen** → als Pfad den Ordner mit der `docker-compose.yml` im Repo-Root wählen. Container
+   Manager liest die Datei ein und baut/startet den Container automatisch (entspricht `docker compose
+   up -d --build`).
+4. **Eigener Port/eigene Domain, nicht über den DSM-Login**: Die App läuft auf Port 3000 im
+   Container — in Container Manager auf einen freien Host-Port mappen (z.B. 3001), damit sie
+   unabhängig von der DSM-Weboberfläche (Port 5000/5001) erreichbar ist.
+5. **HTTPS über DSM selbst** (kein eigener Caddy/nginx-Container nötig): Systemsteuerung →
+   Anmeldeportal → Erweitert → **Reverse-Proxy** → neue Regel anlegen, die eure Domain/Subdomain auf
+   `localhost:<Host-Port aus Schritt 4>` weiterleitet. Zertifikat unter Systemsteuerung →
+   Sicherheit → Zertifikat → **Let's-Encrypt-Zertifikat hinzufügen** (kostenlos, automatische
+   Erneuerung). Da der Zugriff dann über diesen Reverse-Proxy läuft: `TRUST_PROXY=1` in der `.env`
+   setzen (siehe Schritt 2), sonst sieht der Login-Rate-Limiter nur die DSM-interne IP statt der
+   echten Client-IP.
+6. Falls die NAS ohnehin schon ans Internet exponiert ist (z.B. für private Dateiablage): DSM-Login
+   selbst auf 2FA stellen und DSM/Pakete aktuell halten — die App ist nur so sicher wie das
+   darunterliegende System. Idealerweise ist der DSM-Login selbst nicht öffentlich erreichbar (nur
+   die neue Reverse-Proxy-Regel für die App-Domain), sondern nur über lokales Netz/VPN.
+7. Backup: `server/data/`/`server/uploads/` liegen als Docker-Volumes vor — das Backup-Skript
+   (`scripts/backup-to-onedrive.sh`) lässt sich per Synology **Aufgabenplaner** (Systemsteuerung →
+   Aufgabenplaner → geplante Aufgabe → Benutzerdefiniertes Skript) statt Cron einrichten.
+
+### Direkt auf einem eigenen Server/NAS/Raspberry Pi (ohne Docker)
 
 1. Node.js ≥ 18 installieren.
 2. Repo auf den Server bringen, `cd server && npm install && cp .env.example .env` (anpassen).
@@ -132,6 +160,28 @@ Die Daten liegen dann in den Docker-Volumes `pnj-data` / `pnj-uploads` (siehe `d
   Konto (`PUT /api/users/:id/password`, mind. 8 Zeichen), auch fürs eigene Konto. Das Konto bleibt
   dabei erhalten (gleiche ID) — anders als Löschen+Neuanlegen, wodurch Zugriffslisten wie
   `probenehmerZugriff`/`externZugriff` sonst auf eine nicht mehr existierende ID zeigen würden.
+- **Login-Feld ist reiner Login-Name**, keine echte E-Mail nötig (z.B. auch ein Kürzel wie `hm`
+  möglich) — die App verschickt ohnehin keine E-Mails, das Feld muss nur unter den Benutzer:innen
+  eindeutig sein.
+
+### Was niemals ins Repo/auf GitHub darf
+
+Betrifft dieses Repo unabhängig davon, ob es öffentlich oder privat auf GitHub liegt — bei einem
+**privaten** Repo ist das Risiko bei einem Leak zwar kleiner (nicht die ganze Welt sieht es sofort),
+schützt aber nicht vor kompromittierten GitHub-Accounts/Zugriffsrechten, und einmal committete
+Geheimnisse bleiben für immer in der Git-Historie, auch wenn die Datei später gelöscht wird — also
+von Anfang an draussen halten, nicht erst nachträglich:
+
+- **`server/.env`** (echter `JWT_SECRET`, `ADMIN_PASSWORD`, etc.) — nur `.env.example` mit
+  Platzhaltern gehört ins Repo. Ist bereits über `server/.gitignore` ausgeschlossen.
+- **`server/data/*.sqlite*`** (die Datenbank — Passwort-Hashes, alle Proben-/Personendaten) und
+  **`server/uploads/`** (Fotos) — ebenfalls bereits ausgeschlossen (`server/.gitignore`).
+- Jeder **echte Zugangsdaten-Wert** direkt im Code oder in Doku-Beispielen (echte Domain, echte
+  Admin-Adresse, echtes Passwort) — Beispiele in README/`.env.example` bewusst mit Platzhaltern
+  halten, nicht mit echten Werten überschreiben, bevor man sie committet.
+
+Der aktuelle Stand ist geprüft sauber (kein `.env`, keine `.sqlite`-Datei, keine Zugangsdaten im
+Commit-Verlauf) — das bleibt so, solange oben genannte Dateien nie mit `git add -f` erzwungen werden.
 
 ## Rollen & Sichtbarkeit
 

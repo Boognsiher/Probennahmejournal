@@ -8,11 +8,11 @@ export const authRouter = Router();
 
 authRouter.post('/login', loginRateLimit, (req, res) => {
   const { email, password } = req.body || {};
-  if (!email || !password) return res.status(400).json({ error: 'E-Mail und Passwort erforderlich.' });
+  if (!email || !password) return res.status(400).json({ error: 'Login (E-Mail/Kürzel) und Passwort erforderlich.' });
   const user = db.prepare('SELECT * FROM users WHERE email = ?').get(String(email).toLowerCase().trim());
   if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
     recordLoginAttempt(req, false);
-    return res.status(401).json({ error: 'E-Mail oder Passwort falsch.' });
+    return res.status(401).json({ error: 'Login oder Passwort falsch.' });
   }
   recordLoginAttempt(req, true);
   const token = signToken(user);
