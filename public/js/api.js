@@ -234,6 +234,19 @@ export async function resetLaboreApi() {
   return data.labore;
 }
 
+// ---------- Unsere Firma (für Labor-Auftragsformulare, z.B. Niutec) ----------
+export async function getUnsereFirmaApi() {
+  const data = await request('/settings/unsere-firma');
+  return data.firma;
+}
+export async function saveUnsereFirmaApi(firma) {
+  await request('/settings/unsere-firma', { method: 'PUT', body: { firma } });
+}
+export async function resetUnsereFirmaApi() {
+  const data = await request('/settings/unsere-firma/reset', { method: 'POST' });
+  return data.firma;
+}
+
 // ---------- Benutzer (Admin) ----------
 export async function listUsersApi() {
   const data = await request('/users');

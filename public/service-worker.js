@@ -1,7 +1,7 @@
 // Minimaler Service Worker: Cache-first für die App-Shell (schnelles Laden,
 // Offline-Ansicht der Oberfläche), Network-only für die Server-API (/api/*),
 // damit Journal-Daten und Fotos immer aktuell sind.
-const CACHE_NAME = 'probennahmejournal-v17';
+const CACHE_NAME = 'probennahmejournal-v18';
 const APP_SHELL = [
   './',
   './index.html',
@@ -15,6 +15,8 @@ const APP_SHELL = [
   './js/report.js',
   './js/report-pdf.js',
   './js/email.js',
+  './js/label.js',
+  './js/niutec-form.js',
   './icons/icon.svg',
   './icons/icon-180.png',
   './icons/icon-192.png',

@@ -71,16 +71,19 @@ const DEFAULT_ANALYTIK_PROGRAMME = [
 // bewusst leer (echte Kontaktdaten müssen ergänzt werden).
 const DEFAULT_LABORE = [
   { id: 'bachema', name: 'Bachema AG', ort: 'Schlieren', email: '', adresse: '', telefon: '' },
-  { id: 'nuitec', name: 'Nuitec', ort: 'Winterthur', email: '', adresse: '', telefon: '' },
+  { id: 'niutec', name: 'Niutec', ort: 'Winterthur', email: '', adresse: '', telefon: '' },
   { id: 'eurofins', name: 'Eurofins', ort: 'Deutschland', email: '', adresse: '', telefon: '' },
 ];
 
-// v11: Rollenmodell admin/projektleiter/probenehmer/extern ergänzt (siehe
-// canView-/canManage-/canWriteInProject unten, Löschantrag-Workflow,
-// externe Einzelfreigabe je Probe, VVEA-Grenzwert-Änderungsanträge). Version
-// angehoben, damit bereits laufende Test-Sessions die neuen Demo-Konten und
-// Datenfelder erhalten (alte Rolle "user" existiert nicht mehr).
-const DB_KEY = 'pnj_mock_db_v11';
+// Eigene Firma — wird auf offizielle Labor-Auftragsformulare eingesetzt
+// (aktuell: Niutec-Analysenauftrag, siehe niutec-form.js).
+const DEFAULT_UNSERE_FIRMA = { firma: '', name: '', strasse: '', plzOrt: '', tel: '', email: '' };
+
+// v12: "Unsere Firma"-Einstellung (unsereFirma) für Labor-Auftragsformulare
+// (Niutec) ergänzt. Version angehoben, damit bereits laufende Test-Sessions
+// das neue Feld erhalten (sonst wäre db.unsereFirma bei alten Sessions
+// undefined).
+const DB_KEY = 'pnj_mock_db_v12';
 const TOKEN_KEY = 'pnj_token';
 const USER_KEY = 'pnj_user';
 
@@ -123,6 +126,7 @@ function seedDb() {
     analytikProgramme: JSON.parse(JSON.stringify(DEFAULT_ANALYTIK_PROGRAMME)),
     materialien: JSON.parse(JSON.stringify(DEFAULT_MATERIALIEN)),
     labore: JSON.parse(JSON.stringify(DEFAULT_LABORE)),
+    unsereFirma: JSON.parse(JSON.stringify(DEFAULT_UNSERE_FIRMA)),
   };
 }
 
@@ -674,6 +678,26 @@ export async function resetLaboreApi() {
   db.labore = JSON.parse(JSON.stringify(DEFAULT_LABORE));
   persist();
   return db.labore;
+}
+
+// ---------- Unsere Firma (für Labor-Auftragsformulare, z.B. Niutec) ----------
+export async function getUnsereFirmaApi() {
+  await delay();
+  requireAuth();
+  return JSON.parse(JSON.stringify(db.unsereFirma));
+}
+export async function saveUnsereFirmaApi(firma) {
+  await delay();
+  requireAdmin();
+  db.unsereFirma = firma;
+  persist();
+}
+export async function resetUnsereFirmaApi() {
+  await delay();
+  requireAdmin();
+  db.unsereFirma = JSON.parse(JSON.stringify(DEFAULT_UNSERE_FIRMA));
+  persist();
+  return db.unsereFirma;
 }
 
 // ---------- Benutzer (Admin) ----------

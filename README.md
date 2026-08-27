@@ -38,12 +38,15 @@ App zur Führung eines Probennahmejournals auf der Baustelle:
   auswählbar.
 - **Analysenauftrag per E-Mail ans Labor**: „Analysen auslösen“ bei der Probe schickt eine E-Mail mit den
   gewünschten Parametern der gewählten Analytik-Programme sowie einem Analysenauftrag als PDF ans ausgewählte
-  **Labor** (unter Einstellungen verwaltbar — Startauswahl Bachema AG/Schlieren, Nuitec/Winterthur,
+  **Labor** (unter Einstellungen verwaltbar — Startauswahl Bachema AG/Schlieren, Niutec/Winterthur,
   Eurofins/Deutschland; **E-Mail-Adressen müssen vor der ersten Nutzung ergänzt werden**, die App erfindet
-  keine Kontaktdaten). Der generierte PDF ist ein von der App erstelltes Begleitdokument, **kein offizielles
-  Formular des Labors**. Die Analysewerte selbst werden erst separat erfasst (manuell oder per CSV/PDF-Import),
-  sobald die Laborresultate vorliegen — „Analysen auslösen“ trägt selbst keine leeren Zeilen mehr in die
-  Analysewerte-Tabelle ein.
+  keine Kontaktdaten). Für **Niutec** wird dabei das **echte offizielle Auftragsformular** des Labors
+  automatisch befüllt (Firmendaten aus Einstellungen &gt; Unsere Firma, Probendaten, angekreuzte Analysen) —
+  vor dem Erzeugen gibt es eine Kontroll-/Anpass-Ansicht, in der sich jedes Feld und jede Checkbox noch
+  korrigieren lässt. Für die übrigen Labore (Bachema, Eurofins, eigene) ist der generierte PDF weiterhin ein
+  von der App erstelltes Begleitdokument, **kein offizielles Formular des Labors**. Die Analysewerte selbst
+  werden erst separat erfasst (manuell oder per CSV/PDF-Import), sobald die Laborresultate vorliegen —
+  „Analysen auslösen“ trägt selbst keine leeren Zeilen mehr in die Analysewerte-Tabelle ein.
 - **Etikette drucken**: Chargenname + QR-Code (mit Projekt/Material/Entnahmeort/Datum/Menge/Labor/Analysen als
   Klartext fürs Labor) direkt aus der Website über den normalen Systemdruckdialog druckbar — geeignet für
   Etikettendrucker wie die Brother-QL-/PT-Serie, die über ihren Treiber als normaler Drucker erscheinen.

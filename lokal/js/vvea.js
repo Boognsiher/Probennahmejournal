@@ -271,7 +271,7 @@ export function resetMaterialienStorage() {
 // Namen/Schreibweise vor produktivem Einsatz verifizieren.
 export const DEFAULT_LABORE = [
   { id: 'bachema', name: 'Bachema AG', ort: 'Schlieren', email: '', adresse: '', telefon: '' },
-  { id: 'nuitec', name: 'Nuitec', ort: 'Winterthur', email: '', adresse: '', telefon: '' },
+  { id: 'niutec', name: 'Niutec', ort: 'Winterthur', email: '', adresse: '', telefon: '' },
   { id: 'eurofins', name: 'Eurofins', ort: 'Deutschland', email: '', adresse: '', telefon: '' },
 ];
 export function loadLabore() {
@@ -287,6 +287,24 @@ export function saveLabore(list) {
 export function resetLaboreStorage() {
   localStorage.removeItem(STORAGE_KEY_LABORE);
   return DEFAULT_LABORE.map(l => ({ ...l }));
+}
+
+// ---------- Unsere Firma (für Labor-Auftragsformulare, z.B. Niutec) ----------
+export const STORAGE_KEY_UNSERE_FIRMA = 'pnj_unsere_firma_v1';
+export const DEFAULT_UNSERE_FIRMA = { firma: '', name: '', strasse: '', plzOrt: '', tel: '', email: '' };
+export function loadUnsereFirma() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_UNSERE_FIRMA);
+    if (raw) return JSON.parse(raw);
+  } catch (e) { /* fall through */ }
+  return { ...DEFAULT_UNSERE_FIRMA };
+}
+export function saveUnsereFirma(firma) {
+  localStorage.setItem(STORAGE_KEY_UNSERE_FIRMA, JSON.stringify(firma));
+}
+export function resetUnsereFirmaStorage() {
+  localStorage.removeItem(STORAGE_KEY_UNSERE_FIRMA);
+  return { ...DEFAULT_UNSERE_FIRMA };
 }
 
 export function findMaterial(materialName, materialien) {

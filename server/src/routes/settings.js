@@ -5,7 +5,7 @@ import { requireAuth, requireAdmin, requireRole } from '../auth.js';
 import {
   DEMO_THRESHOLDS, DEFAULT_PARAMETERS,
   DEFAULT_VBBO_THRESHOLDS, DEFAULT_VBBO_PARAMETERS, DEFAULT_VEVA_CODES,
-  DEFAULT_ANALYTIK_PROGRAMME, DEFAULT_MATERIALIEN, DEFAULT_LABORE,
+  DEFAULT_ANALYTIK_PROGRAMME, DEFAULT_MATERIALIEN, DEFAULT_LABORE, DEFAULT_UNSERE_FIRMA,
 } from '../vvea-defaults.js';
 
 export const settingsRouter = Router();
@@ -48,6 +48,9 @@ crud('veva-codes', 'veva_codes', DEFAULT_VEVA_CODES, 'codes');
 crud('analytik-programme', 'analytik_programme', DEFAULT_ANALYTIK_PROGRAMME, 'programme', ['admin', 'projektleiter']);
 crud('materialien', 'materialien', DEFAULT_MATERIALIEN, 'materialien');
 crud('labore', 'labore', DEFAULT_LABORE, 'labore');
+// Eigene Firmendaten für offizielle Labor-Auftragsformulare (z.B. Niutec-
+// Analysenauftrag) — siehe public/js/niutec-form.js.
+crud('unsere-firma', 'unsere_firma', DEFAULT_UNSERE_FIRMA, 'firma');
 
 // ---------- Änderungsanträge für VVEA-Grenzwerte ----------
 // Projektleiter dürfen keine Grenzwerte direkt speichern (siehe crud()

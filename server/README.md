@@ -267,6 +267,9 @@ separaten "meine Projekte"-Parameter, die normale Liste zeigt bereits nur, was s
 | GET | `/api/settings/labore` | Aktuelle Labor-Liste (Name, Ort, E-Mail, Adresse, Telefon je Labor) |
 | PUT | `/api/settings/labore` | Labor-Liste speichern (nur Admin) |
 | POST | `/api/settings/labore/reset` | Auf Beispielwerte zurücksetzen (nur Admin) |
+| GET | `/api/settings/unsere-firma` | Eigene Firmendaten (Firma/Name/Adresse/Tel/E-Mail) für offizielle Labor-Auftragsformulare |
+| PUT | `/api/settings/unsere-firma` | Eigene Firmendaten speichern (nur Admin) |
+| POST | `/api/settings/unsere-firma/reset` | Auf leer zurücksetzen (nur Admin) |
 | GET | `/api/entries` | Sichtbare Proben (siehe Rollentabelle oben) |
 | GET | `/api/entries/:id` | Einzelne Probe inkl. Foto-Metadaten |
 | POST | `/api/entries` | Neue Probe anlegen — mit `projektId` (Schreibzugriff auf das Projekt nötig) oder ohne (Einzelprobe/Probenahmeprotokoll, nicht für `extern`); Chargenname (`probeBezeichnung`) wird serverseitig vergeben (Projekt-Kürzel+Nummer bzw. `PP-####`). Weitere Felder: `standard` (`vvea`/`vbbo`), `nutzungsart` (nur bei `vbbo`), `entsorgungsweg`, `vevaCode`, `labor`, `externZugriff` (nur admin/Projektleitung, nicht bei Einzelproben) |

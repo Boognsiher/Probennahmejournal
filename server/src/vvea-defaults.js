@@ -279,6 +279,13 @@ export const DEFAULT_ANALYTIK_PROGRAMME = [
 // werden. Auch Namen/Schreibweise vor produktivem Einsatz verifizieren.
 export const DEFAULT_LABORE = [
   { id: 'bachema', name: 'Bachema AG', ort: 'Schlieren', email: '', adresse: '', telefon: '' },
-  { id: 'nuitec', name: 'Nuitec', ort: 'Winterthur', email: '', adresse: '', telefon: '' },
+  { id: 'niutec', name: 'Niutec', ort: 'Winterthur', email: '', adresse: '', telefon: '' },
   { id: 'eurofins', name: 'Eurofins', ort: 'Deutschland', email: '', adresse: '', telefon: '' },
 ];
+
+// Eigene Firma — wird auf offizielle Labor-Auftragsformulare eingesetzt
+// (aktuell: Niutec-Analysenauftrag, siehe niutec-form.js), als "Auftraggeber
+// 1". Bewusst leer als Startwert, die App erfindet keine Firmendaten.
+export const DEFAULT_UNSERE_FIRMA = {
+  firma: '', name: '', strasse: '', plzOrt: '', tel: '', email: '',
+};

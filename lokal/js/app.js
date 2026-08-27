@@ -18,6 +18,7 @@ import {
   loadAnalytikProgramme, saveAnalytikProgramme, resetAnalytikProgrammeStorage,
   loadMaterialien, saveMaterialien, resetMaterialienStorage,
   loadLabore, saveLabore, resetLaboreStorage,
+  loadUnsereFirma, saveUnsereFirma, resetUnsereFirmaStorage,
 } from './vvea.js';
 import { parseCSV } from './parse-csv.js';
 import { parsePDF } from './parse-pdf.js';
@@ -25,6 +26,7 @@ import { generateReportHTML, downloadHTML } from './report.js';
 import { buildMailto, buildMailSummary, buildLabOrderMailto, buildLabOrderMailSummary, buildLabelQrText } from './email.js';
 import { generateReportPDF, generateLabOrderPDF, downloadBlob, sharePDFOrDownload } from './report-pdf.js';
 import { printLabel, loadLabelSize, saveLabelSize } from './label.js';
+import { buildNiutecProposal, fillNiutecPdf, NIUTEC_CHECKBOX_LABELS } from './niutec-form.js';
 
 const $ = sel => document.querySelector(sel);
 const $$ = sel => Array.from(document.querySelectorAll(sel));
@@ -394,6 +396,7 @@ let vevaCodes = loadVevaCodes();
 let analytikProgramme = loadAnalytikProgramme();
 let materialien = loadMaterialien();
 let labore = loadLabore();
+let unsereFirma = loadUnsereFirma(); // für Labor-Auftragsformulare (Niutec), siehe niutec-form.js
 let formProjects = [];
 
 async function renderEntryForm(idOrNeu) {
@@ -405,6 +408,7 @@ async function renderEntryForm(idOrNeu) {
   analytikProgramme = loadAnalytikProgramme();
   materialien = loadMaterialien();
   labore = loadLabore();
+  unsereFirma = loadUnsereFirma();
   formProjects = await getAllProjects();
   if (idOrNeu === 'neu') {
     currentEntry = newEntry();
@@ -716,10 +720,23 @@ function paintEntryForm() {
       toast(`Für „${labor.name}" ist keine E-Mail-Adresse hinterlegt — unter Einstellungen > Labore ergänzen.`);
       return;
     }
+    const params = activeParamList();
+    // Für Niutec gibt es das ECHTE Auftragsformular des Labors (siehe
+    // niutec-form.js) — statt sofort zu erzeugen, erst eine Kontroll-Ansicht
+    // zeigen (automatisch vorausgefüllt, aber vor dem Senden anpassbar).
+    if (labor.id === 'niutec') {
+      try {
+        const proposal = buildNiutecProposal(e, unsereFirma, chosen);
+        paintNiutecReview(e, proposal, labor, chosen, params);
+      } catch (err) {
+        console.error(err);
+        toast('Niutec-Formular konnte nicht vorbereitet werden: ' + err.message);
+      }
+      return;
+    }
     const btn = $('#btn-trigger-analytik');
     btn.disabled = true;
     try {
-      const params = activeParamList();
       const blob = await generateLabOrderPDF(e, labor, chosen, params);
       const filename = `Analysenauftrag_${(e.probeBezeichnung || 'Probe')}`.replace(/[^\w\-]+/g, '_') + '.pdf';
       const subject = `Analysenauftrag – ${e.baustelle || ''} – ${e.probeBezeichnung || ''}`.trim();
@@ -882,6 +899,115 @@ function paintEntryForm() {
       }
     });
   }
+}
+
+// ---------- Niutec-Analysenauftrag: Kontroll-/Anpass-Ansicht ----------
+// Zeigt den automatisch erstellten Vorschlag (siehe niutec-form.js) VOR dem
+// Erzeugen des echten Formular-PDFs — Firmendaten, Probentitel und vor allem
+// die angekreuzten Analysen (Zuordnung Analytik-Programm -> Niutec-Checkbox
+// ist eine Bestmöglich-Zuordnung, keine von Niutec bestätigte Referenz)
+// lassen sich hier noch korrigieren, bevor irgendetwas verschickt wird.
+function paintNiutecReview(e, proposal, labor, chosen, params) {
+  const labels = NIUTEC_CHECKBOX_LABELS[proposal.standard];
+  appEl.innerHTML = `
+    <div class="card">
+      <h2>📋 Niutec-Analysenauftrag prüfen &amp; anpassen</h2>
+      <p class="hint">Automatisch aus der Probe und den gewählten Analytik-Programmen vorausgefüllt — bitte
+      vor dem Senden kontrollieren, besonders die angekreuzten Analysen (die Zuordnung Analytik-Programm →
+      Niutec-Checkbox ist eine Bestmöglich-Zuordnung, keine von Niutec bestätigte Referenz). Es wird das
+      echte Niutec-Formular befüllt, keine Probendaten verlassen dabei vorher das Gerät.</p>
+    </div>
+
+    <div class="card">
+      <h2>Auftraggeber (Firma)</h2>
+      <p class="hint">Startwerte aus Einstellungen &gt; Unsere Firma — hier nur für diesen Auftrag anpassbar.</p>
+      <div class="grid-2">
+        <div class="field"><label>Firma</label><input id="nf-firma" value="${escapeHtml(proposal.firma)}"></div>
+        <div class="field"><label>Ansprechperson</label><input id="nf-name" value="${escapeHtml(proposal.name)}"></div>
+        <div class="field"><label>Strasse / PF</label><input id="nf-strasse" value="${escapeHtml(proposal.strasse)}"></div>
+        <div class="field"><label>PLZ / Ort</label><input id="nf-plzort" value="${escapeHtml(proposal.plzOrt)}"></div>
+        <div class="field"><label>Tel</label><input id="nf-tel" value="${escapeHtml(proposal.tel)}"></div>
+        <div class="field"><label>E-Mail</label><input id="nf-email" value="${escapeHtml(proposal.email)}"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Probe</h2>
+      <div class="field"><label>Titel <span class="hint">(erscheint auf dem Bericht)</span></label><input id="nf-titel" value="${escapeHtml(proposal.titel)}"></div>
+      <div class="field"><label>Probenbezeichnung</label><input id="nf-probenbezeichnung" value="${escapeHtml(proposal.probenbezeichnung)}"></div>
+      ${proposal.standard === 'vbbo' ? `
+      <div class="grid-2">
+        <div class="field"><label>Tiefe von (cm)</label><input id="nf-tiefevon" value="${escapeHtml(proposal.tiefeVon)}"></div>
+        <div class="field"><label>Tiefe bis (cm)</label><input id="nf-tiefebis" value="${escapeHtml(proposal.tiefeBis)}"></div>
+      </div>` : ''}
+    </div>
+
+    <div class="card">
+      <h2>Gewünschte Analysen</h2>
+      <div class="choice-list">
+        ${Object.entries(labels).map(([key, label]) => `
+          <label class="choice-item">
+            <input type="checkbox" data-nf-cb="${key}" ${proposal.checkboxes[key] ? 'checked' : ''}>
+            <span>${escapeHtml(label)}</span>
+          </label>`).join('')}
+      </div>
+      <div class="field"><label>Andere Parameter <span class="hint">(Freitext, z.B. für nicht oben aufgeführte Analysen)</span></label><textarea id="nf-andere" rows="2">${escapeHtml(proposal.andereParameter)}</textarea></div>
+    </div>
+
+    <div class="card">
+      <h2>Weiteres</h2>
+      <div class="field"><label>Datum</label><input id="nf-datum" value="${escapeHtml(proposal.datum)}"></div>
+      <div class="field"><label>Bemerkungen</label><textarea id="nf-bemerkungen" rows="2">${escapeHtml(proposal.bemerkungen)}</textarea></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn" id="btn-niutec-generate" type="button">📧 PDF erzeugen &amp; senden</button>
+      <button class="btn secondary" id="btn-niutec-cancel" type="button">Abbrechen</button>
+    </div>
+  `;
+
+  $('#btn-niutec-cancel').addEventListener('click', () => paintEntryForm());
+
+  $('#btn-niutec-generate').addEventListener('click', async () => {
+    const btn = $('#btn-niutec-generate');
+    btn.disabled = true;
+    try {
+      const edited = {
+        ...proposal,
+        firma: $('#nf-firma').value.trim(),
+        name: $('#nf-name').value.trim(),
+        strasse: $('#nf-strasse').value.trim(),
+        plzOrt: $('#nf-plzort').value.trim(),
+        tel: $('#nf-tel').value.trim(),
+        email: $('#nf-email').value.trim(),
+        berichtEmail: !!$('#nf-email').value.trim(),
+        titel: $('#nf-titel').value.trim(),
+        probenbezeichnung: $('#nf-probenbezeichnung').value.trim(),
+        tiefeVon: proposal.standard === 'vbbo' ? $('#nf-tiefevon').value.trim() : '',
+        tiefeBis: proposal.standard === 'vbbo' ? $('#nf-tiefebis').value.trim() : '',
+        andereParameter: $('#nf-andere').value.trim(),
+        datum: $('#nf-datum').value.trim(),
+        bemerkungen: $('#nf-bemerkungen').value.trim(),
+        checkboxes: Object.fromEntries($$('[data-nf-cb]').map(cb => [cb.dataset.nfCb, cb.checked])),
+      };
+      const blob = await fillNiutecPdf(edited);
+      const filename = `Analysenauftrag-Niutec_${(e.probeBezeichnung || 'Probe')}`.replace(/[^\w\-]+/g, '_') + '.pdf';
+      const subject = `Analysenauftrag – ${e.baustelle || ''} – ${e.probeBezeichnung || ''}`.trim();
+      const body = buildLabOrderMailSummary(e, labor, chosen, params);
+      const result = await sharePDFOrDownload(blob, filename, subject, body);
+      if (result === 'shared') {
+        toast('Analysenauftrag geteilt.');
+      } else if (result === 'downloaded') {
+        toast('Analysenauftrag-PDF heruntergeladen — bitte manuell an die E-Mail anhängen.');
+        window.location.href = buildLabOrderMailto(e, labor, chosen, params);
+      }
+      paintEntryForm();
+    } catch (err) {
+      console.error(err);
+      toast('Niutec-Formular konnte nicht erstellt werden: ' + err.message);
+      btn.disabled = false;
+    }
+  });
 }
 
 function toLocalInputValue(iso) {
@@ -1121,6 +1247,7 @@ function renderSettings() {
   analytikProgramme = loadAnalytikProgramme();
   materialien = loadMaterialien();
   labore = loadLabore();
+  unsereFirma = loadUnsereFirma();
   paintSettings();
 }
 
@@ -1318,6 +1445,25 @@ function paintSettings() {
         <button class="btn secondary" id="btn-add-lab" type="button">+ Neues Labor</button>
         <button class="btn" id="btn-save-lab" type="button">💾 Labore speichern</button>
         <button class="btn secondary" id="btn-reset-lab" type="button">Zurücksetzen auf Beispielwerte</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Unsere Firma</h2>
+      <p class="hint">Wird als „Auftraggeber 1" auf offizielle Labor-Auftragsformulare eingesetzt (aktuell:
+      Niutec — siehe „Analysen auslösen" bei der Probe). Einmalig hinterlegen, gilt für alle künftigen
+      Aufträge; lässt sich bei Bedarf pro Auftrag noch anpassen, bevor er verschickt wird.</p>
+      <div class="grid-2">
+        <div class="field"><label>Firma</label><input id="uf-firma" value="${escapeHtml(unsereFirma.firma || '')}"></div>
+        <div class="field"><label>Ansprechperson</label><input id="uf-name" value="${escapeHtml(unsereFirma.name || '')}"></div>
+        <div class="field"><label>Strasse / PF</label><input id="uf-strasse" value="${escapeHtml(unsereFirma.strasse || '')}"></div>
+        <div class="field"><label>PLZ / Ort</label><input id="uf-plzort" value="${escapeHtml(unsereFirma.plzOrt || '')}"></div>
+        <div class="field"><label>Tel</label><input id="uf-tel" value="${escapeHtml(unsereFirma.tel || '')}"></div>
+        <div class="field"><label>E-Mail</label><input id="uf-email" type="email" value="${escapeHtml(unsereFirma.email || '')}"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="btn-save-firma" type="button">💾 Speichern</button>
+        <button class="btn secondary" id="btn-reset-firma" type="button">Zurücksetzen (leeren)</button>
       </div>
     </div>
 
@@ -1612,6 +1758,23 @@ function paintSettings() {
   $('#btn-reset-lab').addEventListener('click', () => {
     if (!confirm('Labore wirklich auf die Beispielwerte zurücksetzen?')) return;
     labore = resetLaboreStorage();
+    toast('Zurückgesetzt');
+    renderSettings();
+  });
+
+  $('#btn-save-firma').addEventListener('click', () => {
+    const newFirma = {
+      firma: $('#uf-firma').value.trim(), name: $('#uf-name').value.trim(),
+      strasse: $('#uf-strasse').value.trim(), plzOrt: $('#uf-plzort').value.trim(),
+      tel: $('#uf-tel').value.trim(), email: $('#uf-email').value.trim(),
+    };
+    saveUnsereFirma(newFirma);
+    unsereFirma = newFirma;
+    toast('Gespeichert');
+  });
+  $('#btn-reset-firma').addEventListener('click', () => {
+    if (!confirm('Firmendaten wirklich leeren?')) return;
+    unsereFirma = resetUnsereFirmaStorage();
     toast('Zurückgesetzt');
     renderSettings();
   });
