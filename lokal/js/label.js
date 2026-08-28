@@ -69,15 +69,34 @@ function escapeHtmlLocal(s) {
  * @param {string} qrText   Klartext-Inhalt des QR-Codes (siehe buildLabelQrText() in email.js)
  * @param {{w:number,h:number}} size  Etikettengrösse in mm
  */
+function clampMm(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
 export async function printLabel(chargenname, subLine, qrText, size) {
   const qrDataUrl = await generateQrDataUrl(qrText);
-  const qrSizeMm = Math.max(10, size.h - 4);
+  // 2mm Innenabstand oben+unten (siehe #label-print-area padding im
+  // @media print unten) — das ist die tatsächlich nutzbare Höhe.
+  const padMm = 4;
+  const availH = Math.max(4, size.h - padMm);
+  // Vorher fix "Math.max(10, ...)" — bei kleinen Etiketten (z.B. 12mm hoch,
+  // 8mm nutzbar) wurde der QR-Code dadurch grösser als die Etikette selbst
+  // erzwungen und lief auf eine zweite (leere) Seite über, siehe den
+  // "43 gleiche Seiten"-Bug oben in style.css. Jetzt begrenzt auf den
+  // tatsächlich verfügbaren Platz, mit kleiner Untergrenze nur für absurd
+  // niedrige Etiketten.
+  const qrSizeMm = Math.max(4, availH);
+  // Schriftgrössen ebenfalls proportional zur verfügbaren Höhe statt fest
+  // 14pt/7pt — aus demselben Grund: bei 12mm Etikettenhöhe war der Text
+  // (Chargenname + Unterzeile) selbst mit korrektem QR-Code schon knapp
+  // höher als die Etikette.
+  const chargeFontMm = clampMm(availH * 0.55, 2.2, 5.2);
+  const subFontMm = clampMm(availH * 0.28, 1.3, 2.6);
+  const subMarginMm = clampMm(availH * 0.08, 0.3, 1);
   const area = ensurePrintArea();
   area.innerHTML = `
     <img src="${qrDataUrl}" alt="QR-Code" style="width:${qrSizeMm}mm;height:${qrSizeMm}mm;flex-shrink:0;">
     <div class="label-text">
-      <div class="label-charge">${escapeHtmlLocal(chargenname)}</div>
-      ${subLine ? `<div class="label-sub">${escapeHtmlLocal(subLine)}</div>` : ''}
+      <div class="label-charge" style="font-size:${chargeFontMm}mm;">${escapeHtmlLocal(chargenname)}</div>
+      ${subLine ? `<div class="label-sub" style="font-size:${subFontMm}mm;margin-top:${subMarginMm}mm;">${escapeHtmlLocal(subLine)}</div>` : ''}
     </div>`;
   ensurePageStyle().textContent = `@media print { @page { size: ${size.w}mm ${size.h}mm; margin: 0; } }`;
   window.print();
