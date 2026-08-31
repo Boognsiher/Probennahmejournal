@@ -633,6 +633,7 @@ function paintEntryForm() {
     </div>
 
     <div class="btn-row">
+      <a class="btn secondary" href="#/start">🏠 Übersicht</a>
       <button class="btn" id="btn-save" type="button">💾 Speichern</button>
       <button class="btn secondary" id="btn-pdf" type="button">📄 Als PDF generieren</button>
       <button class="btn secondary" id="btn-mail" type="button">✉️ E-Mail mit PDF senden</button>

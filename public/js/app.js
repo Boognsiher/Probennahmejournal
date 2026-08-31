@@ -434,7 +434,10 @@ async function renderProtokoll() {
       <h2>📝 Probenahmeprotokoll</h2>
       <p class="hint">Vereinzelte Proben ohne Projekt/Baustelle — z.B. für Spontanproben unterwegs. Nur du (und
       der Admin) siehst diese Liste; sie erscheinen auch im normalen Journal.</p>
-      <a class="btn" href="#/eintrag/neu-einzeln">+ Neue Einzelprobe</a>
+      <div class="btn-row">
+        <a class="btn" href="#/eintrag/neu-einzeln">+ Neue Einzelprobe</a>
+        <a class="btn secondary" href="#/start">🏠 Übersicht</a>
+      </div>
     </div>
     ${entries.length === 0 ? '<p class="hint">Noch keine Einzelproben erfasst.</p>' : '<div class="entry-list" id="protokoll-list"></div>'}
   `;
@@ -979,6 +982,7 @@ function paintEntryForm() {
     </div>` : ''}
 
     <div class="btn-row">
+      <a class="btn secondary" href="#/start">🏠 Übersicht</a>
       <button class="btn" id="btn-save" type="button">💾 Speichern</button>
       <button class="btn secondary" id="btn-pdf" type="button">📄 Als PDF generieren</button>
       <button class="btn secondary" id="btn-mail" type="button">✉️ E-Mail mit PDF senden</button>
@@ -1178,6 +1182,7 @@ function paintEntryForm() {
       if (!isNew && !standalone && canManageThisEntry) {
         payload.externZugriff = $$('[data-extern-zugriff]').filter(cb => cb.checked).map(cb => cb.value);
       }
+      const wasNewStandalone = isNew && standalone;
       let saved;
       if (isNew) saved = await createEntryApi(payload);
       else saved = await updateEntryApi(e.id, payload);
@@ -1190,6 +1195,14 @@ function paintEntryForm() {
       currentEntry = saved;
       isNew = false;
       toast('Gespeichert');
+      if (wasNewStandalone) {
+        // Neue Einzelprobe ohne Projekt (Probenahmeprotokoll) — direkt auf die
+        // Übersicht (Startseite), nicht ins Eintragsformular der frisch
+        // angelegten Probe (die lässt sich jederzeit übers Probenahmeprotokoll
+        // wiederfinden und weiterbearbeiten).
+        location.hash = '#/start';
+        return;
+      }
       const targetHash = `#/eintrag/${saved.id}`;
       if (location.hash === targetHash) await renderEntryForm(saved.id);
       else location.hash = targetHash;
