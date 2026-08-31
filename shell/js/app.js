@@ -31,6 +31,7 @@ import { generateReportHTML, downloadHTML } from './report.js';
 import { buildMailto, buildMailSummary, buildLabOrderMailto, buildLabOrderMailSummary, buildLabelQrText } from './email.js';
 import { generateReportPDF, generateLabOrderPDF, downloadBlob, sharePDFOrDownload } from './report-pdf.js';
 import { printLabel, loadLabelSize, saveLabelSize } from './label.js';
+import { compressImage } from './photo.js';
 import { buildNiutecProposal, fillNiutecPdf, NIUTEC_CHECKBOX_LABELS } from './niutec-form.js';
 
 const $ = sel => document.querySelector(sel);
@@ -205,8 +206,8 @@ function renderLogin() {
   appEl.innerHTML = `
     <div class="card" style="max-width:360px;margin:3rem auto;">
       <h2>Anmelden</h2>
-      <div class="field"><label>E-Mail oder Kürzel</label><input id="li-email" type="text" autocomplete="username"></div>
-      <div class="field"><label>Passwort</label><input id="li-pass" type="password" autocomplete="current-password"></div>
+      <div class="field"><label for="li-email">E-Mail oder Kürzel</label><input id="li-email" type="text" autocomplete="username"></div>
+      <div class="field"><label for="li-pass">Passwort</label><input id="li-pass" type="password" autocomplete="current-password"></div>
       <p class="hint" id="li-error" style="color:#b71c1c;"></p>
       <button class="btn" id="li-submit" type="button" style="width:100%;">Anmelden</button>
       <p class="hint" style="margin-top:1rem;">Noch kein Konto? Ein/e Administrator/in kann unter
@@ -324,20 +325,20 @@ async function renderJournal() {
   appEl.innerHTML = `
     <div class="btn-row"><a class="btn" href="#/eintrag/neu">+ Neue Probe</a></div>
     <div class="card filter-bar">
-      <div class="field"><label>Projekt</label><select id="filter-projekt">
+      <div class="field"><label for="filter-projekt">Projekt</label><select id="filter-projekt">
         <option value="">Alle</option>
         ${baustellen.map(b => `<option value="${escapeHtml(b)}" ${journalFilter.projekt === b ? 'selected' : ''}>${escapeHtml(b)}</option>`).join('')}
       </select></div>
-      <div class="field"><label>Material</label><select id="filter-material">
+      <div class="field"><label for="filter-material">Material</label><select id="filter-material">
         <option value="">Alle</option>
         ${materialien.map(m => `<option value="${escapeHtml(m)}" ${journalFilter.material === m ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('')}
       </select></div>
-      <div class="field"><label>Standard</label><select id="filter-standard">
+      <div class="field"><label for="filter-standard">Standard</label><select id="filter-standard">
         <option value="">Alle</option>
         <option value="vvea" ${journalFilter.standard === 'vvea' ? 'selected' : ''}>VVEA (Deponieklassen)</option>
         <option value="vbbo" ${journalFilter.standard === 'vbbo' ? 'selected' : ''}>VBBo (Bodenqualität)</option>
       </select></div>
-      <div class="field"><label>Klasse</label><select id="filter-klasse">
+      <div class="field"><label for="filter-klasse">Klasse</label><select id="filter-klasse">
         <option value="">Alle</option>
         <optgroup label="VVEA">
           ${CLASSES.map(c => `<option value="vvea:${c.id}" ${journalFilter.klasse === `vvea:${c.id}` ? 'selected' : ''}>${escapeHtml(c.short)}</option>`).join('')}
@@ -346,7 +347,7 @@ async function renderJournal() {
           ${VBBO_CLASSES.map(c => `<option value="vbbo:${c.id}" ${journalFilter.klasse === `vbbo:${c.id}` ? 'selected' : ''}>${escapeHtml(c.short)}</option>`).join('')}
         </optgroup>
       </select></div>
-      <div class="field"><label>Sortierung</label><select id="filter-sort">
+      <div class="field"><label for="filter-sort">Sortierung</label><select id="filter-sort">
         <option value="neu" ${journalFilter.sort === 'neu' ? 'selected' : ''}>Neueste zuerst</option>
         <option value="alt" ${journalFilter.sort === 'alt' ? 'selected' : ''}>Älteste zuerst</option>
         <option value="klasse" ${journalFilter.sort === 'klasse' ? 'selected' : ''}>Klasse (kritischste zuerst)</option>
@@ -517,19 +518,19 @@ function paintProjects(projects, roster) {
     <div class="card">
       <h2>${editing ? 'Projekt bearbeiten' : 'Neues Projekt anlegen'}</h2>
       <div class="grid-2">
-        <div class="field"><label>Projektname *</label><input id="p-name" value="${escapeHtml(editing?.name || '')}"></div>
-        <div class="field"><label>Kürzel * <span class="hint">(für Chargennamen, z.B. „A123“)</span></label><input id="p-kuerzel" maxlength="12" value="${escapeHtml(editing?.kuerzel || '')}"></div>
-        <div class="field"><label>Auftraggeber</label><input id="p-auftraggeber" value="${escapeHtml(editing?.auftraggeber || '')}"></div>
-        <div class="field"><label>Ort</label><input id="p-ort" value="${escapeHtml(editing?.ort || '')}"></div>
+        <div class="field"><label for="p-name">Projektname *</label><input id="p-name" value="${escapeHtml(editing?.name || '')}"></div>
+        <div class="field"><label for="p-kuerzel">Kürzel * <span class="hint">(für Chargennamen, z.B. „A123“)</span></label><input id="p-kuerzel" maxlength="12" value="${escapeHtml(editing?.kuerzel || '')}"></div>
+        <div class="field"><label for="p-auftraggeber">Auftraggeber</label><input id="p-auftraggeber" value="${escapeHtml(editing?.auftraggeber || '')}"></div>
+        <div class="field"><label for="p-ort">Ort</label><input id="p-ort" value="${escapeHtml(editing?.ort || '')}"></div>
       </div>
-      <div class="field"><label>Bemerkungen</label><textarea id="p-bemerkungen" rows="2">${escapeHtml(editing?.bemerkungen || '')}</textarea></div>
+      <div class="field"><label for="p-bemerkungen">Bemerkungen</label><textarea id="p-bemerkungen" rows="2">${escapeHtml(editing?.bemerkungen || '')}</textarea></div>
       <div class="grid-2">
         <div class="field">
-          <label>Beprobungsorte <span class="hint">(ein Eintrag pro Zeile — als Dropdown bei der Probe verfügbar, alternativ zu GPS)</span></label>
+          <label for="p-entnahmeorte">Beprobungsorte <span class="hint">(ein Eintrag pro Zeile — als Dropdown bei der Probe verfügbar, alternativ zu GPS)</span></label>
           <textarea id="p-entnahmeorte" rows="3" placeholder="z.B. Baugrube Nord, Schicht 1">${escapeHtml((editing?.entnahmeorte || []).join('\n'))}</textarea>
         </div>
         <div class="field">
-          <label>Entsorgungswege <span class="hint">(ein Eintrag pro Zeile — als Dropdown bei der Probe verfügbar)</span></label>
+          <label for="p-entsorgungswege">Entsorgungswege <span class="hint">(ein Eintrag pro Zeile — als Dropdown bei der Probe verfügbar)</span></label>
           <textarea id="p-entsorgungswege" rows="3" placeholder="z.B. Deponie Muster AG, Zürich">${escapeHtml((editing?.entsorgungswege || []).join('\n'))}</textarea>
         </div>
       </div>
@@ -744,6 +745,7 @@ function paintEntryReadOnly() {
     const div = document.createElement('div');
     div.className = 'photo-thumb';
     const img = document.createElement('img');
+    img.alt = `Foto der Probe ${e.probeBezeichnung || ''}`.trim();
     div.appendChild(img);
     grid.appendChild(div);
     getPhotoUrl(e.id, p).then(url => { img.src = url; }).catch(() => {});
@@ -804,7 +806,7 @@ function paintEntryForm() {
         <a href="#/protokoll">Probenahmeprotokoll</a>.</p>
       ` : `
         <div class="field">
-          <label>Projekt *</label>
+          <label for="f-projekt">Projekt *</label>
           <select id="f-projekt">${formProjects.map(p => `<option value="${p.id}" ${p.id === e.projektId ? 'selected' : ''}>${escapeHtml(p.name)} (${escapeHtml(p.kuerzel)})</option>`).join('')}</select>
           <p class="hint" id="projekt-hint">${projektHint()}</p>
         </div>
@@ -816,7 +818,7 @@ function paintEntryForm() {
 
       <div class="grid-2">
         <div class="field">
-          <label>Material</label>
+          <label for="f-material">Material</label>
           <select id="f-material">
             <option value="">– wählen –</option>
             ${materialien.map(m => `<option value="${escapeHtml(m.name)}" ${e.material === m.name ? 'selected' : ''}>${escapeHtml(m.name)}</option>`).join('')}
@@ -826,7 +828,7 @@ function paintEntryForm() {
           ${materialien.length === 0 ? '<p class="hint">Noch keine Materialien hinterlegt — unter Einstellungen &gt; Materialien anlegen.</p>' : ''}
         </div>
         <div class="field">
-          <label>Probenehmer/in</label>
+          <label for="f-person">Probenehmer/in</label>
           <select id="f-person">
             <option value="">– wählen –</option>
             ${formRoster.map(u => `<option value="${escapeHtml(u.name)}" ${e.probenehmer === u.name ? 'selected' : ''}>${escapeHtml(u.name)}</option>`).join('')}
@@ -835,7 +837,7 @@ function paintEntryForm() {
           <input id="f-person-andere" placeholder="Name angeben" style="margin-top:.4rem;display:${probenehmerIsCustom ? 'block' : 'none'};" value="${escapeHtml(probenehmerIsCustom ? e.probenehmer : '')}">
         </div>
         <div class="field">
-          <label>Beprobungsort <span class="hint">(oder per GPS unten)</span></label>
+          <label for="f-ort">Beprobungsort <span class="hint">(oder per GPS unten)</span></label>
           <select id="f-ort">
             <option value="">– wählen –</option>
             ${projectEntnahmeorte.map(o => `<option value="${escapeHtml(o)}" ${e.entnahmeort === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('')}
@@ -844,7 +846,7 @@ function paintEntryForm() {
           <input id="f-ort-andere" placeholder="Beprobungsort angeben" style="margin-top:.4rem;display:${entnahmeortIsCustom ? 'block' : 'none'};" value="${escapeHtml(entnahmeortIsCustom ? e.entnahmeort : '')}">
           ${projectEntnahmeorte.length === 0 ? '<p class="hint">Noch keine Beprobungsorte im Projekt hinterlegt – unter „Projekte“ ergänzbar.</p>' : ''}
         </div>
-        <div class="field"><label>Datum</label><input id="f-datum" type="datetime-local" value="${toLocalInputValue(e.createdAt)}"></div>
+        <div class="field"><label for="f-datum">Datum</label><input id="f-datum" type="datetime-local" value="${toLocalInputValue(e.createdAt)}"></div>
         <div class="field">
           <label>Menge <span class="hint">(geschätzt, optional)</span></label>
           <div style="display:flex;gap:.5rem;">
@@ -856,7 +858,7 @@ function paintEntryForm() {
           </div>
         </div>
       </div>
-      <div class="field"><label>Bemerkungen</label><textarea id="f-bemerkungen" rows="2">${escapeHtml(e.bemerkungen)}</textarea></div>
+      <div class="field"><label for="f-bemerkungen">Bemerkungen</label><textarea id="f-bemerkungen" rows="2">${escapeHtml(e.bemerkungen)}</textarea></div>
       <button class="btn secondary" id="btn-gps" type="button">📍 GPS-Standort erfassen</button>
       <span class="hint" id="gps-status">${e.gps ? `Position: ${e.gps.lat.toFixed(5)}, ${e.gps.lng.toFixed(5)}` : ''}</span>
     </div>
@@ -869,7 +871,7 @@ function paintEntryForm() {
           <p id="f-standard-display">${e.standard === 'vbbo' ? 'VBBo (Bodenqualität)' : 'VVEA (Deponieklassen)'}</p>
         </div>
         <div class="field" id="f-nutzungsart-field" style="display:${e.standard === 'vbbo' ? 'block' : 'none'};">
-          <label>Nutzungsart <span class="hint">(nur VBBo)</span></label>
+          <label for="f-nutzungsart">Nutzungsart <span class="hint">(nur VBBo)</span></label>
           <select id="f-nutzungsart">
             ${NUTZUNGSARTEN.map(n => `<option value="${n.id}" ${e.nutzungsart === n.id ? 'selected' : ''}>${escapeHtml(n.label)}</option>`).join('')}
           </select>
@@ -880,7 +882,7 @@ function paintEntryForm() {
           <p class="hint" id="veva-code-hint"></p>
         </div>
         <div class="field">
-          <label>Entsorgungsweg</label>
+          <label for="f-entsorgungsweg">Entsorgungsweg</label>
           <select id="f-entsorgungsweg">
             <option value="">– wählen –</option>
             ${projectEntsorgungswege.map(w => `<option value="${escapeHtml(w)}" ${e.entsorgungsweg === w ? 'selected' : ''}>${escapeHtml(w)}</option>`).join('')}
@@ -913,7 +915,7 @@ function paintEntryForm() {
         </label>`).join('') || '<p class="hint">Keine Analytik-Programme für diesen Standard hinterlegt.</p>'}
       </div>
       <div class="field">
-        <label>Labor</label>
+        <label for="f-labor">Labor</label>
         <select id="f-labor">
           <option value="">– wählen –</option>
           ${labore.map(l => `<option value="${escapeHtml(l.name)}" ${e.labor === l.name ? 'selected' : ''}>${escapeHtml(l.name)}${l.ort ? ', ' + escapeHtml(l.ort) : ''}</option>`).join('')}
@@ -948,8 +950,8 @@ function paintEntryForm() {
         den Systemdruckdialog — geeignet für Etikettendrucker (z.B. Brother QL/PT-Serie). Etikettengrösse bei
         Bedarf anpassen (wird im Browser gemerkt).</p>
         <div class="grid-2">
-          <div class="field"><label>Breite (mm)</label><input id="f-label-w" type="number" step="1" min="10" value="${labelSize.w}"></div>
-          <div class="field"><label>Höhe (mm)</label><input id="f-label-h" type="number" step="1" min="10" value="${labelSize.h}"></div>
+          <div class="field"><label for="f-label-w">Breite (mm)</label><input id="f-label-w" type="number" step="1" min="10" value="${labelSize.w}"></div>
+          <div class="field"><label for="f-label-h">Höhe (mm)</label><input id="f-label-h" type="number" step="1" min="10" value="${labelSize.h}"></div>
         </div>
         <button class="btn secondary" id="btn-print-label" type="button">🏷️ Etikette drucken</button>
       `}
@@ -1131,10 +1133,16 @@ function paintEntryForm() {
   });
 
   $('#btn-photo').addEventListener('click', () => $('#photo-input').click());
-  $('#photo-input').addEventListener('change', ev => {
-    for (const file of ev.target.files) pendingPhotos.push(file);
+  $('#photo-input').addEventListener('change', async ev => {
+    const files = Array.from(ev.target.files);
     ev.target.value = '';
-    paintPhotoGrid();
+    if (!files.length) return;
+    // Fotos einzeln komprimieren und sofort anzeigen, sobald sie fertig sind
+    // (statt auf alle zu warten) — kleinere Dateien = schnellerer Upload.
+    for (const file of files) {
+      pendingPhotos.push(await compressImage(file));
+      paintPhotoGrid();
+    }
   });
   paintPhotoGrid();
 
@@ -1360,23 +1368,23 @@ function paintNiutecReview(e, proposal, labor, chosen, params) {
       <h2>Auftraggeber (Firma)</h2>
       <p class="hint">Startwerte aus Einstellungen &gt; Unsere Firma — hier nur für diesen Auftrag anpassbar.</p>
       <div class="grid-2">
-        <div class="field"><label>Firma</label><input id="nf-firma" value="${escapeHtml(proposal.firma)}"></div>
-        <div class="field"><label>Ansprechperson</label><input id="nf-name" value="${escapeHtml(proposal.name)}"></div>
-        <div class="field"><label>Strasse / PF</label><input id="nf-strasse" value="${escapeHtml(proposal.strasse)}"></div>
-        <div class="field"><label>PLZ / Ort</label><input id="nf-plzort" value="${escapeHtml(proposal.plzOrt)}"></div>
-        <div class="field"><label>Tel</label><input id="nf-tel" value="${escapeHtml(proposal.tel)}"></div>
-        <div class="field"><label>E-Mail</label><input id="nf-email" value="${escapeHtml(proposal.email)}"></div>
+        <div class="field"><label for="nf-firma">Firma</label><input id="nf-firma" value="${escapeHtml(proposal.firma)}"></div>
+        <div class="field"><label for="nf-name">Ansprechperson</label><input id="nf-name" value="${escapeHtml(proposal.name)}"></div>
+        <div class="field"><label for="nf-strasse">Strasse / PF</label><input id="nf-strasse" value="${escapeHtml(proposal.strasse)}"></div>
+        <div class="field"><label for="nf-plzort">PLZ / Ort</label><input id="nf-plzort" value="${escapeHtml(proposal.plzOrt)}"></div>
+        <div class="field"><label for="nf-tel">Tel</label><input id="nf-tel" value="${escapeHtml(proposal.tel)}"></div>
+        <div class="field"><label for="nf-email">E-Mail</label><input id="nf-email" value="${escapeHtml(proposal.email)}"></div>
       </div>
     </div>
 
     <div class="card">
       <h2>Probe</h2>
-      <div class="field"><label>Titel <span class="hint">(erscheint auf dem Bericht)</span></label><input id="nf-titel" value="${escapeHtml(proposal.titel)}"></div>
-      <div class="field"><label>Probenbezeichnung</label><input id="nf-probenbezeichnung" value="${escapeHtml(proposal.probenbezeichnung)}"></div>
+      <div class="field"><label for="nf-titel">Titel <span class="hint">(erscheint auf dem Bericht)</span></label><input id="nf-titel" value="${escapeHtml(proposal.titel)}"></div>
+      <div class="field"><label for="nf-probenbezeichnung">Probenbezeichnung</label><input id="nf-probenbezeichnung" value="${escapeHtml(proposal.probenbezeichnung)}"></div>
       ${proposal.standard === 'vbbo' ? `
       <div class="grid-2">
-        <div class="field"><label>Tiefe von (cm)</label><input id="nf-tiefevon" value="${escapeHtml(proposal.tiefeVon)}"></div>
-        <div class="field"><label>Tiefe bis (cm)</label><input id="nf-tiefebis" value="${escapeHtml(proposal.tiefeBis)}"></div>
+        <div class="field"><label for="nf-tiefevon">Tiefe von (cm)</label><input id="nf-tiefevon" value="${escapeHtml(proposal.tiefeVon)}"></div>
+        <div class="field"><label for="nf-tiefebis">Tiefe bis (cm)</label><input id="nf-tiefebis" value="${escapeHtml(proposal.tiefeBis)}"></div>
       </div>` : ''}
     </div>
 
@@ -1389,13 +1397,13 @@ function paintNiutecReview(e, proposal, labor, chosen, params) {
             <span>${escapeHtml(label)}</span>
           </label>`).join('')}
       </div>
-      <div class="field"><label>Andere Parameter <span class="hint">(Freitext, z.B. für nicht oben aufgeführte Analysen)</span></label><textarea id="nf-andere" rows="2">${escapeHtml(proposal.andereParameter)}</textarea></div>
+      <div class="field"><label for="nf-andere">Andere Parameter <span class="hint">(Freitext, z.B. für nicht oben aufgeführte Analysen)</span></label><textarea id="nf-andere" rows="2">${escapeHtml(proposal.andereParameter)}</textarea></div>
     </div>
 
     <div class="card">
       <h2>Weiteres</h2>
-      <div class="field"><label>Datum</label><input id="nf-datum" value="${escapeHtml(proposal.datum)}"></div>
-      <div class="field"><label>Bemerkungen</label><textarea id="nf-bemerkungen" rows="2">${escapeHtml(proposal.bemerkungen)}</textarea></div>
+      <div class="field"><label for="nf-datum">Datum</label><input id="nf-datum" value="${escapeHtml(proposal.datum)}"></div>
+      <div class="field"><label for="nf-bemerkungen">Bemerkungen</label><textarea id="nf-bemerkungen" rows="2">${escapeHtml(proposal.bemerkungen)}</textarea></div>
     </div>
 
     <div class="btn-row">
@@ -1461,6 +1469,7 @@ function paintPhotoGrid() {
     const div = document.createElement('div');
     div.className = 'photo-thumb';
     const img = document.createElement('img');
+    img.alt = `Foto der Probe ${currentEntry.probeBezeichnung || ''}`.trim();
     grid.appendChild(div);
     div.appendChild(img);
     getPhotoUrl(currentEntry.id, p).then(url => { img.src = url; }).catch(() => {});
@@ -1480,6 +1489,7 @@ function paintPhotoGrid() {
     const div = document.createElement('div');
     div.className = 'photo-thumb';
     const img = document.createElement('img');
+    img.alt = 'Neu aufgenommenes Foto (noch nicht hochgeladen)';
     img.src = URL.createObjectURL(file);
     const badge = document.createElement('span');
     badge.textContent = '⏳';
@@ -1728,10 +1738,10 @@ async function paintSettings() {
       <div id="user-list" class="entry-list"></div>
       <h3>Neuen Benutzer anlegen</h3>
       <div class="grid-2">
-        <div class="field"><label>Name</label><input id="nu-name"></div>
-        <div class="field"><label>E-Mail oder Kürzel <span class="hint">(zum Anmelden, muss eindeutig sein)</span></label><input id="nu-email" type="text" autocomplete="off"></div>
-        <div class="field"><label>Passwort (mind. 8 Zeichen)</label><input id="nu-pass" type="password" autocomplete="new-password"></div>
-        <div class="field"><label>Rolle</label>
+        <div class="field"><label for="nu-name">Name</label><input id="nu-name"></div>
+        <div class="field"><label for="nu-email">E-Mail oder Kürzel <span class="hint">(zum Anmelden, muss eindeutig sein)</span></label><input id="nu-email" type="text" autocomplete="off"></div>
+        <div class="field"><label for="nu-pass">Passwort (mind. 8 Zeichen)</label><input id="nu-pass" type="password" autocomplete="new-password"></div>
+        <div class="field"><label for="nu-role">Rolle</label>
           <select id="nu-role">
             <option value="probenehmer">Probenehmer/in</option>
             <option value="projektleiter">Projektleitung</option>
@@ -1785,13 +1795,13 @@ async function paintSettings() {
       <div id="thresholds-import-preview"></div>
       <h3>Neuen Parameter manuell hinzufügen</h3>
       <div class="grid-2">
-        <div class="field"><label>Bezeichnung</label><input id="np-label" placeholder="z.B. Arsen (As)"></div>
-        <div class="field"><label>Einheit</label><input id="np-unit" placeholder="z.B. mg/kg"></div>
-        <div class="field"><label>Art</label><select id="np-art"><option value="gesamt">Gesamtgehalt</option><option value="eluat">Eluat</option></select></div>
+        <div class="field"><label for="np-label">Bezeichnung</label><input id="np-label" placeholder="z.B. Arsen (As)"></div>
+        <div class="field"><label for="np-unit">Einheit</label><input id="np-unit" placeholder="z.B. mg/kg"></div>
+        <div class="field"><label for="np-art">Art</label><select id="np-art"><option value="gesamt">Gesamtgehalt</option><option value="eluat">Eluat</option></select></div>
       </div>
       <button class="btn secondary" id="btn-add-param" type="button">+ Parameter hinzufügen</button>
       ` : isProjektleiterRole ? `
-      <div class="field"><label>Notiz zum Antrag <span class="hint">(optional, z.B. Grund der Anpassung)</span></label><input id="thr-request-note"></div>
+      <div class="field"><label for="thr-request-note">Notiz zum Antrag <span class="hint">(optional, z.B. Grund der Anpassung)</span></label><input id="thr-request-note"></div>
       <div class="btn-row"><button class="btn" id="btn-request-thresholds" type="button">📨 Änderung beantragen</button></div>
       ` : ''}
       ${(isAdmin || isProjektleiterRole) ? `
@@ -1839,8 +1849,8 @@ async function paintSettings() {
       </div>
       <h3>Neuen VBBo-Parameter manuell hinzufügen</h3>
       <div class="grid-2">
-        <div class="field"><label>Bezeichnung</label><input id="nvp-label" placeholder="z.B. Kupfer (Cu)"></div>
-        <div class="field"><label>Einheit</label><input id="nvp-unit" placeholder="z.B. mg/kg"></div>
+        <div class="field"><label for="nvp-label">Bezeichnung</label><input id="nvp-label" placeholder="z.B. Kupfer (Cu)"></div>
+        <div class="field"><label for="nvp-unit">Einheit</label><input id="nvp-unit" placeholder="z.B. mg/kg"></div>
       </div>
       <button class="btn secondary" id="btn-add-vbbo-param" type="button">+ Parameter hinzufügen</button>
       ` : ''}
@@ -1990,12 +2000,12 @@ async function paintSettings() {
       Aufträge; lässt sich bei Bedarf pro Auftrag noch anpassen, bevor er verschickt wird.
       ${isAdmin ? '' : ' Nur Administrator/innen können sie ändern.'}</p>
       <div class="grid-2">
-        <div class="field"><label>Firma</label><input id="uf-firma" ${isAdmin ? '' : 'disabled'} value="${escapeHtml(unsereFirma.firma || '')}"></div>
-        <div class="field"><label>Ansprechperson</label><input id="uf-name" ${isAdmin ? '' : 'disabled'} value="${escapeHtml(unsereFirma.name || '')}"></div>
-        <div class="field"><label>Strasse / PF</label><input id="uf-strasse" ${isAdmin ? '' : 'disabled'} value="${escapeHtml(unsereFirma.strasse || '')}"></div>
-        <div class="field"><label>PLZ / Ort</label><input id="uf-plzort" ${isAdmin ? '' : 'disabled'} value="${escapeHtml(unsereFirma.plzOrt || '')}"></div>
-        <div class="field"><label>Tel</label><input id="uf-tel" ${isAdmin ? '' : 'disabled'} value="${escapeHtml(unsereFirma.tel || '')}"></div>
-        <div class="field"><label>E-Mail</label><input id="uf-email" type="email" ${isAdmin ? '' : 'disabled'} value="${escapeHtml(unsereFirma.email || '')}"></div>
+        <div class="field"><label for="uf-firma">Firma</label><input id="uf-firma" ${isAdmin ? '' : 'disabled'} value="${escapeHtml(unsereFirma.firma || '')}"></div>
+        <div class="field"><label for="uf-name">Ansprechperson</label><input id="uf-name" ${isAdmin ? '' : 'disabled'} value="${escapeHtml(unsereFirma.name || '')}"></div>
+        <div class="field"><label for="uf-strasse">Strasse / PF</label><input id="uf-strasse" ${isAdmin ? '' : 'disabled'} value="${escapeHtml(unsereFirma.strasse || '')}"></div>
+        <div class="field"><label for="uf-plzort">PLZ / Ort</label><input id="uf-plzort" ${isAdmin ? '' : 'disabled'} value="${escapeHtml(unsereFirma.plzOrt || '')}"></div>
+        <div class="field"><label for="uf-tel">Tel</label><input id="uf-tel" ${isAdmin ? '' : 'disabled'} value="${escapeHtml(unsereFirma.tel || '')}"></div>
+        <div class="field"><label for="uf-email">E-Mail</label><input id="uf-email" type="email" ${isAdmin ? '' : 'disabled'} value="${escapeHtml(unsereFirma.email || '')}"></div>
       </div>
       ${isAdmin ? `
       <div class="btn-row">
