@@ -241,7 +241,10 @@ async function renderStart() {
       <h2>Oder: nur eine einzelne Probe</h2>
       <p class="hint">Ohne Projekt/Baustelle — fürs Probenahmeprotokoll (vereinzelte Proben, „Scratchbook“).
       Sichtbar nur für dich und den Admin.</p>
-      <a class="btn secondary" href="#/protokoll">📝 Probenahmeprotokoll</a>
+      <div class="btn-row">
+        <a class="btn secondary" href="#/eintrag/neu-einzeln">📝 Neue Einzelprobe erfassen</a>
+        <a class="btn secondary" href="#/protokoll">Bisherige Einzelproben</a>
+      </div>
     </div>` : '';
   if (projects.length === 0) {
     appEl.innerHTML = `<div class="empty-state">
@@ -435,10 +438,7 @@ async function renderProtokoll() {
       <h2>📝 Probenahmeprotokoll</h2>
       <p class="hint">Vereinzelte Proben ohne Projekt/Baustelle — z.B. für Spontanproben unterwegs. Nur du (und
       der Admin) siehst diese Liste; sie erscheinen auch im normalen Journal.</p>
-      <div class="btn-row">
-        <a class="btn" href="#/eintrag/neu-einzeln">+ Neue Einzelprobe</a>
-        <a class="btn secondary" href="#/start">🏠 Übersicht</a>
-      </div>
+      <a class="btn" href="#/eintrag/neu-einzeln">+ Neue Einzelprobe</a>
     </div>
     ${entries.length === 0 ? '<p class="hint">Noch keine Einzelproben erfasst.</p>' : '<div class="entry-list" id="protokoll-list"></div>'}
   `;
@@ -984,7 +984,6 @@ function paintEntryForm() {
     </div>` : ''}
 
     <div class="btn-row">
-      <a class="btn secondary" href="#/start">🏠 Übersicht</a>
       <button class="btn" id="btn-save" type="button">💾 Speichern</button>
       <button class="btn secondary" id="btn-pdf" type="button">📄 Als PDF generieren</button>
       <button class="btn secondary" id="btn-mail" type="button">✉️ E-Mail mit PDF senden</button>
