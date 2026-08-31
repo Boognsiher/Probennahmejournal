@@ -31,6 +31,15 @@ html, body {
 a { color: inherit; }
 img, svg { max-width: 100%; }
 
+/* Sichtbarer Fokusring für Tastaturbedienung (a11y) — auf allen interaktiven
+   Elementen, nicht nur bei Maus/Touch-Klick (":focus-visible" statt ":focus",
+   damit ein Klick mit der Maus keinen Ring hinterlässt, Tab-Navigation aber
+   schon). */
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible,
+textarea:focus-visible, [tabindex]:focus-visible {
+  outline: 3px solid var(--accent); outline-offset: 2px;
+}
+
 .topbar {
   display: flex; align-items: center;
   padding: .6rem 1rem; background: var(--surface); border-bottom: 1px solid var(--border);
@@ -82,6 +91,7 @@ h1, h2, h3 { line-height: 1.25; }
 }
 .btn.secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
 .btn.danger { background: var(--danger); color: #fff; }
+.btn:active { transform: scale(.97); }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 .btn-row { display: flex; gap: .6rem; flex-wrap: wrap; margin: .75rem 0; }
 
