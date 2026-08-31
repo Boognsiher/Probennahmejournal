@@ -13,6 +13,9 @@ Für die Team-Variante mit gemeinsamem Server, Login pro Person und zentraler Fo
   (z.B. `A123-001`, `A123-002`, …), kein manuelles Eintippen mehr nötig. Im Projekt lassen sich ausserdem
   **Beprobungsorte und Entsorgungswege vordefinieren**, die dann bei jeder Probe als Dropdown zur Verfügung
   stehen (Beprobungsort alternativ auch per GPS erfassbar).
+- 📝 **Probenahmeprotokoll**: vereinzelte Proben ganz ohne Projekt erfassen — z.B. Spontanproben unterwegs —
+  direkt über „Neue Einzelprobe erfassen“ auf der Startseite. Chargenname wird automatisch als `PP-0001`,
+  `PP-0002`, … vergeben, PDF/E-Mail/Analysen auslösen funktioniert genau wie bei Projekt-Proben.
 - ⌨️ Material, Probenehmer/in, Beprobungsort und Entsorgungsweg als Auswahllisten (Probenehmer/in merkt sich
   zuletzt verwendete Namen) — wenig Tippen, grosse Bedienelemente für Handschuhe/Schutzausrüstung
 - 📷 Fotodokumentation des Materials über die Gerätekamera (im Browser gespeichert)
