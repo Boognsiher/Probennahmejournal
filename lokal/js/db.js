@@ -169,6 +169,18 @@ export async function getAllProjects() {
   });
 }
 
+// ---------- Fortlaufende Nummer für Einzelproben ohne Projekt (PP-0001, …) ----------
+// Global statt pro Projekt, da kein Kürzel vorhanden ist — analog zur
+// serverseitigen Zählung in server/src/routes/entries.js, hier einfach als
+// Zahl in localStorage (Einzelbenutzer/Offline, keine Nebenläufigkeit).
+const STANDALONE_SEQ_KEY = 'pnj_standalone_seq';
+
+export function nextStandaloneNumber() {
+  const next = (parseInt(localStorage.getItem(STANDALONE_SEQ_KEY), 10) || 0) + 1;
+  localStorage.setItem(STANDALONE_SEQ_KEY, String(next));
+  return next;
+}
+
 // ---------- Zuletzt verwendete Probenehmer/innen (für die Dropdown-Vorauswahl) ----------
 const RECENT_NAMES_KEY = 'pnj_recent_probenehmer';
 

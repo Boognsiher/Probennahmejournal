@@ -1,7 +1,7 @@
 import {
   newEntry, saveEntry, deleteEntry, getEntry, getAllEntries, uuid,
   newProject, saveProject, deleteProject, getProject, getAllProjects,
-  getRecentProbenehmer, rememberProbenehmer,
+  getRecentProbenehmer, rememberProbenehmer, nextStandaloneNumber,
 } from './db.js';
 import {
   CLASSES, PARAMETERS, DEFAULT_PARAMETERS, classify, setParameters, slugifyParamKey,
@@ -113,6 +113,9 @@ async function route() {
   } else if (parts[0] === 'journal') {
     setActiveTab('journal');
     await renderJournal();
+  } else if (parts[0] === 'protokoll') {
+    setActiveTab('protokoll');
+    await renderProtokoll();
   } else {
     setActiveTab('start');
     await renderStart();
@@ -124,11 +127,21 @@ window.addEventListener('hashchange', route);
 async function renderStart() {
   appEl.innerHTML = '<p class="hint">Lade Projekte …</p>';
   const projects = await getAllProjects();
+  const scratchCard = `
+    <div class="card">
+      <h2>Oder: nur eine einzelne Probe</h2>
+      <p class="hint">Ohne Projekt/Baustelle — fürs Probenahmeprotokoll (vereinzelte Proben, „Scratchbook“).</p>
+      <div class="btn-row">
+        <a class="btn secondary" href="#/eintrag/neu-einzeln">📝 Neue Einzelprobe erfassen</a>
+        <a class="btn secondary" href="#/protokoll">Bisherige Einzelproben</a>
+      </div>
+    </div>`;
   if (projects.length === 0) {
     appEl.innerHTML = `<div class="empty-state">
       <p>Noch keine Projekte angelegt.</p>
       <a class="btn" href="#/projekte">+ Projekt anlegen</a>
-    </div>`;
+    </div>
+    ${scratchCard}`;
     return;
   }
   const activeId = getActiveProjectId();
@@ -140,6 +153,7 @@ async function renderStart() {
       <div class="entry-list" id="start-project-list"></div>
     </div>
     <div class="btn-row"><a class="btn secondary" href="#/projekte">+ Neues Projekt anlegen / verwalten</a></div>
+    ${scratchCard}
   `;
   const list = $('#start-project-list');
   for (const p of projects) {
@@ -266,6 +280,49 @@ function paintJournalList() {
     card.innerHTML = `<div class="entry-info">
         <h3 class="entry-title">${escapeHtml(entry.probeBezeichnung || '(ohne Bezeichnung)')}</h3>
         <p class="entry-sub">${escapeHtml(entry.baustelle || '–')} · ${escapeHtml(entry.material || '')}${mengeLabel ? ' · ' + escapeHtml(mengeLabel) : ''} · ${stdLabel} · ${fmtDate(entry.createdAt)}</p>
+        ${cls ? `<span class="badge" style="background:${cls.color}">${escapeHtml(cls.short)}</span>` : '<span class="hint">keine Analyse</span>'}
+      </div>`;
+    card.prepend(thumbEl);
+    card.addEventListener('click', () => { location.hash = `#/eintrag/${entry.id}`; });
+    container.appendChild(card);
+  }
+}
+
+// ---------- Probenahmeprotokoll (Scratchbook: Einzelproben ohne Projekt) ----------
+// Eigener, schlanker Bereich für vereinzelte Proben ohne Projektzuteilung —
+// analog zur shell/server-Variante, hier ohne Rollen/Sichtbarkeitslogik
+// (Einzelbenutzer). Diese Proben laufen über dieselbe getAllEntries()-Liste
+// wie Projekt-Proben (projektId=null) und erscheinen daher auch ganz normal
+// im Journal — diese Ansicht hier ist nur eine fokussierte Kurzliste.
+async function renderProtokoll() {
+  const all = await getAllEntries();
+  const entries = all.filter(e => !e.projektId);
+  appEl.innerHTML = `
+    <div class="card">
+      <h2>📝 Probenahmeprotokoll</h2>
+      <p class="hint">Vereinzelte Proben ohne Projekt/Baustelle — z.B. für Spontanproben unterwegs. Sie
+      erscheinen auch im normalen Journal.</p>
+      <a class="btn" href="#/eintrag/neu-einzeln">+ Neue Einzelprobe</a>
+    </div>
+    ${entries.length === 0 ? '<p class="hint">Noch keine Einzelproben erfasst.</p>' : '<div class="entry-list" id="protokoll-list"></div>'}
+  `;
+  if (entries.length === 0) return;
+  const container = $('#protokoll-list');
+  for (const entry of entries) {
+    const card = document.createElement('article');
+    card.className = 'entry-card';
+    const thumbEl = document.createElement('div');
+    thumbEl.className = 'entry-thumb';
+    if (entry.photos && entry.photos[0]) {
+      thumbEl.style.backgroundImage = `url(${URL.createObjectURL(entry.photos[0].blob)})`;
+    } else {
+      thumbEl.textContent = '📷';
+    }
+    const cls = entry.klassifizierung ? classesForEntry(entry)[entry.klassifizierung.classIndex] : null;
+    const mengeLabel = fmtMenge(entry);
+    card.innerHTML = `<div class="entry-info">
+        <h3 class="entry-title">${escapeHtml(entry.probeBezeichnung || '(ohne Bezeichnung)')}</h3>
+        <p class="entry-sub">${escapeHtml(entry.material || '–')}${mengeLabel ? ' · ' + escapeHtml(mengeLabel) : ''} · ${fmtDate(entry.createdAt)}</p>
         ${cls ? `<span class="badge" style="background:${cls.color}">${escapeHtml(cls.short)}</span>` : '<span class="hint">keine Analyse</span>'}
       </div>`;
     card.prepend(thumbEl);
@@ -416,7 +473,15 @@ async function renderEntryForm(idOrNeu) {
   labore = loadLabore();
   unsereFirma = loadUnsereFirma();
   formProjects = await getAllProjects();
-  if (idOrNeu === 'neu') {
+  if (idOrNeu === 'neu-einzeln') {
+    // Eigenständige Probe ohne Projekt (Probenahmeprotokoll/Scratchbook) —
+    // siehe renderProtokoll().
+    currentEntry = newEntry();
+    currentEntry.nutzungsart = NUTZUNGSARTEN[0].id;
+    isNew = true;
+    const recent = getRecentProbenehmer();
+    if (recent.length) currentEntry.probenehmer = recent[0];
+  } else if (idOrNeu === 'neu') {
     currentEntry = newEntry();
     currentEntry.nutzungsart = NUTZUNGSARTEN[0].id;
     isNew = true;
@@ -424,6 +489,7 @@ async function renderEntryForm(idOrNeu) {
       appEl.innerHTML = `<div class="empty-state">
         <p>Bevor eine Probe erfasst werden kann, muss zuerst ein Projekt angelegt werden.</p>
         <a class="btn" href="#/projekte">+ Projekt anlegen</a>
+        <a class="btn secondary" href="#/eintrag/neu-einzeln">📝 Nur Probenahmeprotokoll (ohne Projekt)</a>
       </div>`;
       return;
     }
@@ -464,6 +530,7 @@ function projektHint() {
 
 function paintEntryForm() {
   const e = currentEntry;
+  const standalone = !e.projektId;
   const recentNames = getRecentProbenehmer();
   const project = formProjects.find(p => p.id === e.projektId) || null;
   const projectEntnahmeorte = project?.entnahmeorte || [];
@@ -483,15 +550,20 @@ function paintEntryForm() {
     <div class="card">
       <h2>${isNew ? 'Neue Probe' : `Probe ${escapeHtml(e.probeBezeichnung)}`}</h2>
 
-      ${isNew ? `
+      ${isNew ? (standalone ? `
+        <p class="hint">📝 Probenahmeprotokoll — eigenständige Probe <strong>ohne Projekt</strong>. Chargenname
+        wird automatisch als „PP-####“ vergeben — siehe <a href="#/protokoll">Probenahmeprotokoll</a>.</p>
+      ` : `
         <div class="field">
           <label for="f-projekt">Projekt *</label>
           <select id="f-projekt">${formProjects.map(p => `<option value="${p.id}" ${p.id === e.projektId ? 'selected' : ''}>${escapeHtml(p.name)} (${escapeHtml(p.kuerzel)})</option>`).join('')}</select>
           <p class="hint" id="projekt-hint">${projektHint()}</p>
         </div>
+      `) : (standalone ? `
+        <div class="field"><label>Projekt</label><p>📝 ${escapeHtml(e.baustelle)} <span class="hint">(siehe <a href="#/protokoll">Probenahmeprotokoll</a>)</span></p></div>
       ` : `
         <div class="field"><label>Projekt</label><p>${escapeHtml(e.baustelle)}</p></div>
-      `}
+      `)}
 
       <div class="grid-2">
         <div class="field">
@@ -641,7 +713,7 @@ function paintEntryForm() {
     </div>
   `;
 
-  if (isNew) {
+  if (isNew && !standalone) {
     $('#f-projekt').addEventListener('change', ev => {
       e.projektId = ev.target.value;
       // Beprobungsorte/Entsorgungswege sind projektabhängig — bei Projektwechsel
@@ -826,9 +898,13 @@ function paintEntryForm() {
   paintAnalyseTable();
 
   $('#btn-save').addEventListener('click', async () => {
-    if (isNew && !e.projektId) { toast('Bitte ein Projekt auswählen.'); return; }
+    if (isNew && !standalone && !e.projektId) { toast('Bitte ein Projekt auswählen.'); return; }
+    const wasNewStandalone = isNew && standalone;
     try {
-      if (isNew) {
+      if (isNew && standalone) {
+        e.probeBezeichnung = `PP-${String(nextStandaloneNumber()).padStart(4, '0')}`;
+        e.baustelle = 'Einzelprobe (ohne Projekt)';
+      } else if (isNew) {
         const project = await getProject(e.projektId);
         if (!project) { toast('Projekt nicht gefunden.'); return; }
         const seq = project.nextChargeNumber || 1;
@@ -843,6 +919,14 @@ function paintEntryForm() {
       await saveEntry(e);
       toast('Gespeichert');
       isNew = false;
+      if (wasNewStandalone) {
+        // Neue Einzelprobe ohne Projekt (Probenahmeprotokoll) — direkt auf die
+        // Übersicht (Startseite), nicht ins Eintragsformular der frisch
+        // angelegten Probe (die lässt sich jederzeit übers Probenahmeprotokoll
+        // wiederfinden und weiterbearbeiten).
+        location.hash = '#/start';
+        return;
+      }
       location.hash = `#/eintrag/${e.id}`;
     } catch (err) {
       toast('Fehler beim Speichern: ' + err.message);
