@@ -1,11 +1,29 @@
 // vvea.js
 // Klassifizierungs-Engine für Deponietypen (VVEA) und Bodenqualität (VBBo).
 //
-// WICHTIG: Die hinterlegten Zahlenwerte stammen aus vom Nutzer bereitgestellten
-// Quellen (eigene Recherche/Auszüge, Stand siehe README). Vor produktivem
-// Einsatz müssen die Grenzwerte von einer Fachperson anhand der aktuellen
-// VVEA/VBBo und kantonaler Vollzugshilfen geprüft werden – siehe
-// Einstellungen > Grenzwerte.
+// DEMO_THRESHOLDS (VVEA-Deponietypen, Aushub-/Ausbruchmaterial) sind gegen den
+// offiziellen Verordnungstext abgeglichen (VVEA Anhang 3 Ziff. 1/2 und Anhang 5
+// Ziff. 2.3/3/4.4/5.2, Stand 1. August 2026 — Fassung vom Nutzer bereitgestellt).
+// "unbelastet" und "typA" sind bewusst identisch: Deponietyp A lässt gemäss
+// Art. 19 Abs. 1 i.V.m. Anhang 5 Ziff. 1 VVEA ausschliesslich unverschmutztes
+// Material (Anhang 3 Ziff. 1) zu, es gibt dafür keinen eigenen, grosszügigeren
+// Grenzwert. "typB" verwendet die grosszügigeren Anhang-5-Ziff.-2.3-Werte
+// ("andere Abfälle"), nicht die engeren Anhang-3-Ziff.-2-Werte für reines
+// Aushubmaterial — Typ B nimmt beide Pfade auf, der Ziff.-2.3-Wert ist daher
+// die praktisch massgebliche Obergrenze. "typC" hat bewusst keine
+// Feststoff-Grenzwerte (nur die *_el-Eluatparameter, Anhang 5 Ziff. 3.2/3.4) —
+// die Zulassung zu Typ C erfolgt eluatbasiert (behandeltes/immobilisiertes
+// Material), nicht über den Gesamtgehalt. Für Cobalt, Thallium und Zinn nennt
+// die VVEA für Aushub-/Ausbruchmaterial keinen Feststoff-Grenzwert (nur
+// Cobalt zusätzlich eluatbasiert für Typ C, siehe co_el) — frühere Platzhalter
+// hier stammten irrtümlich aus Anhang 4 (Zementwerk-Grenzwerte, ein anderer
+// Verwendungszweck) und wurden entfernt.
+//
+// VBBo-Werte (Bodenqualität) und alle übrigen Parameter/Materialien stammen
+// weiterhin aus vom Nutzer bereitgestellten Quellen (eigene Recherche/Auszüge,
+// Stand siehe README). Vor produktivem Einsatz müssen die Grenzwerte von einer
+// Fachperson anhand der aktuellen VVEA/VBBo und kantonaler Vollzugshilfen
+// geprüft werden – siehe Einstellungen > Grenzwerte.
 
 export const STORAGE_KEY_ACK = 'pnj_vvea_disclaimer_ack_v1';
 
@@ -28,11 +46,17 @@ export const CLASSES = [
 
 // Eigenständige 4-Stufen-Skala, unabhängig von VVEA. Nutzt denselben
 // classify()-Mechanismus (siehe unten) mit anderen Klassen/Grenzwerten.
+// Kat. I/II/IIIa/IIIb: gebräuchliche Entsorgungspraxis-Bezeichnung für die
+// vier VBBo-Belastungsstufen (unter Richtwert / Richtwert-Prüfwert /
+// Prüfwert-Sanierungswert / über Sanierungswert) — die VBBo selbst kennt nur
+// Richt-, Prüf- und Sanierungswert als Zahlenwerte, keine eigene "Kat."
+// Nummerierung; die Zuordnung folgt der auch für die VeVA-Aushubcodes
+// verwendeten Einstufung (siehe VBBO_TO_VEVA_KLASSE unten).
 export const VBBO_CLASSES = [
-  { id: 'unauffaellig', label: 'Unauffällig (unter Richtwert)', short: 'Unauffällig', color: '#2e7d32' },
-  { id: 'ueberRichtwert', label: 'Über Richtwert, unter Prüfwert – Beobachtung empfohlen', short: 'Über Richtwert', color: '#fbc02d' },
-  { id: 'ueberPruefwert', label: 'Über Prüfwert – weitere Abklärung/Nutzungseinschränkung nötig', short: 'Über Prüfwert', color: '#ef6c00' },
-  { id: 'ueberSanierungswert', label: 'Über Sanierungswert – Sanierung nötig', short: 'Sanierungsbedarf', color: '#b71c1c', terminal: true },
+  { id: 'unauffaellig', label: 'Unbelastet (Kat. I) – unter Richtwert', short: 'Kat. I', color: '#2e7d32' },
+  { id: 'ueberRichtwert', label: 'Schwach belastet (Kat. II) – über Richtwert, unter Prüfwert', short: 'Kat. II', color: '#fbc02d' },
+  { id: 'ueberPruefwert', label: 'Stark belastet (Kat. IIIa) – über Prüfwert, unter Sanierungswert', short: 'Kat. IIIa', color: '#ef6c00' },
+  { id: 'ueberSanierungswert', label: 'Stark belastet (Kat. IIIb) – über Sanierungswert, Sanierung nötig', short: 'Kat. IIIb', color: '#b71c1c', terminal: true },
 ];
 
 // Nutzungsart bestimmt, welche Prüfwert-/Sanierungswert-Spalte der VBBo-
@@ -318,27 +342,27 @@ export function slugifyParamKey(label, existingKeys) {
 // weiter unten in classify().
 export const DEMO_THRESHOLDS = {
   toc:      { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null,  typE: null },
-  toc400:   { unbelastet: null, typA: 10000, typB: 20000, typC: 20000, typD: 20000, typE: 50000 },
-  kw:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: 500,   typD: 500,   typE: 5000 },
-  kw_c5:    { unbelastet: 1,    typA: 5,     typB: 10,    typC: 10,    typD: 10,    typE: 100 },
-  pak:      { unbelastet: 3,    typA: 12.5,  typB: 25,    typC: 25,    typD: 25,    typE: 250 },
-  bap:      { unbelastet: 0.3,  typA: 1.5,   typB: 3,     typC: 3,     typD: 3,     typE: 10 },
-  pcb:      { unbelastet: 0.1,  typA: 0.5,   typB: 1,     typC: 1,     typD: 1,     typE: 10 },
-  btex:     { unbelastet: 1,    typA: 5,     typB: 10,    typC: 10,    typD: 10,    typE: 100 },
-  benzol:   { unbelastet: 0.1,  typA: 0.5,   typB: 1,     typC: 1,     typD: 1,     typE: 1 },
-  sb:       { unbelastet: 3,    typA: 15,    typB: 30,    typC: null,  typD: null,  typE: 50 },
-  as:       { unbelastet: 15,   typA: 15,    typB: 30,    typC: null,  typD: null,  typE: 50 },
-  pb:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: null,  typE: 2000 },
-  cd:       { unbelastet: 1,    typA: 5,     typB: 10,    typC: null,  typD: null,  typE: 10 },
-  cr:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: null,  typE: 1000 },
-  cr6:      { unbelastet: 0.05, typA: 0.05,  typB: 0.1,   typC: null,  typD: null,  typE: 0.5 },
-  co:       { unbelastet: null, typA: null,  typB: 250,   typC: null,  typD: null,  typE: null },
-  cu:       { unbelastet: 40,   typA: 250,   typB: 500,   typC: null,  typD: null,  typE: 5000 },
-  ni:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: null,  typE: 1000 },
-  hg:       { unbelastet: 0.5,  typA: 1,     typB: 2,     typC: null,  typD: null,  typE: 5 },
-  tl:       { unbelastet: null, typA: null,  typB: 3,     typC: null,  typD: null,  typE: null },
-  zn:       { unbelastet: 150,  typA: 500,   typB: 1000,  typC: null,  typD: null,  typE: 5000 },
-  sn:       { unbelastet: null, typA: null,  typB: 100,   typC: null,  typD: null,  typE: null },
+  toc400:   { unbelastet: null, typA: null,  typB: 20000, typC: 20000, typD: 20000, typE: 50000 },
+  kw:       { unbelastet: 50,   typA: 50,    typB: 500,   typC: 500,   typD: 500,   typE: 5000 },
+  kw_c5:    { unbelastet: 1,    typA: 1,     typB: 10,    typC: 10,    typD: 10,    typE: 100 },
+  pak:      { unbelastet: 3,    typA: 3,     typB: 25,    typC: 25,    typD: 25,    typE: 250 },
+  bap:      { unbelastet: 0.3,  typA: 0.3,   typB: 3,     typC: 3,     typD: 3,     typE: 10 },
+  pcb:      { unbelastet: 0.1,  typA: 0.1,   typB: 1,     typC: 1,     typD: 1,     typE: 10 },
+  btex:     { unbelastet: 1,    typA: 1,     typB: 10,    typC: 10,    typD: 10,    typE: 100 },
+  benzol:   { unbelastet: 0.1,  typA: 0.1,   typB: 1,     typC: 1,     typD: 1,     typE: 1 },
+  sb:       { unbelastet: 3,    typA: 3,     typB: 30,    typC: null,  typD: 50,    typE: 50 },
+  as:       { unbelastet: 15,   typA: 15,    typB: 30,    typC: null,  typD: 50,    typE: 50 },
+  pb:       { unbelastet: 50,   typA: 50,    typB: 500,   typC: null,  typD: 2000,  typE: 2000 },
+  cd:       { unbelastet: 1,    typA: 1,     typB: 10,    typC: null,  typD: 10,    typE: 10 },
+  cr:       { unbelastet: 50,   typA: 50,    typB: 500,   typC: null,  typD: 1000,  typE: 1000 },
+  cr6:      { unbelastet: 0.05, typA: 0.05,  typB: 0.1,   typC: null,  typD: 0.5,   typE: 0.5 },
+  co:       { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null,  typE: null },
+  cu:       { unbelastet: 40,   typA: 40,    typB: 500,   typC: null,  typD: 5000,  typE: 5000 },
+  ni:       { unbelastet: 50,   typA: 50,    typB: 500,   typC: null,  typD: 1000,  typE: 1000 },
+  hg:       { unbelastet: 0.5,  typA: 0.5,   typB: 2,     typC: null,  typD: 5,     typE: 5 },
+  tl:       { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null,  typE: null },
+  zn:       { unbelastet: 150,  typA: 150,   typB: 1000,  typC: null,  typD: 5000,  typE: 5000 },
+  sn:       { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null,  typE: null },
   cn:       { unbelastet: 0.5,  typA: null,  typB: null,  typC: null,  typD: null,  typE: null },
   salze:    { unbelastet: null, typA: null,  typB: 0.5,   typC: 3,     typD: null, typE: 5 },
   pH:       { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null, typE: null },

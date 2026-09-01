@@ -55,9 +55,13 @@ App zur Führung eines Probennahmejournals auf der Baustelle:
 - **📍 PLZ-Finder** (Button oben rechts in der Kopfzeile): schnelles Nachschlagen Schweizer
   Postleitzahlen/Ortschaften samt Karte (swisstopo) und den nächstgelegenen Ortschaften — eigenständiges
   Hilfswerkzeug ohne Verbindung zu den Probendaten.
-- **Reiter „Abfallkategorien“**: Übersicht über die VVEA-Deponietypen (Aushub-/Ausbruchmaterial) und die
-  VBBo-Bodenkategorien in Tabellenform — zeigt dieselben Grenzwerte wie unter „Einstellungen“ (Änderungen dort
-  wirken sich direkt auch hier aus), inkl. Nutzungsart-Auswahl für die Bodenkategorien.
+- **Reiter „Abfallkategorien”**: Übersicht über die VVEA-Deponietypen (Aushub-/Ausbruchmaterial) und die
+  VBBo-Bodenkategorien in Tabellenform — zeigt dieselben Grenzwerte wie unter „Einstellungen” (Änderungen dort
+  wirken sich direkt auch hier aus), inkl. Nutzungsart-Auswahl für die Bodenkategorien. Die Bodenkategorien-
+  Tabelle zeigt nur die entsorgungsrelevanten Parameter (Schwermetalle, PAK/BaP, PCB) und ist nach Kat.
+  I (unbelastet), Kat. II (schwach belastet), Kat. IIIa und Kat. IIIb (beide stark belastet) gegliedert — die
+  in der Entsorgungspraxis gebräuchliche Bezeichnung für die vier VBBo-Belastungsstufen Richt-/Prüf-/
+  Sanierungswert.
 - **VeVA-Code wird automatisch und fix zugeteilt** — aus Material (z.B. Aushub/Ober-/Unterboden), dem daraus
   abgeleiteten Standard (VVEA/VBBo) und dem Einstufungsergebnis. Anders als Standard/Material ist der Code bei
   der Probe **nicht manuell überschreibbar** — passt der automatisch ermittelte Code nicht, muss die
@@ -103,6 +107,12 @@ vereinfachte Interpretation der VBBo-Anhang-2-Expositionspfade) **durch eine Fac
 der offiziellen VeVA-Codeliste geprüft und bei Bedarf angepasst werden** — insbesondere bevor ein VeVA-Code auf
 einem offiziellen Begleitschein verwendet wird. Die App zeigt einen entsprechenden Hinweis auch beim ersten
 Start an.
+
+Die **VVEA-Feststoff-/Eluatgrenzwerte** (Deponietyp A–E) wurden gegen den offiziellen Verordnungstext (VVEA
+Anhang 3 Ziff. 1/2, Anhang 5 Ziff. 2.3/3/4.4/5.2, Stand 1. August 2026) abgeglichen — siehe Kommentar am
+Anfang von `js/vvea.js` (bzw. `server/src/vvea-defaults.js`) für die Details und Fundstellen. Die
+**VBBo-Werte** (Richt-/Prüf-/Sanierungswert) und übrigen Parameter/Materialien stammen weiterhin aus den vom
+Auftraggeber bereitgestellten Unterlagen und sind entsprechend vor produktivem Einsatz zu prüfen.
 
 Der VeVA-Code wird automatisch aus Material (über den in der Materialien-Liste hinterlegten VeVA-Aushubcode-
 „Eimer" Ober-/Unterboden/Aushub — andere Materialien wie Mischabbruch erhalten bewusst keinen Code, da die

@@ -355,12 +355,24 @@ function renderAbfallkategorien() {
   // eigenen Zahlenwert (sind "grösser als die letzte Spalte") — als Spalte
   // wenig hilfreich, daher hier ausgeblendet (wie im Einstellungen-Editor).
   const vveaClasses = CLASSES.filter(c => !c.terminal);
-  const vbboClasses = VBBO_CLASSES.filter(c => !c.terminal);
+  // Bodenkategorien (VBBo): alle vier Stufen inkl. der terminalen Kat. IIIb
+  // werden gezeigt (anders als bei VVEA hat sie hier mit dem Sanierungswert
+  // einen eigenen, klar benannten unteren Grenzwert).
+  const vbboClasses = VBBO_CLASSES;
   const vbboThr = buildVbboThresholdsForNutzung(vbboThresholds, abfallkategorienNutzungsart);
   const feststoffParams = PARAMETERS.filter(p => p.art !== 'eluat');
   const eluatParams = PARAMETERS.filter(p => p.art === 'eluat');
 
   const classHeader = c => `<th style="color:${c.color};">${escapeHtml(c.short)}</th>`;
+
+  // Für die terminale Kat. IIIb (über Sanierungswert) gibt es keinen eigenen
+  // Zahlenwert — sie beginnt dort, wo Kat. IIIa endet. Zeigt daher "> Wert"
+  // mit dem letzten definierten Grenzwert der Zeile statt "–".
+  function vbboCellVal(pKey, c) {
+    if (!c.terminal) return fmtThresholdVal(vbboThr[pKey]?.[c.id]);
+    const prev = [...vbboClasses].reverse().find(o => !o.terminal && vbboThr[pKey]?.[o.id] != null);
+    return prev ? `&gt; ${fmtThresholdVal(vbboThr[pKey][prev.id])}` : '–';
+  }
 
   appEl.innerHTML = `
     <div class="card">
@@ -406,21 +418,22 @@ function renderAbfallkategorien() {
           ${NUTZUNGSARTEN.map(n => `<option value="${n.id}" ${n.id === abfallkategorienNutzungsart ? 'selected' : ''}>${escapeHtml(n.label)}</option>`).join('')}
         </select>
       </div>
-      <p class="hint">Zeigt dieselben Grenzwerte wie unter „Einstellungen &gt; Grenzwerte (VBBo)“, projiziert auf
-      die oben gewählte Nutzungsart — eine Änderung dort wirkt sich direkt auch hier aus.</p>
+      <p class="hint">Nur die für die Entsorgung relevanten Parameter (Schwermetalle, PAK/BaP, PCB) — zeigt dieselben
+      Grenzwerte wie unter „Einstellungen &gt; Grenzwerte (VBBo)“, projiziert auf die oben gewählte Nutzungsart — eine
+      Änderung dort wirkt sich direkt auch hier aus.</p>
       <div style="overflow-x:auto">
         <table class="veva-ref-table">
           <thead><tr><th>Parameter</th>${vbboClasses.map(classHeader).join('')}</tr></thead>
           <tbody>
             ${VBBO_PARAMETERS.map(p => `<tr>
               <td>${escapeHtml(p.label)} <span class="hint">[${escapeHtml(p.unit || '–')}]</span></td>
-              ${vbboClasses.map(c => `<td>${fmtThresholdVal(vbboThr[p.key]?.[c.id])}</td>`).join('')}
+              ${vbboClasses.map(c => `<td>${vbboCellVal(p.key, c)}</td>`).join('')}
             </tr>`).join('') || '<tr><td colspan="99" class="hint">Keine Parameter hinterlegt.</td></tr>'}
           </tbody>
         </table>
       </div>
-      <p class="hint">Werte über der Spalte „${escapeHtml(vbboClasses[vbboClasses.length - 1]?.short || 'Über Prüfwert')}“
-      gelten als „${escapeHtml(VBBO_CLASSES.find(c => c.terminal)?.label || 'Sanierungsbedarf')}“. Grenzwerte bearbeiten:
+      <p class="hint">„Kat. I–IIIb“ ist die in der Entsorgungspraxis gebräuchliche Bezeichnung für die vier
+      VBBo-Belastungsstufen (Richt-/Prüf-/Sanierungswert) und keine eigene VBBo-Zahlenkategorie. Grenzwerte bearbeiten:
       <a href="#/einstellungen">Einstellungen &gt; Grenzwerte (VBBo)</a>.</p>
     </div>
   `;
