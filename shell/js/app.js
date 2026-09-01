@@ -23,7 +23,7 @@ import {
   hasAcknowledgedDisclaimer, acknowledgeDisclaimer,
   VBBO_CLASSES, VBBO_PARAMETERS, DEFAULT_VBBO_PARAMETERS,
   setVbboParameters, classifyVBBO, suggestVevaCode, materialToStandard,
-  buildVbboThresholds,
+  buildVbboThresholds, withVbboDefaults,
 } from './vvea.js';
 import { parseCSV } from './parse-csv.js';
 import { parsePDF } from './parse-pdf.js';
@@ -735,7 +735,7 @@ async function loadVveaConfig() {
     ]);
     thresholds = t;
     setParameters(p);
-    vbboThresholds = vt;
+    vbboThresholds = withVbboDefaults(vt);
     setVbboParameters(vp);
     vevaCodes = vc;
     analytikProgramme = ap;

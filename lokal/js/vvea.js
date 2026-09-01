@@ -155,10 +155,27 @@ export const DEFAULT_VBBO_THRESHOLDS = {
   bap: { katI: 0.2,  katII: 1 },
   pcb: { katI: 0.02, katII: 0.1 },
 };
+
+// Verteidigungslinie gegen veraltete/unvollständige gespeicherte Boden-
+// Rohdaten (z.B. localStorage aus einer älteren App-Version, oder ein
+// Substanz-Eintrag, dem beim Speichern versehentlich katI/katII fehlt) —
+// ergänzt für jede der zehn Standard-Substanzen fehlende katI/katII-Werte
+// aus DEFAULT_VBBO_THRESHOLDS. Explizit auf null gesetzte ("nicht geregelt")
+// Werte sowie zusätzliche, vom Nutzer selbst angelegte Substanzen bleiben
+// unangetastet.
+export function withVbboDefaults(vbboThresholds) {
+  const out = { ...(vbboThresholds || {}) };
+  for (const key of Object.keys(DEFAULT_VBBO_THRESHOLDS)) {
+    const cur = out[key];
+    const hasBoth = cur && typeof cur === 'object' && 'katI' in cur && 'katII' in cur;
+    if (!hasBoth) out[key] = { ...DEFAULT_VBBO_THRESHOLDS[key], ...(cur && typeof cur === 'object' ? cur : {}) };
+  }
+  return out;
+}
 export function loadVbboThresholds() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_VBBO_THRESHOLDS);
-    if (raw) return JSON.parse(raw);
+    if (raw) return withVbboDefaults(JSON.parse(raw));
   } catch (e) { /* fall through */ }
   return JSON.parse(JSON.stringify(DEFAULT_VBBO_THRESHOLDS));
 }
