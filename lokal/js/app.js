@@ -1402,7 +1402,7 @@ const VBBO_COLS = [
   { key: 'katI', label: 'Kat. I (Richtwert)' },
   { key: 'katII', label: 'Kat. II (Prüfwert)' },
 ];
-const VEVA_MATERIALIEN = ['Oberboden', 'Unterboden', 'Aushub'];
+const VEVA_MATERIALIEN = ['Oberboden', 'Unterboden', 'Aushub', 'Gleisaushub'];
 
 // ---------- Einstellungen ----------
 function renderSettings() {
