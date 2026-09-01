@@ -4,9 +4,9 @@ Node.js/Express-Backend: Login mit individuellen Accounts, gemeinsame Datenbank 
 Foto-Ablage im Dateisystem des Servers. Liefert zugleich das Frontend aus `../public` mit aus –
 ein einzelner Prozess reicht für den Betrieb.
 
-Jede Probe kann wahlweise nach **VVEA** (Deponietyp A–E) oder **VBBo** (Bodenqualität,
-Nutzungsart-abhängig) eingestuft werden, dazu ein **VeVA-Code** und ein **Entsorgungsweg** zugeordnet
-werden. Grenzwerte, Parameterlisten und VeVA-Codes werden je Server zentral in den `settings`
+Jede Probe kann wahlweise nach **VVEA** (Deponietyp unbelastet/Typ T/B/C/D/E) oder **Boden** (Kat. I–IIIb,
+ausschliesslich im Hinblick auf die Entsorgung) eingestuft werden, dazu ein **VeVA-Code** und ein
+**Entsorgungsweg** zugeordnet werden. Grenzwerte, Parameterlisten und VeVA-Codes werden je Server zentral in den `settings`
 vorgehalten (siehe API-Tabelle unten) und beim ersten Start automatisch mit sinnvollen Startwerten
 vorbefüllt.
 

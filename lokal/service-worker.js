@@ -1,5 +1,5 @@
 // Minimaler Cache-first Service Worker für den Offline-Betrieb auf der Baustelle.
-const CACHE_NAME = 'probennahmejournal-v25';
+const CACHE_NAME = 'probennahmejournal-v27';
 const APP_SHELL = [
   './',
   './index.html',

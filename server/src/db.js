@@ -166,10 +166,20 @@ function seedSetting(key, value, isStale) {
 const isEmptyObject = v => !v || typeof v !== 'object' || Object.keys(v).length === 0;
 const isEmptyArray = v => !Array.isArray(v) || v.length === 0;
 const isOldVevaCodeShape = v => isEmptyArray(v) || v.some(c => !Array.isArray(c.materialien) || !Array.isArray(c.klassen));
+// Boden-Grenzwerte auf Kat. I/II (Richtwert/Prüfwert, Nutzungsart-
+// unabhängig) umgestellt — alte Einträge hatten stattdessen `richtwert`/
+// `pwDirekt`/... je Nutzungsart, daher an diesem Merkmal erkennbar. Anders
+// als die Grenzwerte selbst sind `materialien`/`veva_codes` (Gleisaushub-
+// Ergänzung) bewusst NICHT zwangsmigriert: ein bereits laufender Server
+// könnte dort eigene Ergänzungen/Anpassungen haben, die ein Reseed
+// überschreiben würde — Gleisaushub kann dort bei Bedarf manuell unter
+// Einstellungen nachgetragen werden.
+const isOldVbboThresholdShape = v => isEmptyObject(v)
+  || Object.values(v).some(t => t && typeof t === 'object' && 'richtwert' in t);
 
 seedSetting('vvea_thresholds', DEMO_THRESHOLDS);
 seedSetting('vvea_parameters', DEFAULT_PARAMETERS);
-seedSetting('vbbo_thresholds', DEFAULT_VBBO_THRESHOLDS, isEmptyObject);
+seedSetting('vbbo_thresholds', DEFAULT_VBBO_THRESHOLDS, isOldVbboThresholdShape);
 seedSetting('vbbo_parameters', DEFAULT_VBBO_PARAMETERS, isEmptyArray);
 seedSetting('veva_codes', DEFAULT_VEVA_CODES, isOldVevaCodeShape);
 seedSetting('analytik_programme', DEFAULT_ANALYTIK_PROGRAMME, isEmptyArray);

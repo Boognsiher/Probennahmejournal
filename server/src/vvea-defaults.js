@@ -1,9 +1,42 @@
-// Server-seitige Kopie der Klassifizierungsdaten (VVEA + VBBo), mit der die
+// Server-seitige Kopie der Klassifizierungsdaten (VVEA + Boden), mit der die
 // Datenbank beim allerersten Start vorbefüllt wird (danach über die App unter
 // "Einstellungen" durch eine Fachperson editierbar).
 // Muss inhaltlich mit public/js/vvea.js übereinstimmen.
 //
-// WICHTIG: Die Zahlenwerte stammen aus vom Nutzer bereitgestellten Quellen
+// DEMO_THRESHOLDS (VVEA-Deponietypen, Aushub-/Ausbruchmaterial) sind gegen den
+// offiziellen Verordnungstext abgeglichen (VVEA Anhang 3 Ziff. 1/2 und Anhang 5
+// Ziff. 2/3/4/5, Stand 1. August 2026 — Fassung vom Nutzer bereitgestellt und
+// anhand der internen Referenztabelle „Umrechnungsfaktoren und VeVA-Codes"
+// verifiziert). "unbelastet" (Anhang 3 Ziff. 1) ist die unverschmutzte Stufe.
+// "typA" führt seit dieser Version wieder die eigenständigen Anhang-3-Ziff.-2-
+// Werte (nicht mehr identisch mit "unbelastet") und heisst in Anzeige/Badge
+// neu "Typ T" — gemäss der offiziellen VeVA-Aushubcode-Kennzeichnung ist das
+// die kontrollpflichtige Zwischenstufe (Codes z.B. 17 05 93/94/95), nicht
+// "Typ A"; die id `typA` bleibt intern unverändert (Kompatibilität mit
+// bestehenden Proben/Filtern), nur Label/Kurzform wurden korrigiert. "typB"
+// verwendet die grosszügigeren Anhang-5-Ziff.-2-Werte ("andere Abfälle"),
+// nicht die engeren Anhang-3-Ziff.-2-Werte für reines Aushubmaterial — Typ B
+// nimmt beide Pfade auf, der Anhang-5-Wert ist daher die praktisch
+// massgebliche Obergrenze. "typC" hat bewusst keine Feststoff-Grenzwerte für
+// die meisten Metalle (nur die *_el-Eluatparameter, Anhang 5 Ziff. 3) — die
+// Zulassung zu Typ C erfolgt bei diesen eluatbasiert (behandeltes/
+// immobilisiertes Material), nicht über den Gesamtgehalt; Quecksilber ist
+// ausdrücklich eine Ausnahme und hat bei Typ C sowohl einen Feststoff- als
+// auch einen Eluat-Grenzwert (siehe hg und hg_el). Für Cobalt, Thallium und
+// Zinn nennt die VVEA für Aushub-/Ausbruchmaterial keinen Feststoff-
+// Grenzwert (nur Cobalt zusätzlich eluatbasiert für Typ C, siehe co_el) —
+// frühere Platzhalter hier stammten irrtümlich aus Anhang 4 (Zementwerk-
+// Grenzwerte, ein anderer Verwendungszweck) und wurden entfernt. Typ D und
+// Typ E teilen sich in der offiziellen VeVA-Aushubcodeliste denselben Code
+// (Anhang 5 Ziff. 3/4/5 zusammen), siehe DEFAULT_VEVA_CODES unten.
+//
+// WICHTIG: Boden (Kat. I–IIIb) wird ab dieser Version ausschliesslich im
+// Hinblick auf die Entsorgung betrachtet — Kat. I/II stammen aus BAFU (2021)
+// "Beurteilung von Boden im Hinblick auf seine Verwertung" (Anhang A2-1
+// Tab. 4 / A2-2 Tab. 6, Nutzungsart-unabhängig), Kat. IIIa/IIIb werden live
+// aus den VVEA-Grenzwerten (Typ B/Typ E) übernommen, siehe
+// buildVbboThresholds() in public/js/vvea.js. Alle übrigen Parameter/
+// Materialien stammen weiterhin aus vom Nutzer bereitgestellten Quellen
 // (u.a. eigene Recherche "grenzwerte.swiss"/Master-Tabelle, Stand 14.08.2026;
 // Tabelle_Grenzwerte.pdf für die VeVA-Codes). Trotzdem gilt: vor produktivem
 // Einsatz durch eine Fachperson gegen die aktuelle VVEA/VBBo und kantonale
@@ -11,26 +44,24 @@
 
 export const CLASSES = [
   { id: 'unbelastet', label: 'Unbelastet / Verwertung möglich', short: 'Verwertung', color: '#2e7d32' },
-  { id: 'typA', label: 'Deponietyp A (Aushubdeponie)', short: 'Typ A', color: '#66bb6a' },
+  { id: 'typA', label: 'Typ T – kontrollpflichtiger Aushub (Anhang 3 Ziff. 2)', short: 'Typ T', color: '#66bb6a' },
   { id: 'typB', label: 'Deponietyp B (Inertstoffdeponie)', short: 'Typ B', color: '#29b6f6' },
   { id: 'typC', label: 'Deponietyp C (Reststoffdeponie)', short: 'Typ C', color: '#ffa726' },
   { id: 'typD', label: 'Deponietyp D (Reaktordeponie)', short: 'Typ D', color: '#ef5350' },
   { id: 'typE', label: 'Deponietyp E (Reaktordeponie)', short: 'Typ E', color: '#b71c1c' },
-  { id: 'sonderfall', label: 'Nicht deponierbar / Sonderabfall – Fachperson beiziehen', short: 'Sonderfall', color: '#4a148c', terminal: true },
+  { id: 'sonderfall', label: 'Nicht deponierbar / Sonderabfall (Typ S) – Fachperson beiziehen', short: 'Sonderfall', color: '#4a148c', terminal: true },
 ];
 
-// VBBo (Bodenschutz) — eigenständige 4-Stufen-Skala, unabhängig von VVEA.
+// Boden (Kat. I–IIIb) — eigenständige, bewusst vereinfachte Skala,
+// ausschliesslich im Hinblick auf die Entsorgung (siehe Kommentar oben für
+// die Herleitung je Stufe; Details/Formel in public/js/vvea.js,
+// buildVbboThresholds()).
 export const VBBO_CLASSES = [
-  { id: 'unauffaellig', label: 'Unauffällig (unter Richtwert)', short: 'Unauffällig', color: '#2e7d32' },
-  { id: 'ueberRichtwert', label: 'Über Richtwert, unter Prüfwert – Beobachtung empfohlen', short: 'Über Richtwert', color: '#fbc02d' },
-  { id: 'ueberPruefwert', label: 'Über Prüfwert – weitere Abklärung/Nutzungseinschränkung nötig', short: 'Über Prüfwert', color: '#ef6c00' },
-  { id: 'ueberSanierungswert', label: 'Über Sanierungswert – Sanierung nötig', short: 'Sanierungsbedarf', color: '#b71c1c', terminal: true },
-];
-
-export const NUTZUNGSARTEN = [
-  { id: 'spielplatz', label: 'Kinderspielplatz', pruefwertSpalte: 'pwDirekt', sanierungSpalte: 'sanSpielplatz' },
-  { id: 'garten', label: 'Haus-/Familiengarten', pruefwertSpalte: 'pwNahrung', sanierungSpalte: 'sanGarten' },
-  { id: 'landwirtschaft', label: 'Landwirtschaft/Gartenbau', pruefwertSpalte: 'pwFutter', sanierungSpalte: 'sanLandwirtschaft' },
+  { id: 'katI', label: 'Kat. I – unbelastet (≤ VBBo-Richtwert)', short: 'Kat. I', color: '#2e7d32' },
+  { id: 'katII', label: 'Kat. II – schwach belastet (≤ VBBo-Prüfwert)', short: 'Kat. II', color: '#fbc02d' },
+  { id: 'katIIIa', label: 'Kat. IIIa – stark belastet (≤ VVEA Typ B)', short: 'Kat. IIIa', color: '#ef6c00' },
+  { id: 'katIIIb', label: 'Kat. IIIb – stark belastet (≤ VVEA Typ E)', short: 'Kat. IIIb', color: '#c62828' },
+  { id: 'sonderfall', label: 'Nicht verwertbar / Sonderabfall (Boden) – über VVEA Typ E, Fachperson beiziehen', short: 'Sonderfall', color: '#4a148c', terminal: true },
 ];
 
 export const DEFAULT_PARAMETERS = [
@@ -105,19 +136,19 @@ export const DEMO_THRESHOLDS = {
   pcb:      { unbelastet: 0.1,  typA: 0.5,   typB: 1,     typC: 1,     typD: 1,     typE: 10 },
   btex:     { unbelastet: 1,    typA: 5,     typB: 10,    typC: 10,    typD: 10,    typE: 100 },
   benzol:   { unbelastet: 0.1,  typA: 0.5,   typB: 1,     typC: 1,     typD: 1,     typE: 1 },
-  sb:       { unbelastet: 3,    typA: 15,    typB: 30,    typC: null,  typD: null,  typE: 50 },
-  as:       { unbelastet: 15,   typA: 15,    typB: 30,    typC: null,  typD: null,  typE: 50 },
-  pb:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: null,  typE: 2000 },
-  cd:       { unbelastet: 1,    typA: 5,     typB: 10,    typC: null,  typD: null,  typE: 10 },
-  cr:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: null,  typE: 1000 },
-  cr6:      { unbelastet: 0.05, typA: 0.05,  typB: 0.1,   typC: null,  typD: null,  typE: 0.5 },
-  co:       { unbelastet: null, typA: null,  typB: 250,   typC: null,  typD: null,  typE: null },
-  cu:       { unbelastet: 40,   typA: 250,   typB: 500,   typC: null,  typD: null,  typE: 5000 },
-  ni:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: null,  typE: 1000 },
-  hg:       { unbelastet: 0.5,  typA: 1,     typB: 2,     typC: null,  typD: null,  typE: 5 },
-  tl:       { unbelastet: null, typA: null,  typB: 3,     typC: null,  typD: null,  typE: null },
-  zn:       { unbelastet: 150,  typA: 500,   typB: 1000,  typC: null,  typD: null,  typE: 5000 },
-  sn:       { unbelastet: null, typA: null,  typB: 100,   typC: null,  typD: null,  typE: null },
+  sb:       { unbelastet: 3,    typA: 15,    typB: 30,    typC: null,  typD: 50,    typE: 50 },
+  as:       { unbelastet: 15,   typA: 15,    typB: 30,    typC: null,  typD: 50,    typE: 50 },
+  pb:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: 2000,  typE: 2000 },
+  cd:       { unbelastet: 1,    typA: 5,     typB: 10,    typC: null,  typD: 10,    typE: 10 },
+  cr:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: 1000,  typE: 1000 },
+  cr6:      { unbelastet: 0.05, typA: 0.05,  typB: 0.1,   typC: null,  typD: 0.5,   typE: 0.5 },
+  co:       { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null,  typE: null },
+  cu:       { unbelastet: 40,   typA: 250,   typB: 500,   typC: null,  typD: 5000,  typE: 5000 },
+  ni:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: 1000,  typE: 1000 },
+  hg:       { unbelastet: 0.5,  typA: 1,     typB: 2,     typC: 5,     typD: 5,     typE: 5 },
+  tl:       { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null,  typE: null },
+  zn:       { unbelastet: 150,  typA: 500,   typB: 1000,  typC: null,  typD: 5000,  typE: 5000 },
+  sn:       { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null,  typE: null },
   cn:       { unbelastet: 0.5,  typA: null,  typB: null,  typC: null,  typD: null,  typE: null },
   salze:    { unbelastet: null, typA: null,  typB: 0.5,   typC: 3,     typD: null, typE: 5 },
   pH:       { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null, typE: null },
@@ -162,20 +193,23 @@ export const DEFAULT_VBBO_PARAMETERS = [
   { key: 'pcb', label: 'PCB', unit: 'mg/kg', aliases: ['pcb'] },
 ];
 
-// Rohwerte je Substanz: richtwert, pwDirekt/pwNahrung/pwFutter (Prüfwerte),
-// sanSpielplatz/sanGarten/sanLandwirtschaft (Sanierungswerte). null = nicht
-// geregelt/keine Angabe in der Quelle.
+// Kat.-I-/Kat.-II-Rohwerte je Substanz (Richtwert/Prüfwert gemäss VBBo,
+// Nutzungsart-unabhängig) — Quelle: BAFU (2021) "Beurteilung von Boden im
+// Hinblick auf seine Verwertung", Anhang A2-1 Tab. 4 (Richtwerte) / Anhang
+// A2-2 Tab. 6 (Prüfwerte). Kat. IIIa/IIIb werden NICHT hier gespeichert,
+// sondern in buildVbboThresholds() (public/js/vvea.js) live aus den
+// VVEA-Grenzwerten (Typ B/Typ E) übernommen.
 export const DEFAULT_VBBO_THRESHOLDS = {
-  pb:  { richtwert: 50,  pwDirekt: 300, pwNahrung: 200, pwFutter: 200, sanSpielplatz: 1000, sanGarten: 1000, sanLandwirtschaft: 2000 },
-  cd:  { richtwert: 0.8, pwDirekt: 10,  pwNahrung: 2,   pwFutter: 2,   sanSpielplatz: 20,   sanGarten: 20,   sanLandwirtschaft: 30 },
-  cu:  { richtwert: 40,  pwDirekt: null, pwNahrung: null, pwFutter: 150, sanSpielplatz: null, sanGarten: 1000, sanLandwirtschaft: 1000 },
-  zn:  { richtwert: 150, pwDirekt: null, pwNahrung: null, pwFutter: null, sanSpielplatz: null, sanGarten: 2000, sanLandwirtschaft: 2000 },
-  hg:  { richtwert: 0.5, pwDirekt: null, pwNahrung: null, pwFutter: null, sanSpielplatz: null, sanGarten: null, sanLandwirtschaft: null },
-  pak: { richtwert: 1,   pwDirekt: 10,  pwNahrung: 20,  pwFutter: null, sanSpielplatz: 100,  sanGarten: 100,  sanLandwirtschaft: 100 },
-  bap: { richtwert: 0.2, pwDirekt: 1,   pwNahrung: 2,   pwFutter: null, sanSpielplatz: 10,   sanGarten: 10,   sanLandwirtschaft: 10 },
-  pcb: { richtwert: null, pwDirekt: 0.1, pwNahrung: 0.2, pwFutter: 0.2, sanSpielplatz: 1,    sanGarten: 1,    sanLandwirtschaft: 3 },
-  cr:  { richtwert: null, pwDirekt: null, pwNahrung: null, pwFutter: null, sanSpielplatz: null, sanGarten: null, sanLandwirtschaft: null },
-  ni:  { richtwert: null, pwDirekt: null, pwNahrung: null, pwFutter: null, sanSpielplatz: null, sanGarten: null, sanLandwirtschaft: null },
+  pb:  { katI: 50,   katII: 200 },
+  cd:  { katI: 0.8,  katII: 2 },
+  cr:  { katI: 50,   katII: 200 },
+  cu:  { katI: 40,   katII: 150 },
+  ni:  { katI: 50,   katII: 100 },
+  hg:  { katI: 0.5,  katII: 0.5 },
+  zn:  { katI: 150,  katII: 300 },
+  pak: { katI: 1,    katII: 10 },
+  bap: { katI: 0.2,  katII: 1 },
+  pcb: { katI: 0.02, katII: 0.1 },
 };
 
 // Materialien-Datenbank: legt für jede auf der Baustelle vorkommende
@@ -194,6 +228,8 @@ export const DEFAULT_MATERIALIEN = [
   { id: 'unterboden', name: 'Unterboden', standard: 'vbbo', vevaBucket: 'Unterboden' },
   { id: 'aushub_unverschmutzt', name: 'Unverschmutzter Aushub', standard: 'vvea', vevaBucket: 'Aushub' },
   { id: 'aushub_allgemein', name: 'Aushub (allgemein)', standard: 'vvea', vevaBucket: 'Aushub' },
+  { id: 'gleisaushub', name: 'Gleisaushub', standard: 'vvea', vevaBucket: 'Gleisaushub' },
+  { id: 'schotter', name: 'Schotter (Gleis)', standard: 'vvea', vevaBucket: 'Gleisaushub' },
   { id: 'kies_sand', name: 'Kies/Sand', standard: 'vvea', vevaBucket: '' },
   { id: 'mischabbruch', name: 'Mischabbruch', standard: 'vvea', vevaBucket: '' },
   { id: 'betonabbruch', name: 'Betonabbruch', standard: 'vvea', vevaBucket: '' },
@@ -202,44 +238,49 @@ export const DEFAULT_MATERIALIEN = [
   { id: 'bauschutt_gemischt', name: 'Bauschutt gemischt', standard: 'vvea', vevaBucket: '' },
 ];
 
-// VeVA/LVA-Codes für Aushub- und Bodenaushubmaterial, Kapitel 17 05 der
-// offiziellen Abfallliste (veva-online.admin.ch) — nur die reinen
-// Erdstoff-Kategorien (Oberboden/Unterboden/Aushub), keine
-// Bauabfälle/Beton/Asphalt/Asbest/Gleisaushub usw. "klassen" bezieht sich
-// auf die VVEA-Einstufung(en), für die der Code jeweils verwendet wird —
-// ein Code kann für mehrere Materialien (z.B. Ober- UND Unterboden teilen
-// sich dieselben Codes) und/oder mehrere Klassen gleichzeitig gelten, daher
+// VeVA/LVA-Codes für Aushub-, Bodenaushub- und Gleisaushubmaterial,
+// Kapitel 17 05 der offiziellen Abfallliste (veva-online.admin.ch) — nur die
+// reinen Erdstoff-Kategorien (Oberboden/Unterboden/Aushub/Gleisaushub),
+// keine Bauabfälle/Beton/Asphalt/Asbest usw. "klassen" bezieht sich auf die
+// VVEA-Einstufung(en), für die der Code jeweils verwendet wird — ein Code
+// kann für mehrere Materialien (z.B. Ober- UND Unterboden teilen sich
+// dieselben Codes) und/oder mehrere Klassen gleichzeitig gelten, daher
 // Arrays statt Einzelwerten.
 //
-// Kontroll-Stufen gemäss offizieller Abfallliste (bestätigt anhand eines
-// Screenshots von veva-online.admin.ch, Kapitel 17 05):
-//   17 05 04/06        unbelastet/unverschmutzt (keine Kennzeichnung)
-//   17 05 93/94         schwach belastet/verschmutzt = Typ A (keine Kennzeichnung)
-//   17 05 96/97 [ak]     wenig belastet/verschmutzt = Typ B ("andere
-//                        kontrollpflichtige Abfälle", jährliche Meldung,
-//                        kein Begleitschein)
-//   17 05 90/91 [akb]    stark belastet/verschmutzt = Typ C/D/E ("andere
-//                        kontrollpflichtige Abfälle mit Begleitscheinpflicht"
-//                        — ausdrücklich "mit Ausnahme desjenigen, der/das
-//                        unter 17 05 03/05 fällt", schliesst sich also mit
-//                        dem Sonderabfall-Code gegenseitig aus)
-//   17 05 03/05 [S]      durch gefährliche Stoffe verunreinigt = Sonderabfall
-//                        (gemäss Originaltext explizit NICHT dasselbe wie
-//                        "stark belastet [akb]") -> Klasse "sonderfall"
-//                        (nicht deponierbar, jenseits Typ E)
-// Wie bei allen anderen Grenzwerten/Codes gilt: vor produktivem Einsatz
-// durch eine Fachperson gegen die aktuelle VeVA-Abfallliste verifizieren.
+// Kontroll-Stufen gemäss der vom Nutzer bereitgestellten internen
+// Referenztabelle „Umrechnungsfaktoren und VeVA-Codes" (Kapitel 17 05):
+//   C  (Anh. 3 Ziff. 1)     unbelastet/unverschmutzt
+//   T  (Anh. 3 Ziff. 2)     schwach belastet, kontrollpflichtig (Typ T,
+//                           internes id `typA`) — weiterhin für Deponietyp A
+//                           geeignet, aber meldepflichtig
+//   B  (Anh. 5 Ziff. 2) [ak]      wenig belastet, Inertstoff (Typ B)
+//   E  (Anh. 5 Ziff. 3/4/5) [akb] stark belastet (Typ C/D/E gemeinsam — die
+//                           Codeliste unterscheidet hier nicht zwischen den
+//                           drei VVEA-Deponietypen)
+//   S  (> Anh. 5 Ziff. 5) [S]     durch gefährliche Stoffe verunreinigt,
+//                           Sonderabfall -> Klasse "sonderfall"
+// Die einstelligen Buchstaben C/T/B/E/S sind eine interne Kennzeichnung
+// dieser Referenztabelle für die Codesuche und NICHT mit den VVEA-
+// Deponietypen A–E zu verwechseln (daher hier nur in Klammern als Fundstelle
+// vermerkt, nicht als Klassenname übernommen). Wie bei allen anderen
+// Grenzwerten/Codes gilt: vor produktivem Einsatz durch eine Fachperson
+// gegen die aktuelle VeVA-Abfallliste verifizieren.
 export const DEFAULT_VEVA_CODES = [
-  { code: '17 05 04', bezeichnung: 'Ober-/Unterboden – unbelastet', materialien: ['Oberboden', 'Unterboden'], klassen: ['unbelastet'] },
-  { code: '17 05 93', bezeichnung: 'Ober-/Unterboden – schwach belastet (Typ A)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typA'] },
-  { code: '17 05 96 [ak]', bezeichnung: 'Ober-/Unterboden – wenig belastet, Inertstoff (Typ B)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typB'] },
-  { code: '17 05 90 [akb]', bezeichnung: 'Ober-/Unterboden – stark belastet (Typ C/D/E)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typC', 'typD', 'typE'] },
-  { code: '17 05 03 [S]', bezeichnung: 'Abgetragener Ober-/Unterboden, durch gefährliche Stoffe verunreinigt (Sonderabfall)', materialien: ['Oberboden', 'Unterboden'], klassen: ['sonderfall'] },
-  { code: '17 05 06', bezeichnung: 'Aushub – unverschmutzt', materialien: ['Aushub'], klassen: ['unbelastet'] },
-  { code: '17 05 94', bezeichnung: 'Aushub – schwach verschmutzt (Typ A)', materialien: ['Aushub'], klassen: ['typA'] },
-  { code: '17 05 97 [ak]', bezeichnung: 'Aushub – wenig verschmutzt, Inertstoff (Typ B)', materialien: ['Aushub'], klassen: ['typB'] },
-  { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ C/D/E)', materialien: ['Aushub'], klassen: ['typC', 'typD', 'typE'] },
-  { code: '17 05 05 [S]', bezeichnung: 'Aushub- und Ausbruchmaterial, durch gefährliche Stoffe verunreinigt (Sonderabfall)', materialien: ['Aushub'], klassen: ['sonderfall'] },
+  { code: '17 05 04', bezeichnung: 'Ober-/Unterboden – unbelastet (Anh. 3 Ziff. 1)', materialien: ['Oberboden', 'Unterboden'], klassen: ['unbelastet'] },
+  { code: '17 05 93', bezeichnung: 'Ober-/Unterboden – schwach belastet, kontrollpflichtig (Typ T, Anh. 3 Ziff. 2)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typA'] },
+  { code: '17 05 96 [ak]', bezeichnung: 'Ober-/Unterboden – wenig belastet, Inertstoff (Typ B, Anh. 5 Ziff. 2)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typB'] },
+  { code: '17 05 90 [akb]', bezeichnung: 'Ober-/Unterboden – stark belastet (Typ C/D/E, Anh. 5 Ziff. 3/4/5)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typC', 'typD', 'typE'] },
+  { code: '17 05 03 [S]', bezeichnung: 'Abgetragener Ober-/Unterboden, durch gefährliche Stoffe verunreinigt (Sonderabfall, Typ S)', materialien: ['Oberboden', 'Unterboden'], klassen: ['sonderfall'] },
+  { code: '17 05 06', bezeichnung: 'Aushub – unverschmutzt (Anh. 3 Ziff. 1)', materialien: ['Aushub'], klassen: ['unbelastet'] },
+  { code: '17 05 94', bezeichnung: 'Aushub – schwach verschmutzt, kontrollpflichtig (Typ T, Anh. 3 Ziff. 2)', materialien: ['Aushub'], klassen: ['typA'] },
+  { code: '17 05 97 [ak]', bezeichnung: 'Aushub – wenig verschmutzt, Inertstoff (Typ B, Anh. 5 Ziff. 2)', materialien: ['Aushub'], klassen: ['typB'] },
+  { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ C/D/E, Anh. 5 Ziff. 3/4/5)', materialien: ['Aushub'], klassen: ['typC', 'typD', 'typE'] },
+  { code: '17 05 05 [S]', bezeichnung: 'Aushub- und Ausbruchmaterial, durch gefährliche Stoffe verunreinigt (Sonderabfall, Typ S)', materialien: ['Aushub'], klassen: ['sonderfall'] },
+  { code: '17 05 08', bezeichnung: 'Gleisaushub/Schotter – unbelastet (Anh. 3 Ziff. 1)', materialien: ['Gleisaushub'], klassen: ['unbelastet'] },
+  { code: '17 05 95', bezeichnung: 'Gleisaushub/Schotter – schwach belastet, kontrollpflichtig (Typ T, Anh. 3 Ziff. 2)', materialien: ['Gleisaushub'], klassen: ['typA'] },
+  { code: '17 05 98 [ak]', bezeichnung: 'Gleisaushub/Schotter – wenig belastet, Inertstoff (Typ B, Anh. 5 Ziff. 2)', materialien: ['Gleisaushub'], klassen: ['typB'] },
+  { code: '17 05 92 [akb]', bezeichnung: 'Gleisaushub/Schotter – stark belastet (Typ C/D/E, Anh. 5 Ziff. 3/4/5)', materialien: ['Gleisaushub'], klassen: ['typC', 'typD', 'typE'] },
+  { code: '17 05 07 [S]', bezeichnung: 'Gleisaushub/Schotter, durch gefährliche Stoffe verunreinigt (Sonderabfall, Typ S)', materialien: ['Gleisaushub'], klassen: ['sonderfall'] },
 ];
 
 // Analytik-Programme: benannte Zusammenstellungen von Analyseparametern, die
