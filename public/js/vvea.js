@@ -121,6 +121,24 @@ export const DEFAULT_VBBO_THRESHOLDS = {
   pcb: { katI: 0.02, katII: 0.1 },
 };
 
+// Verteidigungslinie gegen veraltete/unvollständige geladene Boden-Rohdaten
+// (z.B. ein Server, der nach diesem Update noch nicht neu gestartet wurde
+// und daher noch das alte Nutzungsart-Format liefert, oder ein Substanz-
+// Eintrag, dem beim Speichern versehentlich katI/katII fehlt) — ergänzt für
+// jede der zehn Standard-Substanzen fehlende katI/katII-Werte aus
+// DEFAULT_VBBO_THRESHOLDS. Explizit auf null gesetzte ("nicht geregelt")
+// Werte sowie zusätzliche, vom Nutzer selbst angelegte Substanzen bleiben
+// unangetastet.
+export function withVbboDefaults(vbboThresholds) {
+  const out = { ...(vbboThresholds || {}) };
+  for (const key of Object.keys(DEFAULT_VBBO_THRESHOLDS)) {
+    const cur = out[key];
+    const hasBoth = cur && typeof cur === 'object' && 'katI' in cur && 'katII' in cur;
+    if (!hasBoth) out[key] = { ...DEFAULT_VBBO_THRESHOLDS[key], ...(cur && typeof cur === 'object' ? cur : {}) };
+  }
+  return out;
+}
+
 // Baut aus den Boden-Rohwerten (Kat. I/II) + den aktuellen VVEA-Grenzwerten
 // (für Kat. IIIa/IIIb, live aus Typ B/Typ E) ein Grenzwert-Objekt im selben
 // Format wie VVEA-Thresholds (eine Klasse -> ein Zahlenwert), damit dieselbe
