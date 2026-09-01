@@ -21,11 +21,11 @@ Für die Team-Variante mit gemeinsamem Server, Login pro Person und zentraler Fo
 - 📷 Fotodokumentation des Materials über die Gerätekamera (im Browser gespeichert)
 - 📥 Analyse-Import aus CSV/Excel-CSV oder PDF-Laborberichten
 - 🧱 **Materialien-Datenbank**: Material wird bei der Probe aus einer unter „Einstellungen“ gepflegten Liste
-  gewählt (nicht mehr frei getippt); dort legt sie fest, welcher Einstufungsstandard (VVEA/VBBo) und welcher
+  gewählt (nicht mehr frei getippt); dort legt sie fest, welcher Einstufungsstandard (VVEA/Boden) und welcher
   VeVA-Aushubcode-„Eimer" gilt
-- 🎯 **Einstufungsstandard wird automatisch aus dem Material bestimmt**: Humus/Ober-/Unterboden -> **VBBo**
-  (Bodenqualität, abhängig von der gewählten Nutzungsart Kinderspielplatz / Haus-Familiengarten /
-  Landwirtschaft-Gartenbau), alle anderen Materialien -> **VVEA** (Deponietyp A–E). Keine manuelle Auswahl nötig.
+- 🎯 **Einstufungsstandard wird automatisch aus dem Material bestimmt**: Humus/Ober-/Unterboden -> **Boden**
+  (Kat. I–IIIb, ausschliesslich im Hinblick auf die Entsorgung), alle anderen Materialien wie Aushub,
+  Gleisaushub/Schotter -> **VVEA** (Deponietyp unbelastet/Typ T/B/C/D/E). Keine manuelle Auswahl nötig.
 - 🎨 Automatische Farbcodierung der Werte nach dem ermittelten Standard (Grenzwerte inkl. Einheiten, per
   CSV/Excel importierbar, eigene Parameter ergänzbar) — siehe „Einstellungen“
 - 🚚 **VeVA-Code wird automatisch und fix zugeteilt** (Aushub-/Bodenaushubcodes, aus Material/Standard/
@@ -37,13 +37,11 @@ Für die Team-Variante mit gemeinsamem Server, Login pro Person und zentraler Fo
 - 🔎 Journal mit Filtern (Projekt, Material, Standard, Klasse) und Sortierung
 - 📶 Vollständig offline nutzbar (Service Worker + IndexedDB), installierbar als App
 
-## ⚠️ Hinweis zu Grenzwerten, VeVA-Codes und Nutzungsart-Zuordnung
+## ⚠️ Hinweis zu Grenzwerten und VeVA-Codes
 
-Die hinterlegten VVEA-/VBBo-Grenzwerte und VeVA-Codes stammen aus vom Auftraggeber bereitgestellten
-Unterlagen und sind **vor produktivem Einsatz durch eine Fachperson zu prüfen** (inkl. der vereinfachten
-Zuordnung Nutzungsart → Prüfwert-/Sanierungswert-Spalte) — insbesondere bevor ein VeVA-Code auf einem
-offiziellen Begleitschein verwendet wird. Details siehe Hinweis-Banner in der App und der entsprechende
-Abschnitt in [`../README.md`](../README.md).
+Die hinterlegten VVEA-/Boden-Grenzwerte (Kat. I–IIIb) und VeVA-Codes sind **vor produktivem Einsatz durch eine
+Fachperson zu prüfen** — insbesondere bevor ein VeVA-Code auf einem offiziellen Begleitschein verwendet wird.
+Details siehe Hinweis-Banner in der App und der entsprechende Abschnitt in [`../README.md`](../README.md).
 
 ## Lokal starten
 

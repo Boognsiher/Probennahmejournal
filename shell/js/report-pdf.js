@@ -65,9 +65,9 @@ function limitCellText(p, thresholdsTable, classes) {
  * @param {Array} classes  Klassen-Array, das zur Klassifizierung passt (VVEA
  *   CLASSES oder VBBO_CLASSES je nach entry.standard) — Default: VVEA CLASSES.
  * @param {object} thresholdsTable  Grenzwert-Set {parameterKey: {classId: Zahl|null}},
- *   das zur Klassifizierung passt (VVEA thresholds oder die per Nutzungsart
- *   projizierten VBBo-Grenzwerte, siehe buildVbboThresholdsForNutzung() in
- *   vvea.js) — für die "Grenzwert"-Spalte der Analysewerte-Tabelle.
+ *   das zur Klassifizierung passt (VVEA thresholds oder die live aus den
+ *   VVEA-Grenzwerten projizierten Boden-Grenzwerte, siehe buildVbboThresholds()
+ *   in vvea.js) — für die "Grenzwert"-Spalte der Analysewerte-Tabelle.
  * @returns {Promise<Blob>} PDF als Blob (application/pdf)
  */
 export async function generateReportPDF(entry, classification, classes = CLASSES, thresholdsTable = {}) {

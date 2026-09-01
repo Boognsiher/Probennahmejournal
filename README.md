@@ -22,11 +22,11 @@ App zur Führung eines Probennahmejournals auf der Baustelle:
   E-Mail-Zusammenfassung mit ausgewiesen
 - **Materialien-Datenbank**: Material wird bei der Probe aus einer unter Einstellungen zentral gepflegten Liste
   gewählt (nicht mehr frei getippt) — dort legt eine Administrationsperson je Material fest, welcher
-  Einstufungsstandard (VVEA oder VBBo) und welcher VeVA-Aushubcode-„Eimer" dafür gilt. Der
+  Einstufungsstandard (VVEA oder Boden) und welcher VeVA-Aushubcode-„Eimer" dafür gilt. Der
   **Einstufungsstandard steht damit für jede Probe automatisch fest**, sobald das Material gewählt ist (z.B.
-  Humus/Ober-/Unterboden → **VBBo**, Bodenqualität mit Richtwert/Prüfwert/Sanierungswert – abhängig von der
-  gewählten **Nutzungsart** Kinderspielplatz / Haus-Familiengarten / Landwirtschaft-Gartenbau; alle anderen
-  Materialien wie Aushub, Kies/Sand, Bauschutt, … → **VVEA**, Deponietyp A–E). Keine manuelle Auswahl nötig.
+  Humus/Ober-/Unterboden → **Boden** (Kat. I–IIIb, ausschliesslich im Hinblick auf die Entsorgung); alle
+  anderen Materialien wie Aushub, Gleisaushub/Schotter, Kies/Sand, Bauschutt, … → **VVEA**, Deponietyp
+  unbelastet/Typ T/B/C/D/E). Keine manuelle Auswahl nötig.
 - Analyse-Import aus CSV/Excel-CSV oder PDF-Laborberichten, mit automatischer Farbcodierung nach dem
   ermittelten Standard (Grenzwerte inkl. Einheiten, per CSV/Excel importierbar, eigene Parameter ergänzbar) —
   **jeder einzelne Wert in der Analysewerte-Tabelle zeigt seine eigene Einstufung als farbiges Badge** (nicht
@@ -56,17 +56,18 @@ App zur Führung eines Probennahmejournals auf der Baustelle:
   Postleitzahlen/Ortschaften samt Karte (swisstopo) und den nächstgelegenen Ortschaften — eigenständiges
   Hilfswerkzeug ohne Verbindung zu den Probendaten.
 - **Reiter „Abfallkategorien”**: Übersicht über die VVEA-Deponietypen (Aushub-/Ausbruchmaterial) und die
-  VBBo-Bodenkategorien in Tabellenform — zeigt dieselben Grenzwerte wie unter „Einstellungen” (Änderungen dort
-  wirken sich direkt auch hier aus), inkl. Nutzungsart-Auswahl für die Bodenkategorien. Die Bodenkategorien-
-  Tabelle zeigt nur die entsorgungsrelevanten Parameter (Schwermetalle, PAK/BaP, PCB) und ist nach Kat.
-  I (unbelastet), Kat. II (schwach belastet), Kat. IIIa und Kat. IIIb (beide stark belastet) gegliedert — die
-  in der Entsorgungspraxis gebräuchliche Bezeichnung für die vier VBBo-Belastungsstufen Richt-/Prüf-/
-  Sanierungswert.
-- **VeVA-Code wird automatisch und fix zugeteilt** — aus Material (z.B. Aushub/Ober-/Unterboden), dem daraus
-  abgeleiteten Standard (VVEA/VBBo) und dem Einstufungsergebnis. Anders als Standard/Material ist der Code bei
-  der Probe **nicht manuell überschreibbar** — passt der automatisch ermittelte Code nicht, muss die
-  Materialien- bzw. VeVA-Codes-Zuordnung unter Einstellungen angepasst werden, statt ihn pro Probe von Hand zu
-  ändern (Nachvollziehbarkeit: derselbe Materialzustand ergibt immer denselben Code)
+  Boden-Einstufung Kat. I–IIIb in Tabellenform — zeigt dieselben Grenzwerte wie unter „Einstellungen”
+  (Änderungen dort wirken sich direkt auch hier aus). Boden wird ausschliesslich im Hinblick auf die
+  Entsorgung betrachtet: nur die dafür relevanten Parameter (Schwermetalle, PAK/BaP, PCB), gegliedert nach
+  Kat. I (unbelastet, ≤ VBBo-Richtwert), Kat. II (schwach belastet, ≤ VBBo-Prüfwert), Kat. IIIa (stark
+  belastet, ≤ VVEA Typ B) und Kat. IIIb (stark belastet, ≤ VVEA Typ E) — Kat. IIIa/IIIb sind live an die
+  VVEA-Grenzwerte gekoppelt, eine Änderung von Typ B/Typ E wirkt sich also automatisch auch auf die
+  Boden-Einstufung aus.
+- **VeVA-Code wird automatisch und fix zugeteilt** — aus Material (z.B. Aushub/Ober-/Unterboden/Gleisaushub),
+  dem daraus abgeleiteten Standard (VVEA/Boden) und dem Einstufungsergebnis. Anders als Standard/Material ist
+  der Code bei der Probe **nicht manuell überschreibbar** — passt der automatisch ermittelte Code nicht, muss
+  die Materialien- bzw. VeVA-Codes-Zuordnung unter Einstellungen angepasst werden, statt ihn pro Probe von Hand
+  zu ändern (Nachvollziehbarkeit: derselbe Materialzustand ergibt immer denselben Code)
 - **Echter PDF-Export** je Probe (Analysewerte-Tabelle inkl. Einstufung **und** dem dafür massgeblichen
   Grenzwert je Wert), E-Mail-Versand mit PDF nach Möglichkeit direkt angehängt (native Teilen-Funktion des
   Geräts)
@@ -93,40 +94,45 @@ Es gibt **drei eigenständige Varianten** im selben Repository – je nach Bedar
 Foto-Upload etc.) durchzuklicken/vorzuführen, bevor der echte Server aufgesetzt wird. Sobald das passt, wird
 einfach `server/` + `public/` deployt statt `shell/` — am Anwendungscode ändert sich nichts.
 
-## ⚠️ Wichtiger Hinweis zu Grenzwerten, VeVA-Codes und Nutzungsart-Zuordnung (gilt für alle drei Varianten)
+## ⚠️ Wichtiger Hinweis zu Grenzwerten und VeVA-Codes (gilt für alle drei Varianten)
 
-Die App liefert unter **Einstellungen → Grenzwerte** vorbefüllte Zahlenwerte für **VVEA** (Deponietyp A–E,
-Feststoff- und Eluatwerte) und **VBBo** (Richtwert/Prüfwert/Sanierungswert) sowie eine Liste mit **VeVA-Codes**
-für Aushub-/Bodenaushubmaterial mit. Diese Werte stammen aus vom Auftraggeber bereitgestellten Unterlagen
-(Auszüge/eigene Zusammenstellung, u.a. aus einer teils schräg eingescannten PDF-Tabelle für die VeVA-Codes).
-**Vor dem produktiven Einsatz müssen** die Grenzwerte, die VeVA-Codes **und** die hinterlegte Zuordnung von
-Nutzungsart → Prüfwert-/Sanierungswert-Spalte (Kinderspielplatz → Direktkontakt/Spielplatz, Haus-/
-Familiengarten → Nahrungspflanzen/Garten, Landwirtschaft/Gartenbau → Futterpflanzen/Landwirtschaft — eine
-vereinfachte Interpretation der VBBo-Anhang-2-Expositionspfade) **durch eine Fachperson
+Die App liefert unter **Einstellungen → Grenzwerte** vorbefüllte Zahlenwerte für **VVEA** (Deponietypen
+unbelastet/Typ T/B/C/D/E, Feststoff- und Eluatwerte) und **Boden** (Kat. I–IIIb, ausschliesslich im Hinblick
+auf die Entsorgung) sowie eine Liste mit **VeVA-Codes** für Aushub-/Bodenaushub-/Gleisaushubmaterial mit.
+**Vor dem produktiven Einsatz müssen** die Grenzwerte und die VeVA-Codes **durch eine Fachperson
 (Umweltbaubegleitung/Altlastenfachperson) anhand der aktuell gültigen VVEA/VBBo, kantonaler Vollzugshilfen und
 der offiziellen VeVA-Codeliste geprüft und bei Bedarf angepasst werden** — insbesondere bevor ein VeVA-Code auf
 einem offiziellen Begleitschein verwendet wird. Die App zeigt einen entsprechenden Hinweis auch beim ersten
 Start an.
 
-Die **VVEA-Feststoff-/Eluatgrenzwerte** (Deponietyp A–E) wurden gegen den offiziellen Verordnungstext (VVEA
-Anhang 3 Ziff. 1/2, Anhang 5 Ziff. 2.3/3/4.4/5.2, Stand 1. August 2026) abgeglichen — siehe Kommentar am
-Anfang von `js/vvea.js` (bzw. `server/src/vvea-defaults.js`) für die Details und Fundstellen. Die
-**VBBo-Werte** (Richt-/Prüf-/Sanierungswert) und übrigen Parameter/Materialien stammen weiterhin aus den vom
-Auftraggeber bereitgestellten Unterlagen und sind entsprechend vor produktivem Einsatz zu prüfen.
+Die **VVEA-Feststoff-/Eluatgrenzwerte** wurden gegen den offiziellen Verordnungstext (VVEA Anhang 3 Ziff. 1/2,
+Anhang 5 Ziff. 2/3/4/5, Stand 1. August 2026) sowie gegen eine vom Auftraggeber bereitgestellte interne
+Referenztabelle „Umrechnungsfaktoren und VeVA-Codes" abgeglichen — siehe Kommentar am Anfang von `js/vvea.js`
+(bzw. `server/src/vvea-defaults.js`) für die Details und Fundstellen. Dabei wurde auch die Deponietyp-
+Bezeichnung korrigiert: die kontrollpflichtige Zwischenstufe (VVEA Anhang 3 Ziff. 2, interne id `typA`) heisst
+gemäss der offiziellen VeVA-Aushubcode-Kennzeichnung „Typ T", nicht „Typ A" — Label/Kurzform wurden angepasst,
+die interne id bleibt aus Kompatibilitätsgründen unverändert.
+
+Die **Boden-Grenzwerte** (Kat. I–IIIb) wurden ab dieser Version komplett neu aufgebaut und betrachten Boden
+ausschliesslich im Hinblick auf die Entsorgung — die frühere VBBo-Systematik mit Richt-/Prüf-/Sanierungswert
+je Nutzungsart (Kinderspielplatz/Haus-Familiengarten/Landwirtschaft-Gartenbau) wurde entfernt, da für die
+Entsorgungsfrage nicht relevant. Herleitung je Stufe: **Kat. I** ≤ Richtwerte gemäss VBBo und **Kat. II** ≤
+Prüfwerte gemäss VBBo — beide Nutzungsart-unabhängig, Quelle: BAFU (2021) „Beurteilung von Boden im Hinblick
+auf seine Verwertung", Anhang A2-1 Tabelle 4 bzw. Anhang A2-2 Tabelle 6. **Kat. IIIa** ≤ VVEA Typ B und
+**Kat. IIIb** ≤ VVEA Typ E — beide live aus den VVEA-Grenzwerten übernommen (eine Änderung von Typ B/Typ E
+unter „Einstellungen &gt; Grenzwerte" wirkt sich also automatisch auch auf die Boden-Einstufung aus, dort
+selbst nicht editierbar). Die Parameterliste (Blei, Cadmium, Chrom, Kupfer, Nickel, Quecksilber, Zink, PAK,
+Benzo[a]pyren, PCB) ist unverändert dieselbe, die bereits zuvor für Boden verwendet wurde.
 
 Der VeVA-Code wird automatisch aus Material (über den in der Materialien-Liste hinterlegten VeVA-Aushubcode-
-„Eimer" Ober-/Unterboden/Aushub — andere Materialien wie Mischabbruch erhalten bewusst keinen Code, da die
-Liste nur Aushub-/Bodenaushubcodes enthält), gewähltem Standard und Einstufungsergebnis bestimmt. Bei einer
-**VBBo**-eingestuften Probe wird die VBBo-Klasse dafür auf die
-entsprechende Kategorie abgebildet: unauffällig → Kat. I (unbelastet), über Richtwert → Kat. II (schwach
-belastet, Typ A), über Prüfwert → Kat. IIIa (stark belastet, Typ B*), über Sanierungswert → Kat. IIIb (stark
-belastet, VVEA „über Typ B", Typ C*). *Kat. IIIa und IIIb sind beide „stark belastet", aber unterschiedliche
-Kategorien; die VeVA-Codeliste kennt jedoch nur die vier VVEA-Buckets unbelastet/Typ A/Typ B/Typ C, daher
-werden beide auf den nächstliegenden Bucket abgebildet. „Sonderabfall" (VVEA „über Typ E") wird nur bei einer
-VVEA-Einstufung automatisch erkannt, da die VBBo-Skala keine eigene Entsprechung dafür hat. Das ist eine
-vereinfachende fachliche Einschätzung, keine normative Gleichsetzung. Der ermittelte Code ist im
-Proben-Formular bewusst **nicht manuell überschreibbar** — passt er nicht, ist die Materialien- bzw.
-VeVA-Codes-Zuordnung unter Einstellungen anzupassen (siehe oben).
+„Eimer" Ober-/Unterboden/Aushub/Gleisaushub — andere Materialien wie Mischabbruch erhalten bewusst keinen Code,
+da die Liste nur Aushub-/Bodenaushub-/Gleisaushubcodes enthält), gewähltem Standard und Einstufungsergebnis
+bestimmt. Bei einer **Boden**-eingestuften Probe ist die Zuordnung zu den VeVA-Aushubcode-Klassen eine exakte
+1:1-Übertragung (keine Annäherung mehr, da Kat. IIIa/IIIb per Definition bereits die VVEA-Klassen Typ B/Typ E
+sind): Kat. I → unbelastet, Kat. II → Typ T, Kat. IIIa → Typ B, Kat. IIIb → Typ E (derselbe VeVA-Code gilt
+dort für Typ C/D/E gemeinsam), Sonderfall → Sonderfall. Der ermittelte Code ist im Proben-Formular bewusst
+**nicht manuell überschreibbar** — passt er nicht, ist die Materialien- bzw. VeVA-Codes-Zuordnung unter
+Einstellungen anzupassen (siehe oben).
 
 **Sonderabfall-Code:** Anhand der offiziellen Abfallliste (Kapitel 17 05, veva-online.admin.ch) gilt: Typ C, D
 und E teilen sich weiterhin den Code 17 05 90/91 „[akb]" („andere kontrollpflichtige Abfälle mit

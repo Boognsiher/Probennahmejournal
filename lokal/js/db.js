@@ -52,7 +52,6 @@ export function newEntry(partial = {}) {
     probenehmer: '',
     bemerkungen: '',
     standard: 'vvea', // 'vvea' | 'vbbo'
-    nutzungsart: null, // nur bei standard='vbbo': 'spielplatz' | 'garten' | 'landwirtschaft'
     entsorgungsweg: '',
     vevaCode: '',
     labor: '', // Name des Labors, an das der Analysenauftrag ging (siehe Einstellungen > Labore)

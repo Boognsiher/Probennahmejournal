@@ -21,9 +21,9 @@ import {
   CLASSES, PARAMETERS, DEFAULT_PARAMETERS, classify, setParameters, slugifyParamKey,
   parseThresholdsCSV, buildThresholdsCSVTemplate,
   hasAcknowledgedDisclaimer, acknowledgeDisclaimer,
-  VBBO_CLASSES, NUTZUNGSARTEN, VBBO_PARAMETERS, DEFAULT_VBBO_PARAMETERS,
+  VBBO_CLASSES, VBBO_PARAMETERS, DEFAULT_VBBO_PARAMETERS,
   setVbboParameters, classifyVBBO, suggestVevaCode, materialToStandard,
-  buildVbboThresholdsForNutzung,
+  buildVbboThresholds,
 } from './vvea.js';
 import { parseCSV } from './parse-csv.js';
 import { parsePDF } from './parse-pdf.js';
@@ -297,13 +297,14 @@ function classesForEntry(entry) {
   return entry?.standard === 'vbbo' ? VBBO_CLASSES : CLASSES;
 }
 
-// Grenzwert-Set passend zum Standard einer Probe — bei VBBo erst per
-// Nutzungsart auf das VVEA-ähnliche {classId: Zahl}-Format projizieren (siehe
-// buildVbboThresholdsForNutzung()), damit es zu classesForEntry() passt. Für
-// den PDF-Bericht (Grenzwert-Spalte je Analysewert).
+// Grenzwert-Set passend zum Standard einer Probe — bei Boden erst auf das
+// VVEA-ähnliche {classId: Zahl}-Format projizieren (siehe
+// buildVbboThresholds()), damit es zu classesForEntry() passt (Kat. IIIa/IIIb
+// kommen dabei live aus den VVEA-Grenzwerten). Für den PDF-Bericht
+// (Grenzwert-Spalte je Analysewert).
 function thresholdsForEntry(entry) {
   return entry?.standard === 'vbbo'
-    ? buildVbboThresholdsForNutzung(vbboThresholds, entry.nutzungsart || NUTZUNGSARTEN[0].id)
+    ? buildVbboThresholds(vbboThresholds, thresholds)
     : thresholds;
 }
 
@@ -342,7 +343,7 @@ async function renderJournal() {
       <div class="field"><label for="filter-standard">Standard</label><select id="filter-standard">
         <option value="">Alle</option>
         <option value="vvea" ${journalFilter.standard === 'vvea' ? 'selected' : ''}>VVEA (Deponieklassen)</option>
-        <option value="vbbo" ${journalFilter.standard === 'vbbo' ? 'selected' : ''}>VBBo (Bodenqualität)</option>
+        <option value="vbbo" ${journalFilter.standard === 'vbbo' ? 'selected' : ''}>Boden (Kat. I–IIIb)</option>
       </select></div>
       <div class="field"><label for="filter-klasse">Klasse</label><select id="filter-klasse">
         <option value="">Alle</option>
@@ -478,8 +479,6 @@ async function renderProtokoll() {
 // (thresholds/vbboThresholds, per loadVveaConfig() geladen) — bewusst KEINE
 // eigene/statische Zahlenquelle, damit eine Änderung dort sich automatisch
 // auch hier zeigt. Reine Anzeige, keine Probe wird hier klassifiziert.
-let abfallkategorienNutzungsart = NUTZUNGSARTEN[0].id;
-
 function fmtThresholdVal(v) {
   return (v === null || v === undefined || v === '') ? '–' : String(v);
 }
@@ -488,28 +487,16 @@ async function renderAbfallkategorien() {
   appEl.innerHTML = '<p class="hint">Lade Grenzwerte …</p>';
   await loadVveaConfig();
 
-  // Terminale Klassen (sonderfall / ueberSanierungswert) haben keinen
-  // eigenen Zahlenwert (sind "grösser als die letzte Spalte") — als Spalte
-  // wenig hilfreich, daher hier ausgeblendet (wie im Einstellungen-Editor).
+  // Terminale Klassen (sonderfall) haben keinen eigenen Zahlenwert (sind
+  // "grösser als die letzte Spalte") — als Spalte wenig hilfreich, daher
+  // hier ausgeblendet (wie im Einstellungen-Editor).
   const vveaClasses = CLASSES.filter(c => !c.terminal);
-  // Bodenkategorien (VBBo): alle vier Stufen inkl. der terminalen Kat. IIIb
-  // werden gezeigt (anders als bei VVEA hat sie hier mit dem Sanierungswert
-  // einen eigenen, klar benannten unteren Grenzwert).
-  const vbboClasses = VBBO_CLASSES;
-  const vbboThr = buildVbboThresholdsForNutzung(vbboThresholds, abfallkategorienNutzungsart);
+  const vbboClasses = VBBO_CLASSES.filter(c => !c.terminal);
+  const vbboThr = buildVbboThresholds(vbboThresholds, thresholds);
   const feststoffParams = PARAMETERS.filter(p => p.art !== 'eluat');
   const eluatParams = PARAMETERS.filter(p => p.art === 'eluat');
 
   const classHeader = c => `<th style="color:${c.color};">${escapeHtml(c.short)}</th>`;
-
-  // Für die terminale Kat. IIIb (über Sanierungswert) gibt es keinen eigenen
-  // Zahlenwert — sie beginnt dort, wo Kat. IIIa endet. Zeigt daher "> Wert"
-  // mit dem letzten definierten Grenzwert der Zeile statt "–".
-  function vbboCellVal(pKey, c) {
-    if (!c.terminal) return fmtThresholdVal(vbboThr[pKey]?.[c.id]);
-    const prev = [...vbboClasses].reverse().find(o => !o.terminal && vbboThr[pKey]?.[o.id] != null);
-    return prev ? `&gt; ${fmtThresholdVal(vbboThr[pKey][prev.id])}` : '–';
-  }
 
   appEl.innerHTML = `
     <div class="card">
@@ -548,37 +535,28 @@ async function renderAbfallkategorien() {
     </div>
 
     <div class="card">
-      <h2>Bodenkategorien gemäss VBBO</h2>
-      <div class="field" style="max-width:320px;">
-        <label for="ak-nutzungsart">Nutzungsart <span class="hint">(bestimmt Prüf-/Sanierungswert-Spalte)</span></label>
-        <select id="ak-nutzungsart">
-          ${NUTZUNGSARTEN.map(n => `<option value="${n.id}" ${n.id === abfallkategorienNutzungsart ? 'selected' : ''}>${escapeHtml(n.label)}</option>`).join('')}
-        </select>
-      </div>
-      <p class="hint">Nur die für die Entsorgung relevanten Parameter (Schwermetalle, PAK/BaP, PCB) — zeigt dieselben
-      Grenzwerte wie unter „Einstellungen &gt; Grenzwerte (VBBo)“, projiziert auf die oben gewählte Nutzungsart — eine
-      Änderung dort wirkt sich direkt auch hier aus.</p>
+      <h2>Boden – Entsorgungs-Einstufung Kat. I–IIIb</h2>
+      <p class="hint">Boden wird ausschliesslich im Hinblick auf die Entsorgung betrachtet, nur die dafür relevanten
+      Parameter (Schwermetalle, PAK/BaP, PCB). Kat. I/II zeigen dieselben Grenzwerte wie unter
+      „Einstellungen &gt; Grenzwerte (Boden)“ (Richt-/Prüfwert gemäss VBBo). Kat. IIIa/IIIb sind live aus den
+      VVEA-Grenzwerten (Typ B/Typ E) oben übernommen — eine Änderung dort wirkt sich direkt auch hier aus.</p>
       <div style="overflow-x:auto">
         <table class="veva-ref-table">
           <thead><tr><th>Parameter</th>${vbboClasses.map(classHeader).join('')}</tr></thead>
           <tbody>
             ${VBBO_PARAMETERS.map(p => `<tr>
               <td>${escapeHtml(p.label)} <span class="hint">[${escapeHtml(p.unit || '–')}]</span></td>
-              ${vbboClasses.map(c => `<td>${vbboCellVal(p.key, c)}</td>`).join('')}
+              ${vbboClasses.map(c => `<td>${fmtThresholdVal(vbboThr[p.key]?.[c.id])}</td>`).join('')}
             </tr>`).join('') || '<tr><td colspan="99" class="hint">Keine Parameter hinterlegt.</td></tr>'}
           </tbody>
         </table>
       </div>
-      <p class="hint">„Kat. I–IIIb“ ist die in der Entsorgungspraxis gebräuchliche Bezeichnung für die vier
-      VBBo-Belastungsstufen (Richt-/Prüf-/Sanierungswert) und keine eigene VBBo-Zahlenkategorie. Grenzwerte bearbeiten:
-      <a href="#/einstellungen">Einstellungen &gt; Grenzwerte (VBBo)</a>.</p>
+      <p class="hint">Werte über der Spalte „${escapeHtml(vbboClasses[vbboClasses.length - 1]?.short || 'Kat. IIIb')}“
+      gelten als „${escapeHtml(VBBO_CLASSES.find(c => c.terminal)?.label || 'Sonderfall')}“. „Kat. I–IIIb“ ist die in
+      der Entsorgungspraxis gebräuchliche Bezeichnung für diese vier Stufen und keine eigene VBBo-Zahlenkategorie.
+      Grenzwerte bearbeiten: <a href="#/einstellungen">Einstellungen &gt; Grenzwerte (Boden)</a>.</p>
     </div>
   `;
-
-  $('#ak-nutzungsart').addEventListener('change', ev => {
-    abfallkategorienNutzungsart = ev.target.value;
-    renderAbfallkategorien();
-  });
 }
 
 // ---------- Projekte ----------
@@ -742,7 +720,7 @@ function newDraftEntry() {
     createdAt: new Date().toISOString(),
     projektId: null, baustelle: '', probeBezeichnung: '', entnahmeort: '', gps: null,
     material: '', probenehmer: '', bemerkungen: '', menge: null, mengeEinheit: 't',
-    standard: 'vvea', nutzungsart: NUTZUNGSARTEN[0].id, entsorgungsweg: '', vevaCode: '', labor: '',
+    standard: 'vvea', entsorgungsweg: '', vevaCode: '', labor: '',
     analytikProgramme: [], photos: [], analyse: [], klassifizierung: null,
     externZugriff: [], deletionRequestedAt: null, deletionRequestedBy: null,
   };
@@ -822,7 +800,7 @@ function paintEntryReadOnly() {
         <div class="field"><label>Datum</label><p>${fmtDate(e.createdAt)}</p></div>
         <div class="field"><label>Menge</label><p>${fmtMenge(e) || '–'}</p></div>
         <div class="field"><label>Probenehmer/in</label><p>${escapeHtml(e.probenehmer || '–')}</p></div>
-        <div class="field"><label>Standard</label><p>${e.standard === 'vbbo' ? 'VBBo (Bodenqualität)' : 'VVEA (Deponieklassen)'}</p></div>
+        <div class="field"><label>Standard</label><p>${e.standard === 'vbbo' ? 'Boden (Kat. I–IIIb)' : 'VVEA (Deponieklassen)'}</p></div>
         <div class="field"><label>VeVA-Code</label><p>${escapeHtml(e.vevaCode || '–')}</p></div>
         <div class="field"><label>Entsorgungsweg</label><p>${escapeHtml(e.entsorgungsweg || '–')}</p></div>
         <div class="field"><label>Labor</label><p>${escapeHtml(e.labor || '–')}</p></div>
@@ -869,7 +847,7 @@ function recomputeClassification() {
     .filter(a => a.parameterKey && a.wert !== null && a.wert !== undefined && !Number.isNaN(a.wert))
     .map(a => ({ parameterKey: a.parameterKey, wert: a.wert, art: a.art || 'gesamt' }));
   if (currentEntry.standard === 'vbbo') {
-    currentClassification = werte.length ? classifyVBBO(werte, vbboThresholds, currentEntry.nutzungsart || NUTZUNGSARTEN[0].id) : null;
+    currentClassification = werte.length ? classifyVBBO(werte, vbboThresholds, thresholds) : null;
   } else {
     currentClassification = werte.length ? classify(werte, thresholds) : null;
   }
@@ -904,7 +882,6 @@ function paintEntryForm() {
   if (isNew && !e.probenehmer && me) e.probenehmer = me.name;
   if (!Array.isArray(e.analytikProgramme)) e.analytikProgramme = [];
   e.standard = materialToStandard(e.material, materialien);
-  if (e.standard === 'vbbo' && !e.nutzungsart) e.nutzungsart = NUTZUNGSARTEN[0].id;
   recomputeClassification(); // Standard kann sich gerade erst geändert haben (z.B. beim Laden)
 
   appEl.innerHTML = `
@@ -979,13 +956,7 @@ function paintEntryForm() {
       <div class="grid-2">
         <div class="field">
           <label>Standard <span class="hint">(automatisch aus Material)</span></label>
-          <p id="f-standard-display">${e.standard === 'vbbo' ? 'VBBo (Bodenqualität)' : 'VVEA (Deponieklassen)'}</p>
-        </div>
-        <div class="field" id="f-nutzungsart-field" style="display:${e.standard === 'vbbo' ? 'block' : 'none'};">
-          <label for="f-nutzungsart">Nutzungsart <span class="hint">(nur VBBo)</span></label>
-          <select id="f-nutzungsart">
-            ${NUTZUNGSARTEN.map(n => `<option value="${n.id}" ${e.nutzungsart === n.id ? 'selected' : ''}>${escapeHtml(n.label)}</option>`).join('')}
-          </select>
+          <p id="f-standard-display">${e.standard === 'vbbo' ? 'Boden (Kat. I–IIIb)' : 'VVEA (Deponieklassen)'}</p>
         </div>
         <div class="field">
           <label>VeVA-Code <span class="hint">(automatisch aus Material + Standard + Einstufung, nicht änderbar)</span></label>
@@ -1116,15 +1087,12 @@ function paintEntryForm() {
     });
   }
 
-  // Standard (VVEA/VBBo) hängt direkt am Material — bei jeder Materialänderung
-  // neu ableiten (Humus/Ober-/Unterboden -> VBBo, sonst VVEA), Nutzungsart-Feld
-  // ein-/ausblenden und Analysetabelle (andere Parameterliste!) + VeVA-Code neu
-  // aufbauen.
+  // Standard (VVEA/Boden) hängt direkt am Material — bei jeder Materialänderung
+  // neu ableiten (Humus/Ober-/Unterboden -> Boden, sonst VVEA) und
+  // Analysetabelle (andere Parameterliste!) + VeVA-Code neu aufbauen.
   function applyMaterialStandard() {
     e.standard = materialToStandard(e.material, materialien);
-    if (e.standard === 'vbbo' && !e.nutzungsart) e.nutzungsart = NUTZUNGSARTEN[0].id;
-    $('#f-standard-display').textContent = e.standard === 'vbbo' ? 'VBBo (Bodenqualität)' : 'VVEA (Deponieklassen)';
-    $('#f-nutzungsart-field').style.display = e.standard === 'vbbo' ? 'block' : 'none';
+    $('#f-standard-display').textContent = e.standard === 'vbbo' ? 'Boden (Kat. I–IIIb)' : 'VVEA (Deponieklassen)';
     recomputeClassification();
     paintAnalyseTable();
   }
@@ -1226,12 +1194,6 @@ function paintEntryForm() {
     }
   });
 
-  const nutzungsartSel = $('#f-nutzungsart');
-  if (nutzungsartSel) nutzungsartSel.addEventListener('change', ev => {
-    e.nutzungsart = ev.target.value;
-    recomputeClassification();
-    paintClassificationBanner();
-  });
 
   $('#btn-gps').addEventListener('click', () => {
     if (!navigator.geolocation) { toast('Geolocation nicht verfügbar'); return; }
@@ -1807,14 +1769,12 @@ function showImportPreview(rows, source) {
 }
 
 // ---------- Einstellungen ----------
+// Boden: nur noch Kat. I (Richtwert) und Kat. II (Prüfwert) sind editierbar
+// (Nutzungsart-unabhängig) — Kat. IIIa/IIIb kommen live aus den
+// VVEA-Grenzwerten (Typ B/Typ E), siehe buildVbboThresholds() in vvea.js.
 const VBBO_COLS = [
-  { key: 'richtwert', label: 'Richtwert' },
-  { key: 'pwDirekt', label: 'Prüfwert (Direktkontakt)' },
-  { key: 'pwNahrung', label: 'Prüfwert (Nahrungspfl.)' },
-  { key: 'pwFutter', label: 'Prüfwert (Futterpfl.)' },
-  { key: 'sanSpielplatz', label: 'Sanierung (Spielplatz)' },
-  { key: 'sanGarten', label: 'Sanierung (Garten)' },
-  { key: 'sanLandwirtschaft', label: 'Sanierung (Landwirtschaft)' },
+  { key: 'katI', label: 'Kat. I (Richtwert)' },
+  { key: 'katII', label: 'Kat. II (Prüfwert)' },
 ];
 const VEVA_MATERIALIEN = ['Oberboden', 'Unterboden', 'Aushub'];
 
@@ -1936,28 +1896,32 @@ async function paintSettings() {
     </div>
 
     <div class="card">
-      <h2>Grenzwerte (VBBo – Bodenqualität)</h2>
-      <p class="hint">Rohwerte je Substanz. Welche Prüfwert-/Sanierungswert-Spalte zur Anwendung kommt, hängt von
-      der bei der Probe gewählten Nutzungsart ab (siehe Legende unten). Leeres Feld = nicht geregelt.
+      <h2>Grenzwerte (Boden – Kat. I–IIIb)</h2>
+      <p class="hint">Boden wird ausschliesslich im Hinblick auf die Entsorgung betrachtet. Kat. I/II (Richt-/
+      Prüfwert gemäss VBBo, Nutzungsart-unabhängig) sind hier editierbar. Kat. IIIa/IIIb sind schreibgeschützt und
+      kommen live aus den VVEA-Grenzwerten (Typ B/Typ E) — dort ändern (Tab „Grenzwerte (Deponieklassen)“
+      oben). Leeres Feld = nicht geregelt.
       ${isAdmin ? '' : ' Nur Administrator/innen können sie ändern.'}</p>
       <div style="overflow-x:auto">
       <table class="threshold-table" id="vbbo-threshold-table">
-        <tr><th>Parameter</th><th>Einheit</th>${VBBO_COLS.map(c => `<th>${escapeHtml(c.label)}</th>`).join('')}${isAdmin ? '<th></th>' : ''}</tr>
+        <tr><th>Parameter</th><th>Einheit</th>${VBBO_COLS.map(c => `<th>${escapeHtml(c.label)}</th>`).join('')}<th>Kat. IIIa <span class="hint">(= Typ B)</span></th><th>Kat. IIIb <span class="hint">(= Typ E)</span></th>${isAdmin ? '<th></th>' : ''}</tr>
         ${VBBO_PARAMETERS.map(p => `
           <tr>
             <td>${escapeHtml(p.label)}</td>
             <td class="readonly">${escapeHtml(p.unit || '–')}</td>
             ${VBBO_COLS.map(c => `<td><input type="number" step="any" ${isAdmin ? '' : 'disabled'} data-vp="${p.key}" data-vc="${c.key}" value="${vbboThresholds[p.key]?.[c.key] ?? ''}"></td>`).join('')}
+            <td class="readonly">${fmtThresholdVal(thresholds[p.key]?.typB)}</td>
+            <td class="readonly">${fmtThresholdVal(thresholds[p.key]?.typE)}</td>
             ${isAdmin ? `<td><button type="button" class="btn danger" style="padding:.2rem .5rem;" data-del-vbbo-param="${p.key}">×</button></td>` : ''}
           </tr>`).join('')}
       </table>
       </div>
       ${isAdmin ? `
       <div class="btn-row">
-        <button class="btn" id="btn-save-vbbo-thresholds">💾 VBBo-Grenzwerte speichern</button>
+        <button class="btn" id="btn-save-vbbo-thresholds">💾 Boden-Grenzwerte speichern</button>
         <button class="btn secondary" id="btn-reset-vbbo-thresholds">Zurücksetzen auf Beispielwerte</button>
       </div>
-      <h3>Neuen VBBo-Parameter manuell hinzufügen</h3>
+      <h3>Neuen Boden-Parameter manuell hinzufügen</h3>
       <div class="grid-2">
         <div class="field"><label for="nvp-label">Bezeichnung</label><input id="nvp-label" placeholder="z.B. Kupfer (Cu)"></div>
         <div class="field"><label for="nvp-unit">Einheit</label><input id="nvp-unit" placeholder="z.B. mg/kg"></div>
@@ -1983,7 +1947,7 @@ async function paintSettings() {
             <td>
               <select data-mat="${i}" data-matf="standard" ${isAdmin ? '' : 'disabled'}>
                 <option value="vvea" ${m.standard !== 'vbbo' ? 'selected' : ''}>VVEA (Deponieklassen)</option>
-                <option value="vbbo" ${m.standard === 'vbbo' ? 'selected' : ''}>VBBo (Bodenqualität)</option>
+                <option value="vbbo" ${m.standard === 'vbbo' ? 'selected' : ''}>Boden (Kat. I–IIIb)</option>
               </select>
             </td>
             <td>
@@ -2140,15 +2104,13 @@ async function paintSettings() {
     </div>
 
     <div class="card">
-      <h2>Legende Bodenqualität (VBBo)</h2>
+      <h2>Legende Boden (Kat. I–IIIb)</h2>
       <div class="entry-list">
         ${VBBO_CLASSES.map(c => `<div style="display:flex;align-items:center;gap:.5rem;">
           <span class="badge" style="background:${c.color}">${escapeHtml(c.short)}</span>
           <span>${escapeHtml(c.label)}</span>
         </div>`).join('')}
       </div>
-      <p class="hint">Nutzungsarten und ihre Prüfwert-/Sanierungswert-Zuordnung:
-        ${NUTZUNGSARTEN.map(n => escapeHtml(n.label)).join(' · ')}</p>
     </div>
     </div>
 
@@ -2304,11 +2266,11 @@ async function paintSettings() {
     }
     $('#btn-save-vbbo-thresholds').addEventListener('click', async () => {
       const newT = collectVbboThresholdsFromTable();
-      try { await saveVbboThresholdsApi(newT); vbboThresholds = newT; toast('VBBo-Grenzwerte gespeichert'); }
+      try { await saveVbboThresholdsApi(newT); vbboThresholds = newT; toast('Boden-Grenzwerte gespeichert'); }
       catch (err) { toast('Fehler: ' + errMsg(err)); }
     });
     $('#btn-reset-vbbo-thresholds').addEventListener('click', async () => {
-      if (!confirm('VBBo-Grenzwerte UND Parameterliste wirklich auf die Beispielwerte zurücksetzen?')) return;
+      if (!confirm('Boden-Grenzwerte UND Parameterliste wirklich auf die Beispielwerte zurücksetzen?')) return;
       try {
         vbboThresholds = await resetVbboThresholdsApi();
         setVbboParameters(await resetVbboParametersApi());

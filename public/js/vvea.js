@@ -1,27 +1,39 @@
 // vvea.js
-// Klassifizierungs-Engine für Deponietypen (VVEA) und Bodenqualität (VBBo).
+// Klassifizierungs-Engine für Deponietypen (VVEA) und Bodenqualität (Boden,
+// Kat. I–IIIb).
 //
 // DEMO_THRESHOLDS (VVEA-Deponietypen, Aushub-/Ausbruchmaterial) sind gegen den
 // offiziellen Verordnungstext abgeglichen (VVEA Anhang 3 Ziff. 1/2 und Anhang 5
-// Ziff. 2.3/3/4.4/5.2, Stand 1. August 2026 — Fassung vom Nutzer bereitgestellt).
-// "unbelastet" und "typA" sind bewusst identisch: Deponietyp A lässt gemäss
-// Art. 19 Abs. 1 i.V.m. Anhang 5 Ziff. 1 VVEA ausschliesslich unverschmutztes
-// Material (Anhang 3 Ziff. 1) zu, es gibt dafür keinen eigenen, grosszügigeren
-// Grenzwert. "typB" verwendet die grosszügigeren Anhang-5-Ziff.-2.3-Werte
-// ("andere Abfälle"), nicht die engeren Anhang-3-Ziff.-2-Werte für reines
-// Aushubmaterial — Typ B nimmt beide Pfade auf, der Ziff.-2.3-Wert ist daher
-// die praktisch massgebliche Obergrenze. "typC" hat bewusst keine
-// Feststoff-Grenzwerte (nur die *_el-Eluatparameter, Anhang 5 Ziff. 3.2/3.4) —
-// die Zulassung zu Typ C erfolgt eluatbasiert (behandeltes/immobilisiertes
-// Material), nicht über den Gesamtgehalt. Für Cobalt, Thallium und Zinn nennt
-// die VVEA für Aushub-/Ausbruchmaterial keinen Feststoff-Grenzwert (nur
-// Cobalt zusätzlich eluatbasiert für Typ C, siehe co_el) — frühere Platzhalter
-// hier stammten irrtümlich aus Anhang 4 (Zementwerk-Grenzwerte, ein anderer
-// Verwendungszweck) und wurden entfernt.
+// Ziff. 2/3/4/5, Stand 1. August 2026 — Fassung vom Nutzer bereitgestellt und
+// anhand der internen Referenztabelle „Umrechnungsfaktoren und VeVA-Codes"
+// verifiziert). "unbelastet" (Anhang 3 Ziff. 1) ist die unverschmutzte Stufe.
+// "typA" führt seit dieser Version wieder die eigenständigen Anhang-3-Ziff.-2-
+// Werte (nicht mehr identisch mit "unbelastet") und heisst in Anzeige/Badge
+// neu "Typ T" — gemäss der offiziellen VeVA-Aushubcode-Kennzeichnung ist das
+// die kontrollpflichtige Zwischenstufe (Codes z.B. 17 05 93/94/95), nicht
+// "Typ A"; die id `typA` bleibt intern unverändert (Kompatibilität mit
+// bestehenden Proben/Filtern), nur Label/Kurzform wurden korrigiert. "typB"
+// verwendet die grosszügigeren Anhang-5-Ziff.-2-Werte ("andere Abfälle"),
+// nicht die engeren Anhang-3-Ziff.-2-Werte für reines Aushubmaterial — Typ B
+// nimmt beide Pfade auf, der Anhang-5-Wert ist daher die praktisch
+// massgebliche Obergrenze. "typC" hat bewusst keine Feststoff-Grenzwerte für
+// die meisten Metalle (nur die *_el-Eluatparameter, Anhang 5 Ziff. 3) — die
+// Zulassung zu Typ C erfolgt bei diesen eluatbasiert (behandeltes/
+// immobilisiertes Material), nicht über den Gesamtgehalt; Quecksilber ist
+// ausdrücklich eine Ausnahme und hat bei Typ C sowohl einen Feststoff- als
+// auch einen Eluat-Grenzwert (siehe hg und hg_el). Für Cobalt, Thallium und
+// Zinn nennt die VVEA für Aushub-/Ausbruchmaterial keinen Feststoff-
+// Grenzwert (nur Cobalt zusätzlich eluatbasiert für Typ C, siehe co_el) —
+// frühere Platzhalter hier stammten irrtümlich aus Anhang 4 (Zementwerk-
+// Grenzwerte, ein anderer Verwendungszweck) und wurden entfernt. Typ D und
+// Typ E teilen sich in der offiziellen VeVA-Aushubcodeliste denselben Code
+// (Anhang 5 Ziff. 3/4/5 zusammen), siehe DEFAULT_VEVA_CODES unten.
 //
-// VBBo-Werte (Bodenqualität) und alle übrigen Parameter/Materialien stammen
-// weiterhin aus vom Nutzer bereitgestellten Quellen (eigene Recherche/Auszüge,
-// Stand siehe README). Vor produktivem Einsatz müssen die Grenzwerte von einer
+// Boden (Kat. I–IIIb): ausschliesslich im Hinblick auf die Entsorgung
+// betrachtet, siehe VBBO_CLASSES/DEFAULT_VBBO_THRESHOLDS weiter unten für die
+// Herleitung. Alle übrigen Parameter/Materialien stammen weiterhin aus vom
+// Nutzer bereitgestellten Quellen (eigene Recherche/Auszüge, Stand siehe
+// README). Vor produktivem Einsatz müssen die Grenzwerte von einer
 // Fachperson anhand der aktuellen VVEA/VBBo und kantonaler Vollzugshilfen
 // geprüft werden – siehe Einstellungen > Grenzwerte.
 
@@ -34,40 +46,42 @@ export const STORAGE_KEY_ACK = 'pnj_vvea_disclaimer_ack_v1';
 // grosszügigsten definierten Grenzwert überschreitet.
 export const CLASSES = [
   { id: 'unbelastet', label: 'Unbelastet / Verwertung möglich', short: 'Verwertung', color: '#2e7d32' },
-  { id: 'typA', label: 'Deponietyp A (Aushubdeponie)', short: 'Typ A', color: '#66bb6a' },
+  { id: 'typA', label: 'Typ T – kontrollpflichtiger Aushub (Anhang 3 Ziff. 2)', short: 'Typ T', color: '#66bb6a' },
   { id: 'typB', label: 'Deponietyp B (Inertstoffdeponie)', short: 'Typ B', color: '#29b6f6' },
   { id: 'typC', label: 'Deponietyp C (Reststoffdeponie)', short: 'Typ C', color: '#ffa726' },
   { id: 'typD', label: 'Deponietyp D (Reaktordeponie)', short: 'Typ D', color: '#ef5350' },
   { id: 'typE', label: 'Deponietyp E (Reaktordeponie)', short: 'Typ E', color: '#b71c1c' },
-  { id: 'sonderfall', label: 'Nicht deponierbar / Sonderabfall – Fachperson beiziehen', short: 'Sonderfall', color: '#4a148c', terminal: true },
+  { id: 'sonderfall', label: 'Nicht deponierbar / Sonderabfall (Typ S) – Fachperson beiziehen', short: 'Sonderfall', color: '#4a148c', terminal: true },
 ];
 
-// ---------- VBBo (Bodenqualität) ----------
+// ---------- Boden (Kat. I–IIIb, ausschliesslich Entsorgungsfokus) ----------
 
-// Eigenständige 4-Stufen-Skala, unabhängig von VVEA. Nutzt denselben
-// classify()-Mechanismus (siehe unten) mit anderen Klassen/Grenzwerten.
-// Kat. I/II/IIIa/IIIb: gebräuchliche Entsorgungspraxis-Bezeichnung für die
-// vier VBBo-Belastungsstufen (unter Richtwert / Richtwert-Prüfwert /
-// Prüfwert-Sanierungswert / über Sanierungswert) — die VBBo selbst kennt nur
-// Richt-, Prüf- und Sanierungswert als Zahlenwerte, keine eigene "Kat."
-// Nummerierung; die Zuordnung folgt der auch für die VeVA-Aushubcodes
-// verwendeten Einstufung (siehe VBBO_TO_VEVA_KLASSE unten).
+// Eigenständige, bewusst vereinfachte Skala für Boden — betrachtet nur noch
+// die Entsorgungsfrage (nicht mehr Nutzungsart-abhängige VBBo-Schutzziele wie
+// Landwirtschaft/Garten/Spielplatz). Nutzt denselben classify()-Mechanismus
+// wie VVEA. Herleitung je Stufe:
+//   Kat. I   ≤ Richtwerte für Schadstoffe gemäss VBBo (Nutzungsart-
+//              unabhängig) — Quelle: BAFU (2021) "Beurteilung von Boden im
+//              Hinblick auf seine Verwertung", Anhang A2-1, Tabelle 4.
+//   Kat. II  ≤ Prüfwerte für Schadstoffe gemäss VBBo (ebenfalls Nutzungsart-
+//              unabhängig) — dieselbe Publikation, Anhang A2-2, Tabelle 6.
+//   Kat. IIIa ≤ VVEA Deponietyp B — live aus CLASSES/DEMO_THRESHOLDS
+//              übernommen (siehe buildVbboThresholds() unten), nicht separat
+//              gespeichert.
+//   Kat. IIIb ≤ VVEA Deponietyp E — ebenso live übernommen.
+//   (Sonderfall, terminal) > Kat. IIIb — analog zu VVEA "Sonderfall", kein
+//              eigener Zahlenwert nötig.
+// "Kat. I–IIIb" ist die in der Entsorgungspraxis gebräuchliche Bezeichnung
+// für diese vier Stufen und keine eigene VBBo-Zahlenkategorie — die Zuordnung
+// zu den VeVA-Aushubcodes folgt trotzdem einer exakten 1:1-Logik (siehe
+// VBBO_TO_VEVA_KLASSE unten), weil Kat. IIIa/IIIb per Definition bereits die
+// VVEA-Klassen Typ B/Typ E sind.
 export const VBBO_CLASSES = [
-  { id: 'unauffaellig', label: 'Unbelastet (Kat. I) – unter Richtwert', short: 'Kat. I', color: '#2e7d32' },
-  { id: 'ueberRichtwert', label: 'Schwach belastet (Kat. II) – über Richtwert, unter Prüfwert', short: 'Kat. II', color: '#fbc02d' },
-  { id: 'ueberPruefwert', label: 'Stark belastet (Kat. IIIa) – über Prüfwert, unter Sanierungswert', short: 'Kat. IIIa', color: '#ef6c00' },
-  { id: 'ueberSanierungswert', label: 'Stark belastet (Kat. IIIb) – über Sanierungswert, Sanierung nötig', short: 'Kat. IIIb', color: '#b71c1c', terminal: true },
-];
-
-// Nutzungsart bestimmt, welche Prüfwert-/Sanierungswert-Spalte der VBBo-
-// Rohdaten (siehe DEFAULT_VBBO_THRESHOLDS) zur Anwendung kommt.
-// Reihenfolge bestimmt auch die Standardauswahl im Formular (erster Eintrag
-// = Vorbelegung, siehe NUTZUNGSARTEN[0].id in app.js) — Landwirtschaft/
-// Gartenbau ist der häufigste Baustellenfall und steht daher an erster Stelle.
-export const NUTZUNGSARTEN = [
-  { id: 'landwirtschaft', label: 'Landwirtschaft/Gartenbau', pruefwertSpalte: 'pwFutter', sanierungSpalte: 'sanLandwirtschaft' },
-  { id: 'garten', label: 'Haus-/Familiengarten', pruefwertSpalte: 'pwNahrung', sanierungSpalte: 'sanGarten' },
-  { id: 'spielplatz', label: 'Kinderspielplatz', pruefwertSpalte: 'pwDirekt', sanierungSpalte: 'sanSpielplatz' },
+  { id: 'katI', label: 'Kat. I – unbelastet (≤ VBBo-Richtwert)', short: 'Kat. I', color: '#2e7d32' },
+  { id: 'katII', label: 'Kat. II – schwach belastet (≤ VBBo-Prüfwert)', short: 'Kat. II', color: '#fbc02d' },
+  { id: 'katIIIa', label: 'Kat. IIIa – stark belastet (≤ VVEA Typ B)', short: 'Kat. IIIa', color: '#ef6c00' },
+  { id: 'katIIIb', label: 'Kat. IIIb – stark belastet (≤ VVEA Typ E)', short: 'Kat. IIIb', color: '#c62828' },
+  { id: 'sonderfall', label: 'Nicht verwertbar / Sonderabfall (Boden) – über VVEA Typ E, Fachperson beiziehen', short: 'Sonderfall', color: '#4a148c', terminal: true },
 ];
 
 export const DEFAULT_VBBO_PARAMETERS = [
@@ -88,42 +102,48 @@ export function setVbboParameters(list) {
   VBBO_PARAMETERS = Array.isArray(list) && list.length ? list : DEFAULT_VBBO_PARAMETERS.map(p => ({ ...p }));
 }
 
-// Rohwerte je Substanz: richtwert, pwDirekt/pwNahrung/pwFutter (Prüfwerte),
-// sanSpielplatz/sanGarten/sanLandwirtschaft (Sanierungswerte).
+// Kat.-I-/Kat.-II-Rohwerte je Substanz (Richtwert/Prüfwert gemäss VBBo,
+// Nutzungsart-unabhängig) — Quelle: BAFU (2021) "Beurteilung von Boden im
+// Hinblick auf seine Verwertung", Anhang A2-1 Tab. 4 (Richtwerte) / Anhang
+// A2-2 Tab. 6 (Prüfwerte). Kat. IIIa/IIIb werden NICHT hier gespeichert,
+// sondern in buildVbboThresholds() live aus den VVEA-Grenzwerten (Typ B/Typ E)
+// übernommen.
 export const DEFAULT_VBBO_THRESHOLDS = {
-  pb:  { richtwert: 50,  pwDirekt: 300, pwNahrung: 200, pwFutter: 200, sanSpielplatz: 1000, sanGarten: 1000, sanLandwirtschaft: 2000 },
-  cd:  { richtwert: 0.8, pwDirekt: 10,  pwNahrung: 2,   pwFutter: 2,   sanSpielplatz: 20,   sanGarten: 20,   sanLandwirtschaft: 30 },
-  cu:  { richtwert: 40,  pwDirekt: null, pwNahrung: null, pwFutter: 150, sanSpielplatz: null, sanGarten: 1000, sanLandwirtschaft: 1000 },
-  zn:  { richtwert: 150, pwDirekt: null, pwNahrung: null, pwFutter: null, sanSpielplatz: null, sanGarten: 2000, sanLandwirtschaft: 2000 },
-  hg:  { richtwert: 0.5, pwDirekt: null, pwNahrung: null, pwFutter: null, sanSpielplatz: null, sanGarten: null, sanLandwirtschaft: null },
-  pak: { richtwert: 1,   pwDirekt: 10,  pwNahrung: 20,  pwFutter: null, sanSpielplatz: 100,  sanGarten: 100,  sanLandwirtschaft: 100 },
-  bap: { richtwert: 0.2, pwDirekt: 1,   pwNahrung: 2,   pwFutter: null, sanSpielplatz: 10,   sanGarten: 10,   sanLandwirtschaft: 10 },
-  pcb: { richtwert: null, pwDirekt: 0.1, pwNahrung: 0.2, pwFutter: 0.2, sanSpielplatz: 1,    sanGarten: 1,    sanLandwirtschaft: 3 },
-  cr:  { richtwert: null, pwDirekt: null, pwNahrung: null, pwFutter: null, sanSpielplatz: null, sanGarten: null, sanLandwirtschaft: null },
-  ni:  { richtwert: null, pwDirekt: null, pwNahrung: null, pwFutter: null, sanSpielplatz: null, sanGarten: null, sanLandwirtschaft: null },
+  pb:  { katI: 50,   katII: 200 },
+  cd:  { katI: 0.8,  katII: 2 },
+  cr:  { katI: 50,   katII: 200 },
+  cu:  { katI: 40,   katII: 150 },
+  ni:  { katI: 50,   katII: 100 },
+  hg:  { katI: 0.5,  katII: 0.5 },
+  zn:  { katI: 150,  katII: 300 },
+  pak: { katI: 1,    katII: 10 },
+  bap: { katI: 0.2,  katII: 1 },
+  pcb: { katI: 0.02, katII: 0.1 },
 };
 
-// Baut aus den VBBo-Rohwerten + gewählter Nutzungsart ein Grenzwert-Objekt im
-// selben Format wie VVEA-Thresholds (eine Klasse -> ein Zahlenwert), damit
-// dieselbe classify()-Funktion wiederverwendet werden kann.
-export function buildVbboThresholdsForNutzung(vbboThresholds, nutzungsart) {
-  const nutzung = NUTZUNGSARTEN.find(n => n.id === nutzungsart) || NUTZUNGSARTEN[0];
+// Baut aus den Boden-Rohwerten (Kat. I/II) + den aktuellen VVEA-Grenzwerten
+// (für Kat. IIIa/IIIb, live aus Typ B/Typ E) ein Grenzwert-Objekt im selben
+// Format wie VVEA-Thresholds (eine Klasse -> ein Zahlenwert), damit dieselbe
+// classify()-Funktion wiederverwendet werden kann.
+export function buildVbboThresholds(vbboThresholds, vveaThresholds) {
   const out = {};
   for (const key of Object.keys(vbboThresholds)) {
     const t = vbboThresholds[key] || {};
+    const vt = (vveaThresholds && vveaThresholds[key]) || {};
     out[key] = {
-      unauffaellig: t.richtwert ?? null,
-      ueberRichtwert: t[nutzung.pruefwertSpalte] ?? null,
-      ueberPruefwert: t[nutzung.sanierungSpalte] ?? null,
-      // 'ueberSanierungswert' ist die terminale Klasse, braucht keinen Wert.
+      katI: t.katI ?? null,
+      katII: t.katII ?? null,
+      katIIIa: vt.typB ?? null,
+      katIIIb: vt.typE ?? null,
+      // 'sonderfall' ist die terminale Klasse, braucht keinen Wert.
     };
   }
   return out;
 }
 
-/** Klassifiziert nach VBBo (Nutzungsart-abhängig) — nutzt classify() intern. */
-export function classifyVBBO(werte, vbboThresholds, nutzungsart) {
-  const projected = buildVbboThresholdsForNutzung(vbboThresholds, nutzungsart);
+/** Klassifiziert nach Boden Kat. I–IIIb — nutzt classify() intern. */
+export function classifyVBBO(werte, vbboThresholds, vveaThresholds) {
+  const projected = buildVbboThresholds(vbboThresholds, vveaThresholds);
   return classify(werte, projected, VBBO_CLASSES, VBBO_PARAMETERS);
 }
 
@@ -160,26 +180,25 @@ export function materialToStandard(material, materialien) {
   return (m && m.standard === 'vbbo') ? 'vbbo' : 'vvea';
 }
 
-// VBBo kennt keine eigene Deponietyp-Systematik. Für die VeVA-Aushubcode-
-// Zuteilung wird die VBBo-Klasse daher auf die entsprechende Kategorie
-// abgebildet:
-//   unauffällig          -> Kat. I    (unbelastet)                    -> "unbelastet"
-//   über Richtwert       -> Kat. II   (schwach belastet)               -> Typ A
-//   über Prüfwert        -> Kat. IIIa (stark belastet)                 -> Typ B*
-//   über Sanierungswert  -> Kat. IIIb (stark belastet, VVEA "über Typ B") -> Typ C*
-// * Kat. IIIa und Kat. IIIb sind beide "stark belastet", aber zwei
-//   unterschiedliche Kategorien; die hinterlegte VeVA-Codeliste kennt aber
-//   nur die vier VVEA-Buckets unbelastet/Typ A/Typ B/Typ C, daher werden
-//   beide auf den jeweils nächstliegenden Bucket abgebildet. "Sonderabfall"
-//   (VVEA "über Typ E") hat in der VBBo-Skala keine eigene Entsprechung und
-//   wird nur bei einer VVEA-Einstufung automatisch erkannt.
-// Das ist eine vereinfachende fachliche Einschätzung (keine normative
-// Gleichsetzung) — bei Sanierungsfällen zusätzlich prüfen lassen.
+// Boden (Kat. I–IIIb) ist per Definition bereits an die VVEA-Klassen
+// gekoppelt (Kat. IIIa = Typ B, Kat. IIIb = Typ E, siehe buildVbboThresholds()
+// oben) — die Zuordnung zu den VeVA-Aushubcode-Klassen ist daher eine exakte
+// 1:1-Übertragung, keine Annäherung:
+//   Kat. I    (≤ VBBo-Richtwert)  -> "unbelastet" (Anhang 3 Ziff. 1)
+//   Kat. II   (≤ VBBo-Prüfwert)   -> "typA"/Typ T (Anhang 3 Ziff. 2)
+//   Kat. IIIa (≤ VVEA Typ B)      -> "typB" (Anhang 5 Ziff. 2)
+//   Kat. IIIb (≤ VVEA Typ E)      -> "typE" (Anhang 5 Ziff. 3/4/5 — derselbe
+//                                    VeVA-Code gilt für Typ C/D/E gemeinsam,
+//                                    siehe DEFAULT_VEVA_CODES)
+//   Sonderfall (> VVEA Typ E)     -> "sonderfall"
+// Kat. I/II selbst bleiben eigenständige VBBo-Werte (Richt-/Prüfwert), nur
+// ihre VeVA-Code-Einstufung orientiert sich an den entsprechenden VVEA-Stufen.
 const VBBO_TO_VEVA_KLASSE = {
-  unauffaellig: 'unbelastet',
-  ueberRichtwert: 'typA',
-  ueberPruefwert: 'typB',
-  ueberSanierungswert: 'typC',
+  katI: 'unbelastet',
+  katII: 'typA',
+  katIIIa: 'typB',
+  katIIIb: 'typE',
+  sonderfall: 'sonderfall',
 };
 
 /**
@@ -342,26 +361,26 @@ export function slugifyParamKey(label, existingKeys) {
 // weiter unten in classify().
 export const DEMO_THRESHOLDS = {
   toc:      { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null,  typE: null },
-  toc400:   { unbelastet: null, typA: null,  typB: 20000, typC: 20000, typD: 20000, typE: 50000 },
-  kw:       { unbelastet: 50,   typA: 50,    typB: 500,   typC: 500,   typD: 500,   typE: 5000 },
-  kw_c5:    { unbelastet: 1,    typA: 1,     typB: 10,    typC: 10,    typD: 10,    typE: 100 },
-  pak:      { unbelastet: 3,    typA: 3,     typB: 25,    typC: 25,    typD: 25,    typE: 250 },
-  bap:      { unbelastet: 0.3,  typA: 0.3,   typB: 3,     typC: 3,     typD: 3,     typE: 10 },
-  pcb:      { unbelastet: 0.1,  typA: 0.1,   typB: 1,     typC: 1,     typD: 1,     typE: 10 },
-  btex:     { unbelastet: 1,    typA: 1,     typB: 10,    typC: 10,    typD: 10,    typE: 100 },
-  benzol:   { unbelastet: 0.1,  typA: 0.1,   typB: 1,     typC: 1,     typD: 1,     typE: 1 },
-  sb:       { unbelastet: 3,    typA: 3,     typB: 30,    typC: null,  typD: 50,    typE: 50 },
+  toc400:   { unbelastet: null, typA: 10000, typB: 20000, typC: 20000, typD: 20000, typE: 50000 },
+  kw:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: 500,   typD: 500,   typE: 5000 },
+  kw_c5:    { unbelastet: 1,    typA: 5,     typB: 10,    typC: 10,    typD: 10,    typE: 100 },
+  pak:      { unbelastet: 3,    typA: 12.5,  typB: 25,    typC: 25,    typD: 25,    typE: 250 },
+  bap:      { unbelastet: 0.3,  typA: 1.5,   typB: 3,     typC: 3,     typD: 3,     typE: 10 },
+  pcb:      { unbelastet: 0.1,  typA: 0.5,   typB: 1,     typC: 1,     typD: 1,     typE: 10 },
+  btex:     { unbelastet: 1,    typA: 5,     typB: 10,    typC: 10,    typD: 10,    typE: 100 },
+  benzol:   { unbelastet: 0.1,  typA: 0.5,   typB: 1,     typC: 1,     typD: 1,     typE: 1 },
+  sb:       { unbelastet: 3,    typA: 15,    typB: 30,    typC: null,  typD: 50,    typE: 50 },
   as:       { unbelastet: 15,   typA: 15,    typB: 30,    typC: null,  typD: 50,    typE: 50 },
-  pb:       { unbelastet: 50,   typA: 50,    typB: 500,   typC: null,  typD: 2000,  typE: 2000 },
-  cd:       { unbelastet: 1,    typA: 1,     typB: 10,    typC: null,  typD: 10,    typE: 10 },
-  cr:       { unbelastet: 50,   typA: 50,    typB: 500,   typC: null,  typD: 1000,  typE: 1000 },
+  pb:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: 2000,  typE: 2000 },
+  cd:       { unbelastet: 1,    typA: 5,     typB: 10,    typC: null,  typD: 10,    typE: 10 },
+  cr:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: 1000,  typE: 1000 },
   cr6:      { unbelastet: 0.05, typA: 0.05,  typB: 0.1,   typC: null,  typD: 0.5,   typE: 0.5 },
   co:       { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null,  typE: null },
-  cu:       { unbelastet: 40,   typA: 40,    typB: 500,   typC: null,  typD: 5000,  typE: 5000 },
-  ni:       { unbelastet: 50,   typA: 50,    typB: 500,   typC: null,  typD: 1000,  typE: 1000 },
-  hg:       { unbelastet: 0.5,  typA: 0.5,   typB: 2,     typC: null,  typD: 5,     typE: 5 },
+  cu:       { unbelastet: 40,   typA: 250,   typB: 500,   typC: null,  typD: 5000,  typE: 5000 },
+  ni:       { unbelastet: 50,   typA: 250,   typB: 500,   typC: null,  typD: 1000,  typE: 1000 },
+  hg:       { unbelastet: 0.5,  typA: 1,     typB: 2,     typC: 5,     typD: 5,     typE: 5 },
   tl:       { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null,  typE: null },
-  zn:       { unbelastet: 150,  typA: 150,   typB: 1000,  typC: null,  typD: 5000,  typE: 5000 },
+  zn:       { unbelastet: 150,  typA: 500,   typB: 1000,  typC: null,  typD: 5000,  typE: 5000 },
   sn:       { unbelastet: null, typA: null,  typB: null,  typC: null,  typD: null,  typE: null },
   cn:       { unbelastet: 0.5,  typA: null,  typB: null,  typC: null,  typD: null,  typE: null },
   salze:    { unbelastet: null, typA: null,  typB: 0.5,   typC: 3,     typD: null, typE: 5 },
