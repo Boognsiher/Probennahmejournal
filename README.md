@@ -52,6 +52,9 @@ App zur Führung eines Probennahmejournals auf der Baustelle:
   Etikettendrucker wie die Brother-QL-/PT-Serie, die über ihren Treiber als normaler Drucker erscheinen.
   Etikettengrösse (Breite/Höhe in mm) einstellbar, wird geräte-/browserlokal gemerkt. Der QR-Code wird lokal im
   Browser gerendert, keine Probendaten verlassen dabei das Gerät.
+- **📍 PLZ-Finder** (Button oben rechts in der Kopfzeile, öffnet in neuem Tab): schnelles Nachschlagen
+  Schweizer Postleitzahlen/Ortschaften samt Karte (swisstopo) und den nächstgelegenen Ortschaften — eigenständiges
+  Hilfswerkzeug ohne Verbindung zu den Probendaten.
 - **VeVA-Code wird automatisch und fix zugeteilt** — aus Material (z.B. Aushub/Ober-/Unterboden), dem daraus
   abgeleiteten Standard (VVEA/VBBo) und dem Einstufungsergebnis. Anders als Standard/Material ist der Code bei
   der Probe **nicht manuell überschreibbar** — passt der automatisch ermittelte Code nicht, muss die

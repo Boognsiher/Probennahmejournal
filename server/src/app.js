@@ -23,23 +23,27 @@ if (process.env.TRUST_PROXY) app.set('trust proxy', 1);
 
 // Sicherheits-Header auf jeder Antwort (bewusst ohne zusätzliche Abhängigkeit
 // wie "helmet" — die paar Zeilen unten decken das Nötigste ab). Die CSP
-// erlaubt gezielt genau das CDN, von dem die App per dynamischem import()
-// nachlädt (QR-Code-/PDF-Erzeugung/-Import, siehe public/js/{label,
-// niutec-form,parse-pdf,report-pdf}.js) — alles andere bleibt auf die eigene
-// Origin beschränkt. "style-src 'unsafe-inline'" ist nötig, weil die UI ohne
-// CSS-Framework durchgehend mit inline style="..."-Attributen arbeitet;
-// script-src bleibt dagegen strikt (kein 'unsafe-inline'/'unsafe-eval').
+// erlaubt gezielt genau die CDNs, von denen die App per dynamischem import()
+// bzw. <script src>/<link> nachlädt (QR-Code-/PDF-Erzeugung/-Import, siehe
+// public/js/{label,niutec-form,parse-pdf,report-pdf}.js, sowie Leaflet im
+// eigenständigen PLZ-Tool plz.html) und die Kartenkacheln von swisstopo dort
+// — alles andere bleibt auf die eigene Origin beschränkt. "style-src
+// 'unsafe-inline'" ist nötig, weil die UI ohne CSS-Framework durchgehend mit
+// inline style="..."-Attributen arbeitet; script-src bleibt dagegen strikt
+// (kein 'unsafe-inline'/'unsafe-eval').
 const CDN_ORIGIN = 'https://cdn.jsdelivr.net';
+const CDNJS_ORIGIN = 'https://cdnjs.cloudflare.com'; // Leaflet (plz.html)
+const SWISSTOPO_TILES_ORIGIN = 'https://wmts.geo.admin.ch'; // Kartenkacheln (plz.html)
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'same-origin');
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
-    `script-src 'self' ${CDN_ORIGIN}`,
+    `script-src 'self' ${CDN_ORIGIN} ${CDNJS_ORIGIN}`,
     `worker-src 'self' ${CDN_ORIGIN} blob:`,
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    `style-src 'self' 'unsafe-inline' ${CDNJS_ORIGIN}`,
+    `img-src 'self' data: blob: ${SWISSTOPO_TILES_ORIGIN}`,
     "font-src 'self'",
     `connect-src 'self' ${CDN_ORIGIN}`,
     "object-src 'none'",
