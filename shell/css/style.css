@@ -52,6 +52,16 @@ textarea:focus-visible, [tabindex]:focus-visible {
    "order" (#project-box/#user-box werden von app.js dynamisch eingefügt). */
 #project-box { order: 3; flex-basis: 100%; }
 .tabs { order: 4; flex-basis: 100%; display: flex; flex-wrap: wrap; gap: .5rem; min-width: 0; }
+/* Rechte Seite der ersten Kopfzeile: PLZ-Tool-Button + Benutzer-Box — ein
+   gemeinsamer Flex-Container, damit beide unabhängig vom dynamischen
+   Einfügen von #user-box zuverlässig oben rechts zusammenbleiben. */
+.topbar-right { order: 2; margin-left: auto; display: flex; align-items: center; gap: .6rem; }
+.plz-btn {
+  display: flex; align-items: center; gap: .3rem; text-decoration: none; font-size: .85rem; font-weight: 600;
+  padding: .4rem .7rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  white-space: nowrap;
+}
+.plz-btn:hover { border-color: var(--accent); }
 .tabs a {
   flex: 1 1 auto; justify-content: center; text-decoration: none; padding: .7rem .9rem; border-radius: 10px;
   font-size: .95rem; font-weight: 600; color: var(--text);
@@ -61,7 +71,7 @@ textarea:focus-visible, [tabindex]:focus-visible {
 .tabs a:hover { border-color: var(--accent); }
 .tabs a.active { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); }
 
-.user-box { order: 2; display: flex; align-items: center; gap: .6rem; margin-left: auto; }
+.user-box { display: flex; align-items: center; gap: .6rem; }
 
 body.logged-out .tabs,
 body.logged-out .disclaimer,

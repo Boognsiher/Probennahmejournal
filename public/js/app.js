@@ -136,7 +136,7 @@ function paintTopbar() {
     userBox = document.createElement('div');
     userBox.id = 'user-box';
     userBox.className = 'user-box';
-    $('.topbar').appendChild(userBox);
+    $('.topbar-right').appendChild(userBox);
   }
   const user = getCurrentUser();
   if (user) {
