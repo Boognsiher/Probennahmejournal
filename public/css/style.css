@@ -180,6 +180,16 @@ table.analyse-table input, table.analyse-table select { width: 100%; border: non
 .threshold-table input { width: 70px; border: 1px solid var(--border); border-radius: 4px; padding: .2rem; background: var(--bg); color: var(--text); }
 .threshold-table td.readonly { color: var(--muted); }
 
+/* Statische Referenztabelle "Abfallkategorien"/"Bodenkategorien" — kleine
+   Schrift, zentrierte Werte, erste Spalte beim horizontalen Scrollen fix
+   sichtbar (Parametername bleibt lesbar). */
+.veva-ref-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+.veva-ref-table th, .veva-ref-table td { border: 1px solid var(--border); padding: .3rem .5rem; text-align: center; white-space: nowrap; }
+.veva-ref-table th:first-child, .veva-ref-table td:first-child {
+  text-align: left; white-space: normal; position: sticky; left: 0; background: var(--surface); min-width: 140px;
+}
+.veva-ref-table thead th { background: var(--bg); }
+
 .hint { font-size: .8rem; color: var(--muted); }
 .toast {
   position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); background: #333; color: #fff;
