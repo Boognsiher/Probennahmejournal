@@ -186,6 +186,9 @@ async function route() {
     } else if (parts[0] === 'protokoll') {
       setActiveTab('protokoll');
       await renderProtokoll();
+    } else if (parts[0] === 'abfallkategorien') {
+      setActiveTab('abfallkategorien');
+      await renderAbfallkategorien();
     } else {
       setActiveTab('start');
       await renderStart();
@@ -468,6 +471,101 @@ async function renderProtokoll() {
       getPhotoUrl(entry.id, entry.photos[0]).then(url => { thumbEl.style.backgroundImage = `url(${url})`; thumbEl.textContent = ''; }).catch(() => {});
     }
   }
+}
+
+// ---------- Abfallkategorien (Übersicht) ----------
+// Zeigt dieselben Grenzwerte, die unter „Einstellungen“ gepflegt werden
+// (thresholds/vbboThresholds, per loadVveaConfig() geladen) — bewusst KEINE
+// eigene/statische Zahlenquelle, damit eine Änderung dort sich automatisch
+// auch hier zeigt. Reine Anzeige, keine Probe wird hier klassifiziert.
+let abfallkategorienNutzungsart = NUTZUNGSARTEN[0].id;
+
+function fmtThresholdVal(v) {
+  return (v === null || v === undefined || v === '') ? '–' : String(v);
+}
+
+async function renderAbfallkategorien() {
+  appEl.innerHTML = '<p class="hint">Lade Grenzwerte …</p>';
+  await loadVveaConfig();
+
+  // Terminale Klassen (sonderfall / ueberSanierungswert) haben keinen
+  // eigenen Zahlenwert (sind "grösser als die letzte Spalte") — als Spalte
+  // wenig hilfreich, daher hier ausgeblendet (wie im Einstellungen-Editor).
+  const vveaClasses = CLASSES.filter(c => !c.terminal);
+  const vbboClasses = VBBO_CLASSES.filter(c => !c.terminal);
+  const vbboThr = buildVbboThresholdsForNutzung(vbboThresholds, abfallkategorienNutzungsart);
+  const feststoffParams = PARAMETERS.filter(p => p.art !== 'eluat');
+  const eluatParams = PARAMETERS.filter(p => p.art === 'eluat');
+
+  const classHeader = c => `<th style="color:${c.color};">${escapeHtml(c.short)}</th>`;
+
+  appEl.innerHTML = `
+    <div class="card">
+      <h2>Abfallkategorien gemäss VVEA für Aushub und Ausbruchmaterial</h2>
+      <p class="hint">Zeigt dieselben Grenzwerte wie unter „Einstellungen &gt; Grenzwerte“ — eine Änderung dort
+      wirkt sich direkt auch hier aus. Reine Übersicht zum Nachschlagen, klassifiziert selbst keine Probe. ⚠️ Vor
+      produktivem Einsatz durch eine Fachperson anhand der aktuell gültigen VVEA/kantonalen Vollzugshilfe prüfen.</p>
+      <div style="overflow-x:auto">
+        <table class="veva-ref-table">
+          <thead><tr><th>Parameter</th>${vveaClasses.map(classHeader).join('')}</tr></thead>
+          <tbody>
+            ${feststoffParams.map(p => `<tr>
+              <td>${escapeHtml(p.label)} <span class="hint">[${escapeHtml(p.unit || '–')}]</span></td>
+              ${vveaClasses.map(c => `<td>${fmtThresholdVal(thresholds[p.key]?.[c.id])}</td>`).join('')}
+            </tr>`).join('') || '<tr><td colspan="99" class="hint">Keine Parameter hinterlegt.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+
+      ${eluatParams.length ? `
+      <h3>Eluatparameter</h3>
+      <div style="overflow-x:auto">
+        <table class="veva-ref-table">
+          <thead><tr><th>Parameter</th>${vveaClasses.map(classHeader).join('')}</tr></thead>
+          <tbody>
+            ${eluatParams.map(p => `<tr>
+              <td>${escapeHtml(p.label)} <span class="hint">[${escapeHtml(p.unit || '–')}]</span></td>
+              ${vveaClasses.map(c => `<td>${fmtThresholdVal(thresholds[p.key]?.[c.id])}</td>`).join('')}
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>` : ''}
+      <p class="hint">Werte über der Spalte „${escapeHtml(CLASSES.find(c => c.id === 'typE')?.short || 'Typ E')}“ gelten als
+      „${escapeHtml(CLASSES.find(c => c.terminal)?.label || 'Sonderfall')}“. Grenzwerte bearbeiten:
+      <a href="#/einstellungen">Einstellungen &gt; Grenzwerte</a>.</p>
+    </div>
+
+    <div class="card">
+      <h2>Bodenkategorien gemäss VBBO</h2>
+      <div class="field" style="max-width:320px;">
+        <label for="ak-nutzungsart">Nutzungsart <span class="hint">(bestimmt Prüf-/Sanierungswert-Spalte)</span></label>
+        <select id="ak-nutzungsart">
+          ${NUTZUNGSARTEN.map(n => `<option value="${n.id}" ${n.id === abfallkategorienNutzungsart ? 'selected' : ''}>${escapeHtml(n.label)}</option>`).join('')}
+        </select>
+      </div>
+      <p class="hint">Zeigt dieselben Grenzwerte wie unter „Einstellungen &gt; Grenzwerte (VBBo)“, projiziert auf
+      die oben gewählte Nutzungsart — eine Änderung dort wirkt sich direkt auch hier aus.</p>
+      <div style="overflow-x:auto">
+        <table class="veva-ref-table">
+          <thead><tr><th>Parameter</th>${vbboClasses.map(classHeader).join('')}</tr></thead>
+          <tbody>
+            ${VBBO_PARAMETERS.map(p => `<tr>
+              <td>${escapeHtml(p.label)} <span class="hint">[${escapeHtml(p.unit || '–')}]</span></td>
+              ${vbboClasses.map(c => `<td>${fmtThresholdVal(vbboThr[p.key]?.[c.id])}</td>`).join('')}
+            </tr>`).join('') || '<tr><td colspan="99" class="hint">Keine Parameter hinterlegt.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+      <p class="hint">Werte über der Spalte „${escapeHtml(vbboClasses[vbboClasses.length - 1]?.short || 'Über Prüfwert')}“
+      gelten als „${escapeHtml(VBBO_CLASSES.find(c => c.terminal)?.label || 'Sanierungsbedarf')}“. Grenzwerte bearbeiten:
+      <a href="#/einstellungen">Einstellungen &gt; Grenzwerte (VBBo)</a>.</p>
+    </div>
+  `;
+
+  $('#ak-nutzungsart').addEventListener('change', ev => {
+    abfallkategorienNutzungsart = ev.target.value;
+    renderAbfallkategorien();
+  });
 }
 
 // ---------- Projekte ----------
