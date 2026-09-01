@@ -9,7 +9,7 @@ import {
   DEFAULT_VBBO_THRESHOLDS, DEFAULT_VBBO_PARAMETERS,
 } from './vvea.js';
 
-// VeVA-Codes gibt es (anders als VVEA/VBBo-Grenzwerte) nicht in vvea.js, da im
+// VeVA-Codes gibt es (anders als VVEA/Boden-Grenzwerte) nicht in vvea.js, da im
 // echten Server-Betrieb (public/) ausschliesslich der Server sie vorbefüllt.
 // Für die Test-Schale hier lokal dieselben Startwerte wie
 // server/src/vvea-defaults.js bzw. lokal/js/vvea.js hinterlegt.
@@ -18,16 +18,21 @@ import {
 // derselbe Code für Ober- UND Unterboden) — daher `materialien`/`klassen`
 // als Arrays statt Einzelwerten.
 const DEFAULT_VEVA_CODES = [
-  { code: '17 05 04', bezeichnung: 'Ober-/Unterboden – unbelastet', materialien: ['Oberboden', 'Unterboden'], klassen: ['unbelastet'] },
-  { code: '17 05 93', bezeichnung: 'Ober-/Unterboden – schwach belastet (Typ A)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typA'] },
-  { code: '17 05 96 [ak]', bezeichnung: 'Ober-/Unterboden – wenig belastet, Inertstoff (Typ B)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typB'] },
-  { code: '17 05 90 [akb]', bezeichnung: 'Ober-/Unterboden – stark belastet (Typ C/D/E)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typC', 'typD', 'typE'] },
-  { code: '17 05 03 [S]', bezeichnung: 'Abgetragener Ober-/Unterboden, durch gefährliche Stoffe verunreinigt (Sonderabfall)', materialien: ['Oberboden', 'Unterboden'], klassen: ['sonderfall'] },
-  { code: '17 05 06', bezeichnung: 'Aushub – unverschmutzt', materialien: ['Aushub'], klassen: ['unbelastet'] },
-  { code: '17 05 94', bezeichnung: 'Aushub – schwach verschmutzt (Typ A)', materialien: ['Aushub'], klassen: ['typA'] },
-  { code: '17 05 97 [ak]', bezeichnung: 'Aushub – wenig verschmutzt, Inertstoff (Typ B)', materialien: ['Aushub'], klassen: ['typB'] },
-  { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ C/D/E)', materialien: ['Aushub'], klassen: ['typC', 'typD', 'typE'] },
-  { code: '17 05 05 [S]', bezeichnung: 'Aushub- und Ausbruchmaterial, durch gefährliche Stoffe verunreinigt (Sonderabfall)', materialien: ['Aushub'], klassen: ['sonderfall'] },
+  { code: '17 05 04', bezeichnung: 'Ober-/Unterboden – unbelastet (Anh. 3 Ziff. 1)', materialien: ['Oberboden', 'Unterboden'], klassen: ['unbelastet'] },
+  { code: '17 05 93', bezeichnung: 'Ober-/Unterboden – schwach belastet, kontrollpflichtig (Typ T, Anh. 3 Ziff. 2)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typA'] },
+  { code: '17 05 96 [ak]', bezeichnung: 'Ober-/Unterboden – wenig belastet, Inertstoff (Typ B, Anh. 5 Ziff. 2)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typB'] },
+  { code: '17 05 90 [akb]', bezeichnung: 'Ober-/Unterboden – stark belastet (Typ C/D/E, Anh. 5 Ziff. 3/4/5)', materialien: ['Oberboden', 'Unterboden'], klassen: ['typC', 'typD', 'typE'] },
+  { code: '17 05 03 [S]', bezeichnung: 'Abgetragener Ober-/Unterboden, durch gefährliche Stoffe verunreinigt (Sonderabfall, Typ S)', materialien: ['Oberboden', 'Unterboden'], klassen: ['sonderfall'] },
+  { code: '17 05 06', bezeichnung: 'Aushub – unverschmutzt (Anh. 3 Ziff. 1)', materialien: ['Aushub'], klassen: ['unbelastet'] },
+  { code: '17 05 94', bezeichnung: 'Aushub – schwach verschmutzt, kontrollpflichtig (Typ T, Anh. 3 Ziff. 2)', materialien: ['Aushub'], klassen: ['typA'] },
+  { code: '17 05 97 [ak]', bezeichnung: 'Aushub – wenig verschmutzt, Inertstoff (Typ B, Anh. 5 Ziff. 2)', materialien: ['Aushub'], klassen: ['typB'] },
+  { code: '17 05 91 [akb]', bezeichnung: 'Aushub – stark verschmutzt (Typ C/D/E, Anh. 5 Ziff. 3/4/5)', materialien: ['Aushub'], klassen: ['typC', 'typD', 'typE'] },
+  { code: '17 05 05 [S]', bezeichnung: 'Aushub- und Ausbruchmaterial, durch gefährliche Stoffe verunreinigt (Sonderabfall, Typ S)', materialien: ['Aushub'], klassen: ['sonderfall'] },
+  { code: '17 05 08', bezeichnung: 'Gleisaushub/Schotter – unbelastet (Anh. 3 Ziff. 1)', materialien: ['Gleisaushub'], klassen: ['unbelastet'] },
+  { code: '17 05 95', bezeichnung: 'Gleisaushub/Schotter – schwach belastet, kontrollpflichtig (Typ T, Anh. 3 Ziff. 2)', materialien: ['Gleisaushub'], klassen: ['typA'] },
+  { code: '17 05 98 [ak]', bezeichnung: 'Gleisaushub/Schotter – wenig belastet, Inertstoff (Typ B, Anh. 5 Ziff. 2)', materialien: ['Gleisaushub'], klassen: ['typB'] },
+  { code: '17 05 92 [akb]', bezeichnung: 'Gleisaushub/Schotter – stark belastet (Typ C/D/E, Anh. 5 Ziff. 3/4/5)', materialien: ['Gleisaushub'], klassen: ['typC', 'typD', 'typE'] },
+  { code: '17 05 07 [S]', bezeichnung: 'Gleisaushub/Schotter, durch gefährliche Stoffe verunreinigt (Sonderabfall, Typ S)', materialien: ['Gleisaushub'], klassen: ['sonderfall'] },
 ];
 
 // Materialien: siehe server/src/vvea-defaults.js für die vollständige
@@ -37,6 +42,8 @@ const DEFAULT_MATERIALIEN = [
   { id: 'unterboden', name: 'Unterboden', standard: 'vbbo', vevaBucket: 'Unterboden' },
   { id: 'aushub_unverschmutzt', name: 'Unverschmutzter Aushub', standard: 'vvea', vevaBucket: 'Aushub' },
   { id: 'aushub_allgemein', name: 'Aushub (allgemein)', standard: 'vvea', vevaBucket: 'Aushub' },
+  { id: 'gleisaushub', name: 'Gleisaushub', standard: 'vvea', vevaBucket: 'Gleisaushub' },
+  { id: 'schotter', name: 'Schotter (Gleis)', standard: 'vvea', vevaBucket: 'Gleisaushub' },
   { id: 'kies_sand', name: 'Kies/Sand', standard: 'vvea', vevaBucket: '' },
   { id: 'mischabbruch', name: 'Mischabbruch', standard: 'vvea', vevaBucket: '' },
   { id: 'betonabbruch', name: 'Betonabbruch', standard: 'vvea', vevaBucket: '' },
